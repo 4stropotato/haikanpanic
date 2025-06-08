@@ -49,19 +49,22 @@ const IsoGrid = ({ show }) => {
         drawLine(x, 0, x, height, bold);
       }
 
-      for (let i = -cols; i < cols * 2; i++) {
+      const extra = Math.ceil(width / Math.tan(Math.PI / 6));
+
+      for (let i = -cols - extra; i < cols + extra; i++) {
         const x = i * dx;
         const bold = i % 10 === 0;
-        drawLine(x, 0, x + height / Math.tan(Math.PI / 6), height, bold);
-        drawLine(x, 0, x + height / Math.tan(Math.PI / 6), -height, bold);
+        const slope = height / Math.tan(Math.PI / 6);
+
+        // Slant right
+        drawLine(x, 0, x + slope, height, bold);
+        drawLine(x, 0, x + slope, -height, bold);
+
+        // Slant left
+        drawLine(x, 0, x - slope, height, bold);
+        drawLine(x, 0, x - slope, -height, bold);
       }
 
-      for (let i = -cols; i < cols * 2; i++) {
-        const x = i * dx;
-        const bold = i % 10 === 0;
-        drawLine(x, 0, x - height / Math.tan(Math.PI / 6), height, bold);
-        drawLine(x, 0, x - height / Math.tan(Math.PI / 6), -height, bold);
-      }
 
       // ✅ Add dot BEFORE restore
       drawCenterDot();
