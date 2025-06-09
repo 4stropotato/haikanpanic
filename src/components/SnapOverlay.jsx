@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 
+const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 const dx = 20;
 const tan30 = Math.tan(Math.PI / 6); // ≈ 0.577
 
-const SnapOverlay = () => {
+// v1.02+ add onSnapChange prop to emit current snapped point
+const SnapOverlay = ({ onSnapChange }) => {
   const canvasRef = useRef(null);
   const [intersectionPoints, setIntersectionPoints] = useState([]);
 
@@ -14,27 +16,18 @@ const SnapOverlay = () => {
     const centerY = height / 2;
 
     const points = [];
-    const cols = Math.ceil(width / dx);
-    const rows = Math.ceil(height / dx);
+    const cols = 200; // v1.02+ overgenerate to support zoom/pan/overflow
+    const rows = 200;
 
-    // Loop through every pair of slanted lines
+
     for (let i = -cols; i <= cols; i++) {
       const x1 = i * dx;
 
-      for (let j = -cols; j <= cols; j++) {
+      for (let j = -rows; j <= rows; j++) {
         const x2 = j * dx;
 
-        // Intersect +30° and -30° lines
-        // y = tan30 * (x - x1)
-        // y = -tan30 * (x - x2)
-
-        // Solve for x:
-        // tan30 * (x - x1) = -tan30 * (x - x2)
-        // tan30*x - tan30*x1 = -tan30*x + tan30*x2
-        // 2*tan30*x = tan30*(x2 + x1)
-        // x = (x1 + x2) / 2
         const x = (x1 + x2) / 2;
-        const y = tan30 * (x - x1); // Plug into +30° line
+        const y = tan30 * (x - x1);
 
         points.push({
           x: centerX + x,
@@ -43,24 +36,38 @@ const SnapOverlay = () => {
       }
     }
 
-    // Always include the center (0,0) explicitly
     points.push({ x: centerX, y: centerY });
 
     setIntersectionPoints(points);
   }, []);
 
-  const handleMouseMove = (e) => {
+  const getCoordinates = (e) => {
+    if (e.touches) {
+      return {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY
+      };
+    } else {
+      return {
+        x: e.clientX,
+        y: e.clientY
+      };
+    }
+  };
+
+  const handleMove = (e) => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
-
     if (!canvas || !ctx) return;
+
+    const { x, y } = getCoordinates(e);
 
     const width = canvas.width;
     const height = canvas.height;
     ctx.clearRect(0, 0, width, height);
 
-    const mouseX = e.clientX;
-    const mouseY = e.clientY - canvas.getBoundingClientRect().top;
+    const mouseX = x;
+    const mouseY = y - canvas.getBoundingClientRect().top;
 
     let nearest = null;
     let minDist = Infinity;
@@ -77,12 +84,15 @@ const SnapOverlay = () => {
 
     if (!nearest) return;
 
-    // Draw red crosshair
+    // v1.02+ emit snapped point to parent
+    if (onSnapChange) {
+      onSnapChange(nearest);
+    }
+
     ctx.save();
     ctx.strokeStyle = "red";
     ctx.lineWidth = 1.5;
-
-    const size = 6;
+    const size = isTouchDevice ? 12 : 6;
     ctx.beginPath();
     ctx.moveTo(nearest.x - size, nearest.y);
     ctx.lineTo(nearest.x + size, nearest.y);
@@ -115,15 +125,20 @@ const SnapOverlay = () => {
   return (
     <canvas
       ref={canvasRef}
-      onMouseMove={handleMouseMove}
+      onMouseMove={handleMove}
       onMouseLeave={handleMouseLeave}
+      onTouchMove={(e) => {
+        e.preventDefault();
+        handleMove(e);
+      }}
+      onTouchEnd={handleMouseLeave}
       style={{
         position: "absolute",
         top: 0,
         left: 0,
         zIndex: 9999,
         pointerEvents: "auto",
-        cursor: "none",
+        cursor: isTouchDevice ? "default" : "none",
         backgroundColor: "rgba(255,0,0,0.01)",
       }}
     />
