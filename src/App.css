@@ -18,11 +18,10 @@ html, body, #root {
   font-family: "Segoe UI", sans-serif;
   background-color: var(--bg);
   color: var(--text);
-  overflow: hidden;            /*  Prevents page scroll */
-  touch-action: none;          /*  Prevents swipe/zoom scrolling */
-  overscroll-behavior: none;   /*  Prevents bounce on mobile */
+  overflow: hidden;            /* v1.02+ Prevents page scroll */
+  touch-action: none;          /* v1.02+ Prevents swipe/zoom scrolling */
+  overscroll-behavior: none;   /* v1.02+ Prevents bounce on mobile */
 }
-
 
 .app {
   display: flex;
@@ -64,12 +63,10 @@ html, body, #root {
   height: 100vh;
   overflow: hidden;
   cursor: none;
-  touch-action: none;          /*  Prevents dragging/scrolling workspace */
-  -webkit-user-select: none;   /*  Prevent text selection */
-  user-select: none;
+  touch-action: none;          /* v1.02+ Prevents dragging/scrolling workspace */
+  -webkit-user-select: none;   /* v1.02+ Prevent text selection */
+  user-select: none;           /* v1.02+ Prevent text selection */
 }
-
-
 
 canvas {
   position: absolute;

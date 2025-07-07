@@ -28,6 +28,12 @@ body {
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
+  /* Prevent scrolling, zooming, and text selection */
+  overflow: hidden;  /* Prevents page scroll */
+  touch-action: none; /* Prevents swipe/zoom scrolling */
+  overscroll-behavior: none; /* Prevents bounce on mobile */
+  -webkit-user-select: none; /* Prevent text selection */
+  user-select: none; /* Prevent text selection */
 }
 
 h1 {
@@ -46,9 +52,11 @@ button {
   cursor: pointer;
   transition: border-color 0.25s;
 }
+
 button:hover {
   border-color: #646cff;
 }
+
 button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;

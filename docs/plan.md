@@ -1,137 +1,69 @@
-# 📘 HaikanCAD - Project Plan & Technical Design Document
+# HaikanPanic – Project Plan
+
+**ハイカンパニック！** is a hyper-portable, browser-based CAD tool built for Japan’s piping (配管 / haikan) industry. Designed to be lightweight and intuitive, it works seamlessly across desktop and mobile, with touch support and isometric precision — all without requiring any installation.
 
 ---
 
-## 1. Introduction
+## 🔭 Project Vision
 
-**HaikanCAD** is a specialized isometric drawing tool designed for pipework planning and layout, especially for field applications such as factory installs, industrial haikan (配管), and retrofit design.  
-It aims to bridge practical fieldwork and digital precision, supporting both standard and irregular piping workflows found in real-world environments.
-
----
-
-## 2. Objectives
-
-- Provide fast, intuitive pipe routing in isometric layout
-- Allow “start-to-goal” or step-by-step drawing styles
-- Support pipe segments with flanges, welds, sockets, reducers, and elbows
-- Snap pipes correctly in 3D space even with unconventional angles
-- Enable custom angle and dimension input for older or irregular systems
-- Export clean documents for approval, fabrication, or CNC use
-- Run on Windows, macOS, iOS, Android, and tablets
+- **Truly portable**: Runs on any browser — phones, tablets, PCs
+- **Hybrid interface**: Draw isometric diagrams with a path to 3D conversion
+- **Japan-specific**: Aligned with JIS haikan standards (sizes, flanges, pipe codes)
+- **Expandable**: Future support for databases of specs, materials, and weights
+- **Offline-ready**: Zero dependencies, small build size, PWA-compatible
+- **Deployment-friendly**: Built to run on GitHub Pages or embed into internal apps
 
 ---
 
-## 3. Platforms & Stack
+## 📦 Core Features (Planned)
 
-| Layer        | Stack                         |
-|--------------|-------------------------------|
-| 💻 Desktop    | Node.js + Electron            |
-| 📱 Mobile     | Capacitor.js or React Native  |
-| 🧠 UI/Logic   | React.js                      |
-| 📐 Drawing    | SVG (2D) ➝ Three.js (3D)      |
-| 💾 Storage    | JSON / SQLite (or custom)     |
-| 📤 Export     | PDF, JSON, DXF (optional)     |
+### 📐 Haikan Component Integration
+- Preloaded with Japanese pipe specs (VP/STPG/SUS)
+- Weight, length, and flange DB
+- Auto-fill diameters and tags
 
----
+### 🧰 Smart Symbol Support
+- Common fittings (bends, reducers, tees, valves)
+- Visual icons snap to pipe lines
+- Switchable line layers (e.g. 水, ガス, 空気)
 
-## 4. Core Features
+### 🎥 3D Conversion Preview
+- Export from isometric to simplified 3D (OBJ/GLTF)
+- Three.js viewer for mobile/tablet visualization
+- Optional height logic from 2D slope
 
-### 4.1 Drawing Modes
-
-- **Mode A:** Start ➝ Goal (auto-detect needed elbows/reducers)
-- **Mode B:** Step-by-step input (e.g., pipe ➝ elbow ➝ T ➝ reducer ➝ end)
-- **Mode C:** Branch layout (T, Y, Cross)
-
-### 4.2 Smart Snapping
-
-- Snap new pipe to last segment's endpoint
-- Handles vertical/horizontal orientation
-- Dimension-based snapping logic with override
-- Recognizes segment type (flange, socket, weld)
-
-### 4.3 Fitting Types
-
-- 🔩 Flanges: weld neck, socket, blind
-- ➰ Elbows: 45°, 90°, short/long radius
-- 🔀 T and Y branches
-- 🔻 Reducers (eccentric/concentric)
-- 📏 Coupling, union, socket
-
-### 4.4 Angle Snapping
-
-- Standard: 15°, 30°, 45°, 90°
-- ✅ Custom angle support (input via number box or drag)
+### 🔧 Measurement and Tags
+- Auto distance/angle labels
+- Annotate node points or pipe IDs
+- Direction-aware snapping with export
 
 ---
 
-## 5. Data Model
+## 🤝 Who Is It For?
 
-### 5.1 Node Format
+- 現場スタッフ (on-site workers)
+- Drafting or pre-installation teams
+- Trainees and vocational school students
+- Developers building tools for the Japanese construction sector
 
-```json
-{
-  "id": "node001",
-  "type": "flange",
-  "position": [1000, 800, 1500],
-  "angle": 45,
-  "connection": "elbow_90",
-  "metadata": {
-    "size": "100A",
-    "material": "SUS"
-  }
-}
-```
+---
 
-### 5.2 Pipe Segment Format
+## 🚀 Final Goal
 
-```json
+To make **HaikanPanic** the go-to field-ready isometric CAD tool for Japanese piping professionals — a fast, offline-capable, touch-friendly app that eventually supports 3D export, spec tracking, and accurate standards integration.
 
-{
-  "start": "node001",
-  "end": "node002",
-  "length": 300,
-  "angle": 30,
-  "type": "straight"
-}
-```
-### 6. Export Plan
-🖨️ Export PDF/image for printing or site approval
+> Built for the 現場. No mouse? No problem.
 
-📐 Export DXF for CAD
+---
 
-💾 Save JSON or CSV for automation pipelines
+## 📱 Long-Term Deployment
 
-🛠 Export cutting list with angles + lengths (for CNC/benders)
+While the browser version of **HaikanPanic** will remain free and basic for quick on-site use, we plan to release **full-featured versions** on:
 
-### 7. Roadmap
-Phase	Task	Status
-0	Planning + UI sketching	✅ Done
-1	Basic pipe drawing engine	🔄 In progress
-2	Elbows + reducers	⏳ Pending
-3	Smart snapping + validation	⏳ Pending
-4	3D converter	⏳ Pending
-5	Export + tablet mode	⏳ Pending
+- Apple App Store (iOS/iPadOS)
+- Google Play Store (Android)
+- Microsoft Store (Windows desktop/tablet)
 
-### 8. Future Features
-🔧 Pressure simulation (air, gas, water)
+These versions will include **advanced drawing tools**, **3D editing**, **full spec integration**, and **offline project storage** for professional teams.
 
-📱 Tablet/iPad touch controls
-
-🧭 Compass and direction-aware input
-
-📂 Load/save drawing files on mobile
-
-🧠 AI-based layout generator (optional)
-
-### 9. Contributors
-👨‍💻 Core Developer: Shinji
-
-🎨 UI Advisor: Naomi
-
-🧪 QA Tester: Ryzen
-
-📚 License: MIT (open-source)
-
-### 10. Closing Note
-HaikanCAD focuses on real-use engineering with powerful features made simple. Whether you're planning a clean new install or retrofitting an old gemba site, this tool is built to adapt.
-From isometric sketching to 3D transformation, all it takes is one tap at a time.
+> This hybrid licensing allows fast access in browsers, with optional upgrade paths for heavy-duty usage across all devices.
