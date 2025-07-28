@@ -1,81 +1,42 @@
 import { useState, useEffect, useRef } from "react";
-import IsoGrid from "./components/IsoGrid";              // v1.01+ background isometric grid
-import SnapOverlay from "./components/SnapOverlay";      // v1.01+ interactive snapping system
-import DrawLayer from "./components/DrawLayer";          // v1.02+ line drawing layer
-import Magnify from "./components/Magnify";              // v1.05+ magnifying glass component
-import html2canvas from "html2canvas";                   // v1.05+ screenshot capture for magnifier
+import IsoGrid from "./components/IsoGrid";
+import SnapOverlay from "./components/SnapOverlay";
+import DrawLayer from "./components/DrawLayer";
+import Magnify from "./components/Magnify";
 import "./App.css";
 
 function App() {
-  const workspaceRef = useRef(null);                     // v1.05+ reference to workspace element for screenshot capture
-  const snapshotRef = useRef(null);                      // v1.05+ cached canvas snapshot for magnifier
+  const workspaceRef = useRef(null);
 
-  // UI state toggles
   const [darkMode, setDarkMode] = useState(true);
   const [showGrid, setShowGrid] = useState(true);
-  const [showMagnifier, setShowMagnifier] = useState(false); // v1.05+ toggle magnifier mode
-  const [hideCrosshair, setHideCrosshair] = useState(false); // v1.05+ control crosshair visibility during snapshot
-  const [lensPos, setLensPos] = useState({ x: 0, y: 0 });    // v1.05+ magnifier lens position
+  const [showMagnifier, setShowMagnifier] = useState(false);
+  const [hideCrosshair, setHideCrosshair] = useState(false);
+  const [lensPos, setLensPos] = useState({ x: 0, y: 0 });
 
-  // Snapping and drawing state
-  const [lastSnap, setLastSnap] = useState(null);        // v1.02+ current live snap (crosshair)
-  const [startPoint, setStartPoint] = useState(null);    // v1.02+ confirmed start of line
-  const [lines, setLines] = useState([]);                // v1.02+ array of drawn line segments
-  const [previewLine, setPreviewLine] = useState(null);  // v1.02+ live preview line while dragging
-  const [readyToDraw, setReadyToDraw] = useState(false); // v1.02+ drawing phase active?
-  const [canvasReady, setCanvasReady] = useState(false); // v1.05+ ensure workspace is rendered before snapshot
+  const [lastSnap, setLastSnap] = useState(null);
+  const [startPoint, setStartPoint] = useState(null);
+  const [lines, setLines] = useState([]);
+  const [previewLine, setPreviewLine] = useState(null);
+  const [readyToDraw, setReadyToDraw] = useState(false);
 
-  // Hold + tap tracking
-  const holdTimeout = useRef(null);                      // v1.02+ delay before hold registers
-  const heldEnough = useRef(false);                      // v1.02+ true if hold was long enough
-  const pendingStart = useRef(null);                     // v1.04+ frozen snap (waiting for tap to confirm)
-  const confirmTapTimeout = useRef(null);                // v1.04+ timeout to cancel pendingStart
-  const pendingEnd = useRef(null);                       // v1.04+ frozen end position (on release)
-  const tapCount = useRef(0);                            // v1.04+ double-tap counter
+  const holdTimeout = useRef(null);
+  const heldEnough = useRef(false);
+  const pendingStart = useRef(null);
+  const confirmTapTimeout = useRef(null);
+  const pendingEnd = useRef(null);
+  const tapCount = useRef(0);
 
-  // Update global dark/light mode
   useEffect(() => {
     document.body.setAttribute("data-theme", darkMode ? "dark" : "light");
   }, [darkMode]);
 
-  // v1.05+ Wait for workspace to render fully before allowing snapshot
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (workspaceRef.current) {
-        const { width, height } = workspaceRef.current.getBoundingClientRect();
-        if (width > 0 && height > 0) {
-          setCanvasReady(true);
-        }
-      }
-    }, 100);
-    return () => clearTimeout(timer);
-  }, []);
-
-  // v1.05+ Take snapshot of workspace for magnifier
-  const takeSnapshot = async () => {
-    if (!workspaceRef.current) return;
-    setHideCrosshair(true); // v1.05+ temporarily hide crosshair before snapshot
-    await new Promise((resolve) => setTimeout(resolve, 50)); // wait for crosshair to disappear
-    snapshotRef.current = await html2canvas(workspaceRef.current, {
-      backgroundColor: null,
-      useCORS: true,
-      scale: 2,
-    });
-    setHideCrosshair(false); // v1.05+ restore crosshair after snapshot
-  };
-
-  // v1.05+ Toggle magnifier mode
-  const toggleMagnifier = async () => {
-    if (!showMagnifier) {
-      await takeSnapshot();
-      setShowMagnifier(true);
-    } else {
-      snapshotRef.current = null;
-      setShowMagnifier(false);
+    if (lastSnap) {
+      setLensPos(lastSnap);
     }
-  };
+  }, [lastSnap]);
 
-  // v1.03+ snap direction to 6 fixed isometric angles
   const snapToAllowedAngle = (start, end) => {
     const dx = end.x - start.x;
     const dy = end.y - start.y;
@@ -84,9 +45,9 @@ function App() {
 
     const angle = Math.atan2(dy, dx);
     const directions = [
-      Math.PI / 2, -Math.PI / 2,            // ↑ ↓
-      Math.PI / 6, -Math.PI / 6,            // ↗ ↘
-      (5 * Math.PI) / 6, -(5 * Math.PI) / 6 // ↖ ↙
+      Math.PI / 2, -Math.PI / 2,
+      Math.PI / 6, -Math.PI / 6,
+      (5 * Math.PI) / 6, -(5 * Math.PI) / 6
     ];
 
     let best = directions[0];
@@ -108,7 +69,6 @@ function App() {
     };
   };
 
-  // v1.03+ Snap to nearest grid point
   const snapToNearestGrid = (point) => {
     const dx = 20;
     const tan30 = Math.tan(Math.PI / 6);
@@ -138,10 +98,8 @@ function App() {
     return nearest;
   };
 
-  // v1.04+ Finalize the line segment
   const triggerDraw = () => {
     if (!startPoint || !pendingEnd.current) return;
-
     const angleSnapped = snapToAllowedAngle(startPoint, pendingEnd.current);
     const snappedEnd = snapToNearestGrid(angleSnapped.end);
     const snappedStart = snapToNearestGrid(angleSnapped.start);
@@ -154,7 +112,6 @@ function App() {
     pendingEnd.current = null;
   };
 
-  // v1.04+ Update preview line while dragging
   useEffect(() => {
     if (startPoint && lastSnap && readyToDraw) {
       const snapped = snapToAllowedAngle(startPoint, lastSnap);
@@ -164,38 +121,13 @@ function App() {
     }
   }, [lastSnap, startPoint, readyToDraw]);
 
-  // v1.04+ Detect long press (v1.06 edited the accuracy)
-  const handleTouchStart = (e) => {
+  const handleTouchStart = () => {
     heldEnough.current = false;
-    const touch = e.touches?.[0];
-    if (touch && workspaceRef.current) {
-      const rect = workspaceRef.current.getBoundingClientRect();
-      const scale = 2; // v1.06+ compensate for snapshot scale
-      setLensPos({
-        x: (touch.clientX - rect.left) * scale, // v1.06+ scale corrected
-        y: (touch.clientY - rect.top) * scale,  // v1.06+ scale corrected
-      });
-    }
-
     holdTimeout.current = setTimeout(() => {
       heldEnough.current = true;
     }, 150);
   };
 
-  // v1.05+ Track finger movement for magnifier (v1.06 edited the accuracy)
-  const handleTouchMove = (e) => {
-    const touch = e.touches?.[0];
-    if (touch && workspaceRef.current) {
-      const rect = workspaceRef.current.getBoundingClientRect();
-      const scale = 2; // v1.06+ compensate for snapshot scale
-      setLensPos({
-        x: (touch.clientX - rect.left) * scale, // v1.06+ scale corrected
-        y: (touch.clientY - rect.top) * scale,  // v1.06+ scale corrected
-      });
-    }
-  };
-
-  // v1.04+ Handle hold release
   const handleTouchEnd = () => {
     clearTimeout(holdTimeout.current);
     if (!heldEnough.current) return;
@@ -211,7 +143,6 @@ function App() {
     }
   };
 
-  // v1.04+ Handle tap + double tap
   const handleClick = () => {
     if (!("ontouchstart" in window || navigator.maxTouchPoints > 0)) return;
 
@@ -248,32 +179,26 @@ function App() {
           <button onClick={() => setDarkMode(!darkMode)}>
             {darkMode ? "Light" : "Dark"}
           </button>
-          <button onClick={toggleMagnifier}> {/* v1.05+ */}
+          <button onClick={() => setShowMagnifier(!showMagnifier)}>
             {showMagnifier ? "Disable Magnify" : "Enable Magnify"}
           </button>
         </div>
       </div>
 
-     <div
+      <div
         className="workspace"
-        ref={workspaceRef} // v1.05+ reference to workspace element for screenshot capture
+        ref={workspaceRef}
         onClick={handleClick}
         onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove} // v1.05+ track finger movement to update magnifier lens position
         onTouchEnd={handleTouchEnd}
       >
         <IsoGrid show={showGrid} />
         <DrawLayer lines={lines} preview={previewLine} isDark={darkMode} />
-        {!hideCrosshair && (
-          <SnapOverlay onSnapChange={setLastSnap} />
-        )}
-        {showMagnifier && snapshotRef.current && (
-          <Magnify snapshot={snapshotRef.current} x={lensPos.x} y={lensPos.y} />
-        )}
+        {!hideCrosshair && <SnapOverlay onSnapChange={setLastSnap} />}
+        {showMagnifier && <Magnify x={lensPos.x} y={lensPos.y} />}
       </div>
     </div>
   );
 }
 
 export default App;
-
