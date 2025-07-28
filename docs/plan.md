@@ -52,7 +52,7 @@
 
 To make **HaikanPanic** the go-to field-ready isometric CAD tool for Japanese piping professionals — a fast, offline-capable, touch-friendly app that eventually supports 3D export, spec tracking, and accurate standards integration.
 
-> Built for the 現場. No mouse? No problem.
+> Built for the 現場(On-site). No mouse? No problem.
 
 ---
 
