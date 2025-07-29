@@ -4,79 +4,78 @@ const IsoGrid = ({ show }) => {
   const canvasRef = useRef(null); // v1.0 reference to canvas element
 
   useEffect(() => {
-    const canvas = canvasRef.current;              // v1.0 get canvas DOM element
-    const ctx = canvas.getContext("2d");            // v1.0 get 2D drawing context
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
 
-    const spacing = 20;                             // v1.0 grid spacing in pixels
-    const dx = spacing;                             // v1.0 horizontal step size
-    const dy = spacing / 2;                         // v1.0 vertical step size (isometric projection)
+    const spacing = 20;
+    const dx = spacing;
+    const dy = spacing / 2;
 
-    // v1.0 helper function to draw a single grid line
     const drawLine = (x1, y1, x2, y2, bold = false) => {
       ctx.beginPath();
       ctx.moveTo(x1, y1);
       ctx.lineTo(x2, y2);
-      ctx.strokeStyle = bold ? "#4cc1f7" : "#3aa0d8"; // v1.0 use brighter color for bold lines
-      ctx.lineWidth = bold ? 1.2 : 0.4;               // v1.0 bold lines are thicker
+      ctx.strokeStyle = bold ? "#4cc1f7" : "#3aa0d8";
+      ctx.lineWidth = bold ? 1.2 : 0.4;
       ctx.stroke();
     };
 
-    // v1.0 helper function to draw a center dot at origin
     const drawCenterDot = () => {
       ctx.beginPath();
-      ctx.arc(0, 0, 2.4, 0, 2 * Math.PI);             // v1.0 draw small red dot
+      ctx.arc(0, 0, 2.4, 0, 2 * Math.PI);
       ctx.fillStyle = "red";
       ctx.fill();
     };
 
-    // v1.0 main function to draw the isometric grid
     const drawIsoGrid = () => {
-      const width = canvas.width = window.innerWidth;    // v1.0 set canvas width
-      const height = canvas.height = window.innerHeight; // v1.0 set canvas height
+      const dpr = window.devicePixelRatio || 1;
+      const width = window.innerWidth;
+      const height = window.innerHeight;
 
-      ctx.clearRect(0, 0, width, height);                // v1.0 clear canvas for redraw
-      if (!show) return;                                 // v1.01 skip drawing if grid is hidden
+      canvas.width = width * dpr;        // pixel-perfect resolution
+      canvas.height = height * dpr;
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // scale all drawing ops
+      ctx.clearRect(0, 0, width, height);
+
+      if (!show) return;
 
       ctx.save();
-      ctx.translate(width / 2, height / 2);              // v1.0 move origin to center
+      ctx.translate(width / 2, height / 2); // center origin
 
       const cols = Math.ceil(width / dx);
       const rows = Math.ceil(height / dy);
 
-      // v1.0 draw vertical grid lines
       for (let x = 0; x <= width; x += dx) {
-        const bold = (Math.round(x) / dx) % 5 === 0;     // v1.0 bold every 5th vertical line
+        const bold = (Math.round(x) / dx) % 5 === 0;
         drawLine(-x, 0, -x, -height, bold);
         drawLine(-x, 0, -x, height, bold);
         drawLine(x, 0, x, -height, bold);
         drawLine(x, 0, x, height, bold);
       }
 
-      const extra = Math.ceil(width / Math.tan(Math.PI / 6)); // v1.02+ extra margin for slants
-
-      // v1.0 draw slanted grid lines (↗ and ↖)
+      const extra = Math.ceil(width / Math.tan(Math.PI / 6));
       for (let i = -cols - extra; i < cols + extra; i++) {
         const x = i * dx;
-        const bold = i % 10 === 0;                       // v1.0 bold every 10th slant line
+        const bold = i % 10 === 0;
         const slope = height / Math.tan(Math.PI / 6);
 
-        // ↗ right-slant lines
         drawLine(x, 0, x + slope, height, bold);
         drawLine(x, 0, x + slope, -height, bold);
-
-        // ↖ left-slant lines
         drawLine(x, 0, x - slope, height, bold);
         drawLine(x, 0, x - slope, -height, bold);
       }
 
-      drawCenterDot();           // v1.0 draw origin marker
+      drawCenterDot();
       ctx.restore();
     };
 
-    drawIsoGrid();               // v1.0 initial grid draw
-    window.addEventListener("resize", drawIsoGrid);    // v1.0 redraw grid on window resize
-    return () => window.removeEventListener("resize", drawIsoGrid); // v1.0 cleanup on unmount
-  }, [show]); // v1.01 redraw grid when show prop changes
+    drawIsoGrid();
+    window.addEventListener("resize", drawIsoGrid);
+    return () => window.removeEventListener("resize", drawIsoGrid);
+  }, [show]);
 
   return (
     <canvas
@@ -87,7 +86,7 @@ const IsoGrid = ({ show }) => {
         left: 0,
         zIndex: 0,
         pointerEvents: "none",
-        display: show ? "block" : "none" // v1.01 hide/show grid with prop
+        display: show ? "block" : "none",
       }}
     />
   );
