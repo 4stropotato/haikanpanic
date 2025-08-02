@@ -1,0 +1,87 @@
+﻿:root {
+  --bg: #ffffff;                      /* v1.10+ light mode background */
+  --text: #1e1e1e;                    /* v1.10+ light mode text */
+  --workspace: #f4f4f4;               /* v1.10+ light mode canvas background */
+}
+
+[data-theme='dark'] {
+  --bg: #1e1e1e;                      /* v1.10+ dark mode background */
+  --text: #ffffff;                    /* v1.10+ dark mode text */
+  --workspace: #282c34;               /* v1.10+ dark mode canvas background */
+}
+
+html, body, #root {
+  margin: 0;                          /* v1.10+ remove default spacing */
+  padding: 0;                         /* v1.10+ remove default spacing */
+  height: 100%;                       /* v1.10+ full viewport height */
+  width: 100%;                        /* v1.10+ full viewport width */
+  font-family: "Segoe UI", sans-serif; /* v1.10+ UI font */
+  background-color: var(--bg);       /* v1.10+ dynamic theme bg */
+  color: var(--text);                /* v1.10+ dynamic theme text */
+  overflow: hidden;                  /* v1.10+ Prevents page scroll */
+  touch-action: none;                /* v1.10+ Prevents swipe/zoom scrolling */
+  overscroll-behavior: none;         /* v1.10+ Prevents bounce on mobile */
+}
+
+.app {
+  display: flex;                     /* v1.10+ layout container */
+  flex-direction: column;           /* v1.10+ vertical layout */
+  height: 100%;                      /* v1.10+ fill height */
+  width: 100%;                       /* v1.10+ fill width */
+}
+
+.top-bar {
+  display: flex;                     /* v1.10+ top bar layout */
+  justify-content: space-between;   /* v1.10+ space between items */
+  align-items: center;              /* v1.10+ center vertically */
+  padding: 0.6rem 1.2rem;           /* v1.10+ padding */
+  background-color: var(--bg);      /* v1.10+ dynamic bg */
+  border-bottom: 1px solid #444;    /* v1.10+ separator line */
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1); /* v1.10+ shadow */
+}
+
+.brand {
+  font-size: 1.2rem;                 /* v1.10+ logo font size */
+  font-weight: bold;                /* v1.10+ bold text */
+}
+
+.controls button {
+  padding: 6px 10px;                /* v1.10+ button padding */
+  font-size: 0.9rem;                /* v1.10+ button font size */
+  border: none;                     /* v1.10+ no border */
+  background: #4cc1f7;              /* v1.10+ cyan button */
+  color: black;                     /* v1.10+ text color */
+  border-radius: 4px;               /* v1.10+ rounded corners */
+  cursor: pointer;                  /* v1.10+ pointer cursor */
+}
+
+.workspace {
+  flex: 1;                          /* v1.10+ fill remaining space */
+  background-color: var(--workspace); /* v1.10+ dynamic canvas bg */
+  position: relative;              /* v1.10+ allows absolute canvas */
+  width: 100%;                     /* v1.10+ full width */
+  height: 100vh;                   /* v1.10+ full viewport height */
+  overflow: hidden;                /* v1.10+ prevent scrollbars */
+  cursor: none;                    /* v1.10+ hide native cursor */
+  touch-action: none;              /* v1.10+ disable gestures */
+  -webkit-user-select: none;       /* v1.10+ prevent text select (Safari) */
+  user-select: none;               /* v1.10+ prevent text select */
+}
+
+canvas {
+  position: absolute;              /* v1.10+ stack on workspace */
+  top: 0;
+  left: 0;
+  display: block;                  /* v1.10+ removes inline spacing */
+}
+
+canvas:nth-of-type(1) {
+  z-index: 0;                      /* v1.10+ background layer */
+  pointer-events: none;           /* v1.10+ ignore input */
+}
+
+canvas:nth-of-type(2) {
+  z-index: 1;                      /* v1.10+ draw layer */
+  pointer-events: auto;           /* v1.10+ enable input */
+}
+
