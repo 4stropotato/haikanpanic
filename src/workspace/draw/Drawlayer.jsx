@@ -3,9 +3,9 @@
 // [v1.04] Continued documentation updates, no functional changes
 // [v1.05] Verified consistency for magnifier integration, no logic changes
 // [v1.08] Retina-scale canvas for ultra-sharp 2px lines at all zoom levels
-// [v1.09] Apply zoom + offset transform to sync with workspace grid and assume workspace-space coordinates
+// [v1.10] Apply zoom + offset transform to sync with workspace grid and assume workspace-space coordinates
 
-import { useRef, useEffect } from "react";
+import { useEffect, useRef } from "react";                      // v1.10+ React hook for canvas updates
 
 const DrawLayer = ({ lines, preview, isDark, zoom, offset }) => { // [v1.09] Accept zoom and offset for scaling
   const canvasRef = useRef(null);                                 // [v1.02] Canvas DOM reference
@@ -28,12 +28,12 @@ const DrawLayer = ({ lines, preview, isDark, zoom, offset }) => { // [v1.09] Acc
 
     if (!ctx) return;
 
-    ctx.save();                                                   // [v1.09] Begin transform block
-    ctx.translate(width / 2 + offset.x, height / 2 + offset.y);   // [v1.09] Center and apply pan
-    ctx.scale(zoom, zoom);                                        // [v1.09] Apply zoom
+    ctx.save();                                                   // [v1.10] Begin transform block
+    ctx.translate(width / 2 + offset.x, height / 2 + offset.y);   // [v1.10] Center and apply pan
+    ctx.scale(zoom, zoom);                                        // [v1.10] Apply zoom
 
     ctx.strokeStyle = isDark ? "white" : "black";                 // [v1.02] Stroke color based on theme
-    ctx.lineWidth = 2 / zoom;                                     // [v1.09] Adjusted for consistent visual thickness
+    ctx.lineWidth = 2 / zoom;                                     // [v1.10] Adjusted for consistent visual thickness
     ctx.lineCap = "round";                                        // [v1.08] Smooth end caps
     ctx.lineJoin = "round";                                       // [v1.08] Smooth joins
 
@@ -48,13 +48,13 @@ const DrawLayer = ({ lines, preview, isDark, zoom, offset }) => { // [v1.09] Acc
       ctx.beginPath();
       ctx.moveTo(preview.start.x, preview.start.y);               // [v1.09] Preview in workspace coordinates
       ctx.lineTo(preview.end.x, preview.end.y);
-      ctx.setLineDash([6 / zoom, 4 / zoom]);                      // [v1.09] Dash length adjusts with zoom
+      ctx.setLineDash([6 / zoom, 4 / zoom]);                      // [v1.10] Dash length adjusts with zoom
       ctx.stroke();
       ctx.setLineDash([]);                                        // [v1.02] Reset to solid line
     }
 
-    ctx.restore();                                                // [v1.09] End transform block
-  }, [lines, preview, isDark, zoom, offset]);                     // [v1.09] Redraw on zoom or pan
+    ctx.restore();                                                // [v1.10] End transform block
+  }, [lines, preview, isDark, zoom, offset]);                     // [v1.10] Redraw on zoom or pan
 
   return (
     <canvas
@@ -70,5 +70,4 @@ const DrawLayer = ({ lines, preview, isDark, zoom, offset }) => { // [v1.09] Acc
   );
 };
 
-export default DrawLayer;
-
+export default DrawLayer;                                         // [v1.02] Export draw component
