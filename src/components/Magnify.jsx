@@ -9,37 +9,37 @@ export default function Magnify({ x, y }) {
     const lens = lensRef.current;
     if (!lens) return;
 
-    const canvases = Array.from(document.querySelectorAll("canvas"));
-    const gridCanvas = canvases.find(c => c.style.zIndex === "0");
-    const drawCanvas = canvases.find(c => c.style.zIndex === "6");
-    const crosshairCanvas = canvases.find(c => c.style.zIndex === "999");
+    const canvases = Array.from(document.querySelectorAll("canvas")); // v1.07+ collect live canvases
+    const gridCanvas = canvases.find(c => c.style.zIndex === "0");     // v1.08+ target grid layer
+    const drawCanvas = canvases.find(c => c.style.zIndex === "6");     // v1.08+ target draw layer
+    const crosshairCanvas = canvases.find(c => c.style.zIndex === "999"); // v1.08+ optional overlay layer
 
     if (!gridCanvas || !drawCanvas) return;
 
     const ctx = lens.getContext("2d");
-    const zoom = 1;
-    const lensSize = 120;
+    const zoom = 1;                       // v1.08+ 1:1 magnification
+    const lensSize = 120;                // v1.08+ lens diameter
 
     lens.width = lensSize;
     lens.height = lensSize;
 
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = window.devicePixelRatio || 1; // v1.08+ support HiDPI scaling
 
     ctx.clearRect(0, 0, lensSize, lensSize);
     ctx.save();
 
     ctx.beginPath();
-    ctx.arc(lensSize / 2, lensSize / 2, lensSize / 2, 0, Math.PI * 2);
+    ctx.arc(lensSize / 2, lensSize / 2, lensSize / 2, 0, Math.PI * 2); // v1.07+ circular clip
     ctx.clip();
 
-    const cx = x * dpr;
+    const cx = x * dpr; // v1.08+ scale input coords
     const cy = y * dpr;
     const srcSize = lensSize / zoom;
     const sx = cx - srcSize / 2;
     const sy = cy - srcSize / 2;
 
-    const safeSx = Math.max(0, Math.min(sx, gridCanvas.width - srcSize));
-    const safeSy = Math.max(0, Math.min(sy, gridCanvas.height - srcSize));
+    const safeSx = Math.max(0, Math.min(sx, gridCanvas.width - srcSize));   // v1.07+ clamp horizontal
+    const safeSy = Math.max(0, Math.min(sy, gridCanvas.height - srcSize));  // v1.07+ clamp vertical
 
     [gridCanvas, drawCanvas, crosshairCanvas].forEach((canvas) => {
       if (!canvas) return;
@@ -53,18 +53,18 @@ export default function Magnify({ x, y }) {
         0,
         lensSize,
         lensSize
-      );
+      ); // v1.07+ composite each canvas into lens
     });
 
     ctx.restore();
 
-    // 🔴 Draw smaller red crosshair at center (12px arms)
+    // v1.08+ draw red center crosshair
     ctx.save();
     ctx.strokeStyle = "red";
     ctx.lineWidth = 1.5;
 
     const mid = lensSize / 2;
-    const arm = 12; // 6px per side = 12px total length
+    const arm = 12; // 12px full length (6px each side)
 
     ctx.beginPath();
     ctx.moveTo(mid - arm, mid);
@@ -74,8 +74,7 @@ export default function Magnify({ x, y }) {
     ctx.stroke();
 
     ctx.restore();
-
-  }, [x, y]);
+  }, [x, y]); // v1.07+ redraw on position change
 
   useEffect(() => {
     const lens = lensRef.current;
@@ -83,7 +82,7 @@ export default function Magnify({ x, y }) {
 
     const updateBackground = () => {
       const bg = getComputedStyle(document.body).getPropertyValue("--bg") || "transparent";
-      lens.style.backgroundColor = bg.trim();
+      lens.style.backgroundColor = bg.trim();             // v1.07+ match lens bg to theme
     };
 
     updateBackground();
@@ -91,7 +90,7 @@ export default function Magnify({ x, y }) {
     const observer = new MutationObserver(updateBackground);
     observer.observe(document.body, { attributes: true, attributeFilter: ["data-theme"] });
 
-    return () => observer.disconnect();
+    return () => observer.disconnect();                   // v1.07+ cleanup observer
   }, []);
 
   return (
@@ -100,12 +99,13 @@ export default function Magnify({ x, y }) {
       className="magnifier-lens"
       style={{
         position: "absolute",
-        top: `${y - 60 - 100}px`,
-        left: `${x - 60 - 3}px`,
-        pointerEvents: "none",
+        top: `${y - 60 - 100}px`,                          // v1.07+ offset to float above snap
+        left: `${x - 60 - 3}px`,                           // v1.07+ horizontal fine-tune
+        pointerEvents: "none",                             // v1.07+ ignore pointer
         zIndex: 999,
-        borderRadius: "50%"
+        borderRadius: "50%"                                // v1.07+ circular canvas
       }}
     />
   );
 }
+
