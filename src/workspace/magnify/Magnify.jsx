@@ -116,7 +116,7 @@ export default function Magnify({ x, y, isHolding, mode }) {        // [v1.11] m
   return (
     <canvas
       ref={lensRef}                                                 // [v1.07] bind canvas to ref
-      className="magnifier-lens"                                    // [v1.07] styled circle lens
+      className="magnifier"                                    // [v1.07] styled circle lens
       style={{
         position: "absolute",                                       // [v1.07] position above snap
         top: topPosition.top,                                       // [v1.11] dynamic top position

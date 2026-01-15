@@ -1,3 +1,11 @@
+## [v1.12] 2026-01-16
+- Fixed CSS class mismatch: `magnifier-lens` → `magnifier` in Magnify.jsx to match Magnify.css
+- Fixed CSS/JS size mismatch: Synced Magnify.css to use 120px (matching JS lensSize) for correct positioning
+- Fixed CSS/JS z-index mismatch: Synced Magnify.css z-index to 999 (matching JS inline style)
+- Fixed file naming inconsistency: `Drawlayer.jsx` → `DrawLayer.jsx` (proper PascalCase)
+- Added version header comment to WorkspaceContext.js for consistency
+- Removed orphan `test.html` development file from src/
+
 ## [v1.11] 2026-01-16
 - Added three magnifier positioning modes:
   - **Auto-Locate**: Magnifier sits at crosshair when idle, moves above finger when holding

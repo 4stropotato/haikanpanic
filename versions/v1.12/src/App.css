@@ -1,0 +1,90 @@
+﻿:root {
+  --bg: #ffffff;
+  --text: #1e1e1e;
+  --workspace: #f4f4f4;
+}
+
+[data-theme='dark'] {
+  --bg: #1e1e1e;
+  --text: #ffffff;
+  --workspace: #282c34;
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  font-family: "Segoe UI", sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  overflow: hidden;            /* v1.02+ Prevents page scroll */
+  touch-action: none;          /* v1.02+ Prevents swipe/zoom scrolling */
+  overscroll-behavior: none;   /* v1.02+ Prevents bounce on mobile */
+  -webkit-user-select: none;   /* v1.02+ Prevent text selection */
+  user-select: none;           /* v1.02+ Prevent text selection */
+}
+
+.app {
+  display: flex;               /* v1.10+ App root uses flex layout */
+  flex-direction: column;     /* v1.10+ Stack children vertically */
+  height: 100%;               /* v1.10+ Full height for flex container */
+  width: 100%;                /* v1.10+ Full width for flex container */
+}
+
+.top-bar {
+  display: flex;              /* v1.10+ Align top bar content horizontally */
+  justify-content: space-between; /* v1.10+ Space between brand and buttons */
+  align-items: center;        /* v1.10+ Vertically center items */
+  padding: 0.6rem 1.2rem;     /* v1.10+ Inner spacing */
+  background-color: var(--bg); /* v1.10+ Matches current theme background */
+  border-bottom: 1px solid #444; /* v1.10+ Separator line */
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1); /* v1.10+ Subtle drop shadow */
+}
+
+.brand {
+  font-size: 1.2rem;          /* v1.10+ Larger font for logo text */
+  font-weight: bold;          /* v1.10+ Bold branding */
+}
+
+.controls button {
+  padding: 6px 10px;          /* v1.10+ Button padding */
+  font-size: 0.9rem;          /* v1.10+ Button font size */
+  border: none;               /* v1.10+ Remove default border */
+  background: #4cc1f7;        /* v1.10+ Button color */
+  color: black;               /* v1.10+ Button text color */
+  border-radius: 4px;         /* v1.10+ Rounded corners */
+  cursor: pointer;            /* v1.10+ Pointer cursor */
+}
+
+.workspace {
+  flex: 1;                    /* v1.10+ Take up remaining space */
+  background-color: var(--workspace); /* v1.10+ Match theme workspace color */
+  position: relative;         /* v1.10+ Position child canvases absolutely */
+  width: 100%;                /* v1.10+ Full width */
+  height: 100vh;              /* v1.10+ Full viewport height */
+  overflow: hidden;           /* v1.10+ Prevent scrollbars */
+  cursor: none;               /* v1.10+ Hide system cursor */
+  touch-action: none;         /* v1.10+ Prevents dragging/scrolling workspace */
+  -webkit-user-select: none;  /* v1.10+ Prevent text selection */
+  user-select: none;          /* v1.10+ Prevent text selection */
+  transform-origin: center center; /* v1.10+ Enables proper zoom behavior from center */
+}
+
+canvas {
+  position: absolute;         /* v1.10+ Stack on top of workspace */
+  top: 0;                     /* v1.10+ Align to top */
+  left: 0;                    /* v1.10+ Align to left */
+  display: block;             /* v1.10+ Avoid inline spacing */
+}
+
+canvas:nth-of-type(1) {
+  z-index: 0;                 /* v1.10+ Background layer */
+  pointer-events: none;       /* v1.10+ Allow interactions to pass through */
+}
+
+canvas:nth-of-type(2) {
+  z-index: 1;                 /* v1.10+ Drawing/interactive layer */
+  pointer-events: auto;       /* v1.10+ Allow drawing input */
+}
+

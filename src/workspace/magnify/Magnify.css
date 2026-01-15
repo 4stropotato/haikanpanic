@@ -2,14 +2,15 @@
 /* [v1.06] Added circular border and shadow */
 /* [v1.09] Refined appearance, z-index, and background settings */
 /* [v1.10] Renamed class to .magnifier and modernized lens style */
+/* [v1.12] Synced size with JS lensSize (120px) for correct positioning */
 
 .magnifier {
   position: absolute;                         /* [v1.05] Floating lens */
-  width: 100px;                               /* [v1.10] Reduced lens size from 120px */
-  height: 100px;                              /* [v1.10] Reduced lens size from 120px */
+  width: 120px;                               /* [v1.12] Synced with JS lensSize for positioning math */
+  height: 120px;                              /* [v1.12] Synced with JS lensSize for positioning math */
   border-radius: 50%;                         /* [v1.06] Circular shape */
   overflow: hidden;                           /* [v1.10] Clip contents inside circle */
-  z-index: 20;                                /* [v1.10] Lowered z-index from 999 */
+  z-index: 999;                               /* [v1.12] Synced with JS inline z-index */
   pointer-events: none;                       /* [v1.05] Let input pass through */
   box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);      /* [v1.10] Subtler drop shadow */
 }
