@@ -7,6 +7,7 @@
 // [v1.08] Lens follows snap point
 // [v1.09] Pinch-to-zoom and panning logic
 // [v1.10] Modularized workspace architecture with context and utility-driven snapping
+// [v1.11] Magnifier modes (auto/follow/center) and hold state tracking
 
 import { useRef, useState, useEffect } from "react";                         // [v1.01] React hooks
 import IsoGrid from "./grid/IsoGrid";                                       // [v1.10] isometric grid module
@@ -24,6 +25,7 @@ export default function Workspace() {
   const [darkMode, setDarkMode] = useState(true);                           // [v1.01] dark mode toggle
   const [showGrid, setShowGrid] = useState(true);                           // [v1.01] toggle grid
   const [showMagnifier, setShowMagnifier] = useState(false);               // [v1.05] toggle magnifier
+  const [magnifyMode, setMagnifyMode] = useState("auto");                  // [v1.11] "auto" | "follow" | "center"
   const [hideCrosshair, setHideCrosshair] = useState(false);               // [v1.05] hide crosshair for screenshot
 
   const [zoom, setZoom] = useState(1);                                      // [v1.09] current zoom level
@@ -34,6 +36,7 @@ export default function Workspace() {
   const [lines, setLines] = useState([]);                                   // [v1.02] list of line segments
   const [previewLine, setPreviewLine] = useState(null);                     // [v1.02] live preview line
   const [readyToDraw, setReadyToDraw] = useState(false);                    // [v1.02] whether in draw mode
+  const [isHolding, setIsHolding] = useState(false);                        // [v1.11] track touch hold state for magnifier
 
   const holdTimeout = useRef(null);                                         // [v1.04] long press timer
   const heldEnough = useRef(false);                                         // [v1.04] long press flag
@@ -87,6 +90,7 @@ export default function Workspace() {
 
   const handleTouchStart = () => {
     heldEnough.current = false;
+    setIsHolding(true);                                                    // [v1.11] magnifier moves to top
     holdTimeout.current = setTimeout(() => {
       heldEnough.current = true;
     }, 150);                                                             // [v1.04] long press delay
@@ -95,6 +99,7 @@ export default function Workspace() {
   const handleTouchEnd = () => {
     lastTouch.current = null;
     clearTimeout(holdTimeout.current);
+    setIsHolding(false);                                                   // [v1.11] magnifier returns to crosshair
     if (!heldEnough.current) return;
 
     if (!readyToDraw && !startPoint) {
@@ -153,9 +158,11 @@ export default function Workspace() {
     darkMode,
     showGrid,
     showMagnifier,
+    magnifyMode,                                                           // [v1.11] magnify mode state
     setDarkMode,
     setShowGrid,
     setShowMagnifier,
+    setMagnifyMode,                                                        // [v1.11] magnify mode setter
     setZoom,
     setOffset,
   };
@@ -183,7 +190,7 @@ export default function Workspace() {
           {!hideCrosshair && (
             <SnapOverlay onSnapChange={setLastSnap} zoom={zoom} offset={offset} />
           )}
-          {showMagnifier && <Magnify x={lensPos.x} y={lensPos.y} />}
+          {showMagnifier && <Magnify x={lensPos.x} y={lensPos.y} isHolding={isHolding} mode={magnifyMode} />}
         </div>
       </div>
     </WorkspaceContext.Provider>

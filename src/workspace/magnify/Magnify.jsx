@@ -2,11 +2,12 @@
 // [v1.08] Retina scaling and multi-layer compositing
 // [v1.09] Verified live sync with zoomable workspace
 // [v1.10] Throttled rendering, animation frame batching, last-pos tracking
+// [v1.11] Three positioning modes: auto (idle=crosshair, hold=above), follow (always above), center (always at crosshair)
 
 import { useEffect, useRef } from "react";                          // [v1.07] React hook for rendering
 import "./Magnify.css";                                             // [v1.07] lens styles
 
-export default function Magnify({ x, y }) {
+export default function Magnify({ x, y, isHolding, mode }) {        // [v1.11] mode: "auto" | "follow" | "center"
   const lensRef = useRef(null);                                     // [v1.07] reference to canvas lens
   const animationRef = useRef(null);                                // [v1.10] animation frame tracker
   const lastPos = useRef({ x, y });                                 // [v1.10] track last snapped position
@@ -97,14 +98,30 @@ export default function Magnify({ x, y }) {
     return () => observer.disconnect();                            // [v1.07] cleanup observer
   }, []);
 
+  // [v1.11] Calculate position based on mode and holding state
+  const lensSize = 120;
+  const aboveFinger = { top: `${y - lensSize / 2 - 100}px`, left: `${x - lensSize / 2}px`, transform: "none" }; // [v1.11] above finger
+  const atCrosshair = { top: `${y - lensSize / 2}px`, left: `${x - lensSize / 2}px`, transform: "none" };       // [v1.11] at exact crosshair
+
+  // [v1.11] mode logic: auto | follow | center
+  let topPosition;
+  if (mode === "center") {
+    topPosition = atCrosshair;                                     // [v1.11] always at crosshair (never moves above)
+  } else if (mode === "follow") {
+    topPosition = aboveFinger;                                     // [v1.11] always above finger (v1.10 style)
+  } else {
+    topPosition = isHolding ? aboveFinger : atCrosshair;           // [v1.11] auto: idle=crosshair, hold=above
+  }
+
   return (
     <canvas
       ref={lensRef}                                                 // [v1.07] bind canvas to ref
       className="magnifier-lens"                                    // [v1.07] styled circle lens
       style={{
         position: "absolute",                                       // [v1.07] position above snap
-        top: `${y - 60 - 100}px`,                                   // [v1.07] float above crosshair
-        left: `${x - 60}px`,                                        // [v1.07] center align horizontally
+        top: topPosition.top,                                       // [v1.11] dynamic top position
+        left: topPosition.left,                                     // [v1.11] dynamic left position
+        transform: topPosition.transform,                           // [v1.11] for centering when at top
         pointerEvents: "none",                                      // [v1.07] allow touch-through
         zIndex: 999,                                                // [v1.08] draw on top of all layers
         borderRadius: "50%"                                         // [v1.07] circular mask

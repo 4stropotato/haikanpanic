@@ -1,4 +1,14 @@
-﻿## [v1.10] 2025-08-02
+## [v1.11] 2026-01-16
+- Added three magnifier positioning modes:
+  - **Auto-Locate**: Magnifier sits at crosshair when idle, moves above finger when holding
+  - **Follow**: Magnifier always stays above finger (v1.10 behavior)
+  - **Center**: Magnifier always stays at crosshair position, even when holding
+- Added mode toggle button in TopBar (visible when magnifier is enabled)
+- Added `isHolding` state to track touch hold for magnifier positioning
+- Added `magnifyMode` state to Workspace context for mode switching
+- Added `host: true` to vite.config.js for remote development access via Tailscale/LAN
+
+## [v1.10] 2025-08-02
 - Complete project refactor and modularization under new scalable architecture:
   - Introduced `workspace/` as the central orchestrator for all shared state and layout.
   - Separated logical components into dedicated subfolders:
