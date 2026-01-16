@@ -1,9 +1,40 @@
 // [v1.10] Initial TopBar with grid, theme, magnifier toggles
 // [v1.11] Added magnify mode cycle button (auto/follow/center)
 // [v1.13] Simplified: theme toggle + settings dropdown only
+// [v1.14] Auto-detect language (EN/JP) + language toggle in settings
 
-import { useContext, useState } from "react";               // v1.13+ added useState for dropdown
+import { useContext, useState, useEffect } from "react";    // v1.14+ added useEffect for lang detection
 import { WorkspaceContext } from "../workspace/WorkspaceContext"; // v1.10+ shared state context
+
+// v1.14+ Translations
+const translations = {
+  en: {
+    grid: "Grid",
+    centerView: "Center View",
+    magnifier: "Magnifier",
+    auto: "Auto-Locate",
+    follow: "Follow",
+    center: "Center",
+    language: "Language"
+  },
+  jp: {
+    grid: "グリッド",
+    centerView: "中央に戻す",
+    magnifier: "拡大鏡",
+    auto: "自動配置",
+    follow: "追従",
+    center: "中央",
+    language: "言語"
+  }
+};
+
+// v1.14+ Detect device language (returns "en" or "jp")
+const detectLanguage = () => {
+  const stored = localStorage.getItem("haikan-lang");
+  if (stored === "en" || stored === "jp") return stored;
+  const browserLang = navigator.language || navigator.userLanguage || "en";
+  return browserLang.startsWith("ja") ? "jp" : "en";
+};
 
 export default function TopBar() {
   const {
@@ -20,6 +51,19 @@ export default function TopBar() {
   } = useContext(WorkspaceContext);                         // v1.10+ destructure values from context
 
   const [showSettings, setShowSettings] = useState(false);   // v1.13+ settings dropdown state
+  const [lang, setLang] = useState(detectLanguage);          // v1.14+ language state with auto-detect
+
+  // v1.14+ Save language preference
+  useEffect(() => {
+    localStorage.setItem("haikan-lang", lang);
+  }, [lang]);
+
+  const t = translations[lang];                              // v1.14+ current translations
+
+  // v1.14+ Toggle language
+  const toggleLanguage = () => {
+    setLang(l => l === "en" ? "jp" : "en");
+  };
 
   // v1.11+ cycle through magnify modes
   const cycleMagnifyMode = () => {
@@ -29,11 +73,11 @@ export default function TopBar() {
     setMagnifyMode(modes[nextIndex]);
   };
 
-  // v1.11+ display labels for magnify modes
+  // v1.14+ display labels for magnify modes (translated)
   const modeLabels = {
-    auto: "Auto-Locate",
-    follow: "Follow",
-    center: "Center"
+    auto: t.auto,
+    follow: t.follow,
+    center: t.center
   };
 
   const resetView = () => {
@@ -59,19 +103,22 @@ export default function TopBar() {
           {showSettings && (
             <div className="dropdown-menu">
               <button onClick={() => setShowGrid((g) => !g)}>
-                {showGrid ? "▦ Grid ✓" : "▦ Grid"}
+                {showGrid ? `▦ ${t.grid} ✓` : `▦ ${t.grid}`}
               </button>
               <button onClick={resetView}>
-                ⟲ Center View
+                ⟲ {t.centerView}
               </button>
               <button onClick={() => setShowMagnifier((m) => !m)}>
-                {showMagnifier ? "🔍 Magnifier ✓" : "🔍 Magnifier"}
+                {showMagnifier ? `🔍 ${t.magnifier} ✓` : `🔍 ${t.magnifier}`}
               </button>
               {showMagnifier && (
                 <button onClick={cycleMagnifyMode}>
                   ↻ {modeLabels[magnifyMode]}
                 </button>
               )}
+              <button onClick={toggleLanguage}>
+                🌐 {t.language}: {lang === "en" ? "EN" : "JP"}
+              </button>
             </div>
           )}
         </div>

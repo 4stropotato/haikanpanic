@@ -1,3 +1,9 @@
+## [v1.14] 2026-01-16
+- **Auto Language Detection**: App detects device language (English/Japanese) on first load
+- **Language Toggle**: Added language switch (EN/JP) in settings dropdown
+- **Translations**: Grid, Center View, Magnifier, and mode labels now display in selected language
+- Language preference saved to localStorage
+
 ## [v1.13] 2026-01-16
 - **TopBar Cleanup**: Simplified to only theme toggle (☀/🌙) + settings dropdown (⚙)
 - **Settings Dropdown**: Grid toggle, Center View, Magnifier, and Magnify Mode now inside dropdown
