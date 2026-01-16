@@ -1,7 +1,8 @@
 // [v1.10] Initial TopBar with grid, theme, magnifier toggles
 // [v1.11] Added magnify mode cycle button (auto/follow/center)
+// [v1.13] Simplified: theme toggle + settings dropdown only
 
-import { useContext } from "react";                         // v1.10+ React hook for accessing context
+import { useContext, useState } from "react";               // v1.13+ added useState for dropdown
 import { WorkspaceContext } from "../workspace/WorkspaceContext"; // v1.10+ shared state context
 
 export default function TopBar() {
@@ -17,6 +18,8 @@ export default function TopBar() {
     setZoom,
     setOffset
   } = useContext(WorkspaceContext);                         // v1.10+ destructure values from context
+
+  const [showSettings, setShowSettings] = useState(false);   // v1.13+ settings dropdown state
 
   // v1.11+ cycle through magnify modes
   const cycleMagnifyMode = () => {
@@ -41,22 +44,37 @@ export default function TopBar() {
   return (
     <div className="top-bar">                               {/* v1.10+ header bar layout */}
       <span className="brand">ハイカンパニック!</span>         {/* v1.10+ app title */}
-      <div className="controls">                            {/* v1.10+ container for buttons */}
-        <button onClick={() => setShowGrid((g) => !g)}>
-          {showGrid ? "Hide Grid" : "Show Grid"}            {/* v1.10+ toggle grid */}
-        </button>
+
+      <div className="controls">                            {/* v1.13+ simplified controls */}
+        {/* v1.13+ Theme toggle - always visible */}
         <button onClick={() => setDarkMode((d) => !d)}>
-          {darkMode ? "Light" : "Dark"}                     {/* v1.10+ toggle theme */}
+          {darkMode ? "☀" : "🌙"}
         </button>
-        <button onClick={() => setShowMagnifier((m) => !m)}>
-          {showMagnifier ? "Disable Magnify" : "Enable Magnify"} {/* v1.10+ toggle magnifier */}
-        </button>
-        {showMagnifier && (                                  /* v1.11+ only show when magnifier is on */
-          <button onClick={cycleMagnifyMode}>
-            {modeLabels[magnifyMode]}                            {/* v1.11+ cycle through modes */}
+
+        {/* v1.13+ Settings dropdown */}
+        <div className="settings-dropdown">
+          <button onClick={() => setShowSettings((s) => !s)}>
+            ⚙
           </button>
-        )}
-        <button onClick={resetView}>Center View</button>    {/* v1.10+ reset zoom and pan */}
+          {showSettings && (
+            <div className="dropdown-menu">
+              <button onClick={() => setShowGrid((g) => !g)}>
+                {showGrid ? "▦ Grid ✓" : "▦ Grid"}
+              </button>
+              <button onClick={resetView}>
+                ⟲ Center View
+              </button>
+              <button onClick={() => setShowMagnifier((m) => !m)}>
+                {showMagnifier ? "🔍 Magnifier ✓" : "🔍 Magnifier"}
+              </button>
+              {showMagnifier && (
+                <button onClick={cycleMagnifyMode}>
+                  ↻ {modeLabels[magnifyMode]}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

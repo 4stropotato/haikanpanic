@@ -1,3 +1,8 @@
+## [v1.13] 2026-01-16
+- **TopBar Cleanup**: Simplified to only theme toggle (☀/🌙) + settings dropdown (⚙)
+- **Settings Dropdown**: Grid toggle, Center View, Magnifier, and Magnify Mode now inside dropdown
+- Added floating dropdown menu with proper z-index positioning
+
 ## [v1.12] 2026-01-16
 - Fixed CSS class mismatch: `magnifier-lens` → `magnifier` in Magnify.jsx to match Magnify.css
 - Fixed CSS/JS size mismatch: Synced Magnify.css to use 120px (matching JS lensSize) for correct positioning

@@ -38,6 +38,8 @@ html, body, #root {
   background-color: var(--bg);      /* v1.10+ dynamic bg */
   border-bottom: 1px solid #444;    /* v1.10+ separator line */
   box-shadow: 0 2px 5px rgba(0,0,0,0.1); /* v1.10+ shadow */
+  position: relative;               /* v1.13+ for z-index */
+  z-index: 10000;                   /* v1.13+ above SnapOverlay */
 }
 
 .brand {
@@ -45,14 +47,66 @@ html, body, #root {
   font-weight: bold;                /* v1.10+ bold text */
 }
 
+/* v1.13+ Controls - horizontal row layout */
+.controls {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
 .controls button {
-  padding: 6px 10px;                /* v1.10+ button padding */
-  font-size: 0.9rem;                /* v1.10+ button font size */
+  width: 36px;                      /* v1.13+ uniform button size */
+  height: 36px;                     /* v1.13+ uniform button size */
+  padding: 0;                       /* v1.13+ no padding, use width/height */
+  font-size: 1.1rem;                /* v1.13+ icon size */
   border: none;                     /* v1.10+ no border */
   background: #4cc1f7;              /* v1.10+ cyan button */
   color: black;                     /* v1.10+ text color */
   border-radius: 4px;               /* v1.10+ rounded corners */
   cursor: pointer;                  /* v1.10+ pointer cursor */
+  display: flex;                    /* v1.13+ center icon */
+  align-items: center;              /* v1.13+ center icon */
+  justify-content: center;          /* v1.13+ center icon */
+}
+
+/* v1.13+ Settings dropdown */
+.settings-dropdown {
+  position: relative;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--bg);
+  border: 1px solid #555;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  z-index: 1000;
+  min-width: 160px;
+}
+
+.dropdown-menu button {
+  display: block;
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 0.9rem;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  border-bottom: 1px solid #333;
+}
+
+.dropdown-menu button:last-child {
+  border-bottom: none;
+}
+
+.dropdown-menu button:hover {
+  background: #4cc1f7;
+  color: black;
 }
 
 .workspace {
