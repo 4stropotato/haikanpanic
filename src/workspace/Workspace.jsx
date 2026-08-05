@@ -107,6 +107,7 @@ export default function Workspace() {
   const [showWorkshop, setShowWorkshop] = useState(() => new URLSearchParams(window.location.search).has("workshop")); // v2.02 3D view toggle (?workshop=1 for tests)
   const [snappedEndpoint, setSnappedEndpoint] = useState(null);             // [v1.15] currently snapped endpoint
 
+  const viewRef = useRef({ zoom: 1, offset: { x: 0, y: 0 } });              // v2.12 live view for native listeners
   const holdTimeout = useRef(null);                                         // [v1.04] long press timer
   const heldEnough = useRef(false);                                         // [v1.04] long press flag
   const lastTouch = useRef(null);                                           // [v1.09] pinch zoom tracker
@@ -122,6 +123,10 @@ export default function Workspace() {
   useEffect(() => {
     observeViewport(workspaceRef.current);                                  // v2.11 size from the element
   }, []);
+
+  useEffect(() => {
+    viewRef.current = { zoom, offset };                                     // v2.12 keep the ref current
+  }, [zoom, offset]);
 
   useEffect(() => {
     if (lastSnap) setLensPos(lastSnap);                                     // [v1.08] update magnifier position
@@ -141,12 +146,30 @@ export default function Workspace() {
     localStorage.setItem("haikan-gl-offset", String(glOffsetMm));
   }, [glContinuous, glSizeMm, glOffsetMm]);
 
+  // v2.12 Zoom about a screen anchor. Without this the view always zoomed
+  // toward the centre and whatever you were looking at slid away.
+  const zoomAbout = (clientX, clientY, nextZoomRaw) => {
+    const { zoom: z0, offset: o0 } = viewRef.current;
+    const nextZoom = Math.min(zoomMax, Math.max(zoomMin, nextZoomRaw));
+    const cx = viewport.w / 2;
+    const cy = viewport.h / 2;
+    const wx = (clientX - cx - o0.x) / z0;                                  // point under the anchor
+    const wy = (clientY - cy - o0.y) / z0;
+    const nextOffset = {
+      x: clientX - cx - (wx * nextZoom),
+      y: clientY - cy - (wy * nextZoom),
+    };
+    viewRef.current = { zoom: nextZoom, offset: nextOffset };
+    setZoom(nextZoom);
+    setOffset(nextOffset);
+  };
+
   useEffect(() => {
     const el = workspaceRef.current;
     const handleWheel = (e) => {
       e.preventDefault();
       const factor = e.deltaY < 0 ? 1.1 : 0.9;
-      setZoom((z) => Math.min(zoomMax, Math.max(zoomMin, z * factor)));     // [v1.09] mouse wheel zoom
+      zoomAbout(e.clientX, e.clientY, viewRef.current.zoom * factor);       // [v1.09] mouse wheel zoom
     };
     el?.addEventListener("wheel", handleWheel, { passive: false });
     return () => el?.removeEventListener("wheel", handleWheel);
@@ -208,14 +231,19 @@ export default function Workspace() {
         lastTouch.current = { mid, dist, zoom, offset };                    // [v1.09] track initial pinch
         return;
       }
-      const dz = dist / lastTouch.current.dist;
-      const newZoom = Math.min(zoomMax, Math.max(zoomMin, lastTouch.current.zoom * dz));
-      const dx = mid.x - lastTouch.current.mid.x;
-      const dy = mid.y - lastTouch.current.mid.y;
+      // v2.12 keep the workspace point that was under the pinch centre
+      // pinned to the pinch centre as it moves and scales
+      const start = lastTouch.current;
+      const newZoom = Math.min(zoomMax, Math.max(zoomMin, start.zoom * (dist / start.dist)));
+      const cx = viewport.w / 2;
+      const cy = viewport.h / 2;
+      const wx = (start.mid.x - cx - start.offset.x) / start.zoom;
+      const wy = (start.mid.y - cy - start.offset.y) / start.zoom;
       const newOffset = {
-        x: lastTouch.current.offset.x + dx,
-        y: lastTouch.current.offset.y + dy,
+        x: mid.x - cx - (wx * newZoom),
+        y: mid.y - cy - (wy * newZoom),
       };
+      viewRef.current = { zoom: newZoom, offset: newOffset };
       setZoom(newZoom);
       setOffset(newOffset);
     }

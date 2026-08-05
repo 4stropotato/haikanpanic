@@ -249,9 +249,14 @@ export default function Workshop({
     };
     applyCamera();
 
+    // --- input: one unified Pointer Events path ---
+    // Mouse, finger and pen all arrive as pointer events, so there is a
+    // single code path and no chance of the touch and mouse handlers
+    // disagreeing. Pointer capture keeps a drag alive outside the canvas.
     const el = renderer.domElement;
-    const drag = { active: false, x: 0, y: 0, moved: 0, pinch: 0, mode: "none" };
     const raycaster = new THREE.Raycaster();
+    const pointers = new Map();
+    let gesture = null;
 
     const pickAt = (clientX, clientY) => {
       if (!onEditSegment) return;
@@ -277,90 +282,69 @@ export default function Workshop({
       state.theta -= dx * 0.007;
       state.phi -= dy * 0.007;
     };
-    const touchInfo = (touches) => {
-      const [a, b] = touches;
+
+    const twoPointers = () => {
+      const [a, b] = [...pointers.values()];
       return {
-        dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
-        mx: (a.clientX + b.clientX) / 2,
-        my: (a.clientY + b.clientY) / 2,
+        dist: Math.hypot(a.x - b.x, a.y - b.y),
+        mx: (a.x + b.x) / 2,
+        my: (a.y + b.y) / 2,
       };
     };
 
-    const onTouchStart = (event) => {
-      event.preventDefault();
-      if (event.touches.length === 1) {
-        drag.active = true;
-        drag.mode = "rotate";
-        drag.x = event.touches[0].clientX;
-        drag.y = event.touches[0].clientY;
-        drag.moved = 0;
-      } else if (event.touches.length === 2) {
-        const info = touchInfo(event.touches);
-        drag.active = true;
-        drag.mode = "pinch";
-        drag.pinch = info.dist;
-        drag.x = info.mx;
-        drag.y = info.my;
-        drag.moved = 999;
-      }
-    };
-    const onTouchMove = (event) => {
-      if (!drag.active) return;
-      event.preventDefault();
-      if (drag.mode === "rotate" && event.touches.length === 1) {
-        const dx = event.touches[0].clientX - drag.x;
-        const dy = event.touches[0].clientY - drag.y;
-        drag.x = event.touches[0].clientX;
-        drag.y = event.touches[0].clientY;
-        drag.moved += Math.abs(dx) + Math.abs(dy);
-        rotateBy(dx, dy);
-      } else if (drag.mode === "pinch" && event.touches.length === 2) {
-        const info = touchInfo(event.touches);
-        if (drag.pinch > 0) state.radius *= drag.pinch / Math.max(info.dist, 1);
-        panBy(info.mx - drag.x, info.my - drag.y);
-        drag.pinch = info.dist;
-        drag.x = info.mx;
-        drag.y = info.my;
-      }
-      applyCamera();
-    };
-    const onTouchEnd = (event) => {
-      if (drag.mode === "rotate" && drag.moved < 12) {
-        const touch = event.changedTouches[0];
-        if (touch) pickAt(touch.clientX, touch.clientY);
-      }
-      drag.active = event.touches.length > 0;
-      drag.mode = event.touches.length === 1 ? "rotate" : "none";
-      if (event.touches.length === 1) {
-        drag.x = event.touches[0].clientX;
-        drag.y = event.touches[0].clientY;
-        drag.moved = 999;
+    const onPointerDown = (event) => {
+      try { el.setPointerCapture(event.pointerId); } catch { /* not capturable */ }
+      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (pointers.size === 1) {
+        gesture = {
+          mode: event.button === 2 ? "pan" : "rotate",
+          moved: 0, x: event.clientX, y: event.clientY,
+        };
+      } else if (pointers.size === 2) {
+        const info = twoPointers();
+        gesture = { mode: "pinch", moved: 999, dist: info.dist, x: info.mx, y: info.my };
       }
     };
 
-    const onMouseDown = (event) => {
-      drag.active = true;
-      drag.mode = event.button === 2 ? "pan" : "rotate";
-      drag.x = event.clientX;
-      drag.y = event.clientY;
-      drag.moved = 0;
-    };
-    const onMouseMove = (event) => {
-      if (!drag.active) return;
-      const dx = event.clientX - drag.x;
-      const dy = event.clientY - drag.y;
-      drag.x = event.clientX;
-      drag.y = event.clientY;
-      drag.moved += Math.abs(dx) + Math.abs(dy);
-      if (drag.mode === "pan") panBy(dx, dy); else rotateBy(dx, dy);
+    const onPointerMove = (event) => {
+      if (!pointers.has(event.pointerId) || !gesture) return;
+      event.preventDefault();
+      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+      if (gesture.mode === "pinch" && pointers.size >= 2) {
+        const info = twoPointers();
+        if (gesture.dist > 0) state.radius *= gesture.dist / Math.max(info.dist, 1);
+        panBy(info.mx - gesture.x, info.my - gesture.y);
+        gesture.dist = info.dist;
+        gesture.x = info.mx;
+        gesture.y = info.my;
+      } else if (pointers.size === 1) {
+        const dx = event.clientX - gesture.x;
+        const dy = event.clientY - gesture.y;
+        gesture.x = event.clientX;
+        gesture.y = event.clientY;
+        gesture.moved += Math.abs(dx) + Math.abs(dy);
+        if (gesture.mode === "pan") panBy(dx, dy); else rotateBy(dx, dy);
+      }
       applyCamera();
     };
-    const onMouseUp = (event) => {
-      if (drag.active && drag.mode === "rotate" && drag.moved < 6) {
-        pickAt(event.clientX, event.clientY);
+
+    const onPointerUp = (event) => {
+      const finished = gesture;
+      pointers.delete(event.pointerId);
+      try { el.releasePointerCapture(event.pointerId); } catch { /* already gone */ }
+      if (pointers.size === 0) {
+        // a tap that barely moved is a pick, not a rotation
+        if (finished?.mode === "rotate" && finished.moved < 8) {
+          pickAt(event.clientX, event.clientY);
+        }
+        gesture = null;
+      } else if (pointers.size === 1) {
+        const [remaining] = [...pointers.values()];
+        gesture = { mode: "rotate", moved: 999, x: remaining.x, y: remaining.y };
       }
-      drag.active = false;
     };
+
     const onWheel = (event) => {
       event.preventDefault();
       state.radius *= event.deltaY > 0 ? 1.12 : 0.89;
@@ -368,13 +352,10 @@ export default function Workshop({
     };
     const onContextMenu = (event) => event.preventDefault();
 
-    el.addEventListener("touchstart", onTouchStart, { passive: false });
-    el.addEventListener("touchmove", onTouchMove, { passive: false });
-    el.addEventListener("touchend", onTouchEnd);
-    el.addEventListener("touchcancel", onTouchEnd);
-    el.addEventListener("mousedown", onMouseDown);
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseup", onMouseUp);
+    el.addEventListener("pointerdown", onPointerDown);
+    el.addEventListener("pointermove", onPointerMove, { passive: false });
+    el.addEventListener("pointerup", onPointerUp);
+    el.addEventListener("pointercancel", onPointerUp);
     el.addEventListener("wheel", onWheel, { passive: false });
     el.addEventListener("contextmenu", onContextMenu);
 
@@ -415,13 +396,10 @@ export default function Workshop({
       alive = false;
       observer.disconnect();
       apiRef.current = null;
-      el.removeEventListener("touchstart", onTouchStart);
-      el.removeEventListener("touchmove", onTouchMove);
-      el.removeEventListener("touchend", onTouchEnd);
-      el.removeEventListener("touchcancel", onTouchEnd);
-      el.removeEventListener("mousedown", onMouseDown);
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseup", onMouseUp);
+      el.removeEventListener("pointerdown", onPointerDown);
+      el.removeEventListener("pointermove", onPointerMove);
+      el.removeEventListener("pointerup", onPointerUp);
+      el.removeEventListener("pointercancel", onPointerUp);
       el.removeEventListener("wheel", onWheel);
       el.removeEventListener("contextmenu", onContextMenu);
       scene.traverse((obj) => {
