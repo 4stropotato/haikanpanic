@@ -23,6 +23,7 @@ export default function JointSheet({ nominalA, current, lang, onPick, onClose })
   return (
     <div className="sheet-backdrop" onClick={onClose}>
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
+        <div className="sheet-scroll">
         <div className="sheet-handle" />
         <div className="sheet-title">{t.title} · {nominalA}A</div>
         {JOINT_TYPES.map((type) => (
@@ -36,6 +37,8 @@ export default function JointSheet({ nominalA, current, lang, onPick, onClose })
             <span className="joint-take">{takeout(type)}</span>
           </button>
         ))}
+        </div>
+
         <div className="sheet-actions">
           <button className="sheet-action ghost" onClick={onClose}>{t.cancel}</button>
         </div>

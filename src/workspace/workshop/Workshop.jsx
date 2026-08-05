@@ -138,9 +138,15 @@ export default function Workshop({
     for (const run of model.runs) {
       const mesh = addTube(run.p1, run.p2, run.od, run.od, steel, { lineIndex: run.lineIndex });
       if (mesh) pickable.push(mesh);
+      // beside the run, offset along its own perpendicular so the text
+      // follows the pipe instead of floating over the scene
       const mid = V(run.p1).add(V(run.p2)).multiplyScalar(0.5);
+      const dir = V(run.p2).sub(V(run.p1)).normalize();
+      let perp = new THREE.Vector3().crossVectors(dir, up);
+      if (perp.lengthSq() < 1e-6) perp = new THREE.Vector3(1, 0, 0);
+      perp.normalize().multiplyScalar((run.od * 0.75) + 90);
       const label = makeLabel(`${run.nominalA ? `${run.nominalA}A` : "pipe"} · ${run.lengthMm}`);
-      addSprite(label, mid.clone().add(new THREE.Vector3(0, (run.od * 0.8) + 60, 0)));
+      addSprite(label, mid.clone().add(perp));
       dimObjects.push(label);
     }
 
@@ -266,7 +272,13 @@ export default function Workshop({
     const pointers = new Map();
     let gesture = null;
     let sawPointer = false;
-    const stats = { down: 0, move: 0, touch: 0, tmove: 0, cam: 0 };
+    const stats = { down: 0, move: 0, touch: 0, tmove: 0, cam: 0, doc: 0 };
+    // If the canvas sees nothing, something is on top of it. Ask the browser
+    // what is actually at the centre of the screen, and count touches that
+    // reach the document at all.
+    const docTouch = () => { stats.doc += 1; };
+    document.addEventListener("touchstart", docTouch, true);
+    document.addEventListener("pointerdown", docTouch, true);
 
     const pickAt = (clientX, clientY) => {
       if (!onEditSegment) return;
@@ -405,18 +417,29 @@ export default function Workshop({
       setDims: (visible) => { for (const obj of dimObjects) obj.visible = visible; },
     };
 
+    const topElement = () => {
+      const found = document.elementFromPoint(
+        Math.round(window.innerWidth / 2), Math.round(window.innerHeight / 2),
+      );
+      if (!found) return "none";
+      const cls = typeof found.className === "string" && found.className
+        ? `.${found.className.split(" ")[0]}` : "";
+      return `${found.tagName.toLowerCase()}${cls}`;
+    };
+
     let alive = true;
     const tick = () => {
       if (!alive) return;
       const distance = camera.position.distanceTo(target);
       for (const { sprite } of sprites) {
-        const height = distance * 0.035;
+        const height = distance * 0.018;
         sprite.scale.set(height * (sprite.userData.aspect || 4), height, 1);
       }
       renderer.render(scene, camera);
       if (debugRef.current) {
         debugRef.current.textContent =
-          `build${sceneBuilds} pd${stats.down} pm${stats.move} ts${stats.touch} tm${stats.tmove} cam${stats.cam}`;
+          `b${sceneBuilds} pd${stats.down} pm${stats.move} ts${stats.touch}`
+          + ` tm${stats.tmove} cam${stats.cam} doc${stats.doc}\ntop: ${topElement()}`;
       }
       requestAnimationFrame(tick);
     };
@@ -444,6 +467,8 @@ export default function Workshop({
       el.removeEventListener("touchmove", onTouchMove);
       el.removeEventListener("touchend", onTouchEnd);
       el.removeEventListener("wheel", onWheel);
+      document.removeEventListener("touchstart", docTouch, true);
+      document.removeEventListener("pointerdown", docTouch, true);
       el.removeEventListener("contextmenu", onContextMenu);
       scene.traverse((obj) => {
         obj.geometry?.dispose?.();
@@ -465,7 +490,9 @@ export default function Workshop({
         <span className="workshop-title">WORKSHOP</span>
         <button className="workshop-close" onClick={onClose}>✕</button>
       </div>
-      <div className="workshop-debug" ref={debugRef} />
+      {new URLSearchParams(window.location.search).has("debug") && (
+        <div className="workshop-debug" ref={debugRef} />
+      )}
       <div className="workshop-tools">
         <button onClick={() => apiRef.current?.dolly(0.75)} aria-label="zoom in">＋</button>
         <button onClick={() => apiRef.current?.dolly(1.33)} aria-label="zoom out">－</button>

@@ -13,6 +13,7 @@ import { key2D as jointKey, sketchJoints, jointTypeOf } from "../utils/joints";
 import { pointStep } from "../utils/constants";
 
 const EPS = 1e-6;
+const ISO_UX = Math.cos(-Math.PI / 6);   // screen x of the +X ground axis
 
 const sub = (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
 const add = (a, b) => ({ x: a.x + b.x, y: a.y + b.y, z: a.z + b.z });
@@ -70,13 +71,18 @@ function placeNodes(lines, mmPerPoint, defaultOd) {
     const startKey = key2D(line.start);
     const endKey = key2D(line.end);
     if (!pos.has(startKey)) {
-      // A disconnected piece is anchored by its sketch position, unless the
-      // move tool froze an explicit elevation for it — dragging a run across
-      // the ground must not change how high it sits.
+      // A disconnected piece lands on the ground plane at the horizontal
+      // position its sketch point implies. The 2D point is decomposed into
+      // the two horizontal iso axes; the old code spent the whole vertical
+      // coordinate on elevation, which left every loose piece stranded on a
+      // single line in 3D. Height is explicit — the move tool freezes it and
+      // the datum sheet edits it.
+      const a = (line.start.x / (2 * ISO_UX)) - line.start.y;
+      const b = (-line.start.x / (2 * ISO_UX)) - line.start.y;
       pos.set(startKey, {
-        x: line.start.x * scale,
-        y: line.elevationMm != null ? line.elevationMm : -line.start.y * scale,
-        z: 0,
+        x: a * scale,
+        y: line.elevationMm ?? 0,
+        z: -b * scale,
       });
     }
     const p1 = pos.get(startKey);

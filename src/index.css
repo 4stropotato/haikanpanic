@@ -132,21 +132,36 @@ html, body, #root {
   user-select: none;               /* v1.10+ prevent text select */
 }
 
-canvas {
+/* v2.17 These were global. Any canvas anywhere in the app became
+   "nth-of-type(1)" and lost pointer events — which is exactly what killed
+   every gesture in the 3D Workshop. Scope them to the drawing stack. */
+.workspace > canvas {
   position: absolute;              /* v1.10+ stack on workspace */
   top: 0;
   left: 0;
   display: block;                  /* v1.10+ removes inline spacing */
 }
 
-canvas:nth-of-type(1) {
+.workspace > canvas:nth-of-type(1) {
   z-index: 0;                      /* v1.10+ background layer */
   pointer-events: none;           /* v1.10+ ignore input */
 }
 
-canvas:nth-of-type(2) {
+.workspace > canvas:nth-of-type(2) {
   z-index: 1;                      /* v1.10+ draw layer */
   pointer-events: auto;           /* v1.10+ enable input */
+}
+
+/* the 3D view owns its canvas outright */
+.workshop-canvas > canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: auto;
+  pointer-events: auto;
+  touch-action: none;
 }
 
 
@@ -641,19 +656,33 @@ canvas:nth-of-type(2) {
 .app { height: 100vh; height: 100dvh; }
 .workspace { height: auto; min-height: 0; }
 
-/* v2.13 lift sheets clear of the on-screen keyboard */
+/* v2.18 Sheet layout: a scrolling body with a footer that is NOT part of
+   the scroll, so the buttons are always exactly where the thumb expects
+   them however tall the content gets or how far the keyboard intrudes. */
 .sheet {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 8px 14px 0;
   bottom: var(--kb, 0px);
-  max-height: calc(78vh - var(--kb, 0px));
-  max-height: calc(78dvh - var(--kb, 0px));
+  max-height: calc(80vh - var(--kb, 0px));
+  max-height: calc(80dvh - var(--kb, 0px));
 }
-.sheet.cutlist { max-height: calc(84dvh - var(--kb, 0px)); }
+.sheet-scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  min-height: 0;
+}
+.sheet.cutlist { max-height: calc(86dvh - var(--kb, 0px)); }
 .sheet-actions {
-  position: sticky;
-  bottom: 0;
+  flex-shrink: 0;
+  padding: 12px 0 calc(12px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid color-mix(in srgb, var(--border-2) 55%, transparent);
   background: var(--panel);
-  padding-bottom: 10px;
 }
+/* no tap delay or double-tap zoom on any sheet control */
+.sheet button, .sheet input, .sheet select { touch-action: manipulation; }
 
 /* v2.15 temporary input readout */
 .workshop-debug {
@@ -672,3 +701,8 @@ canvas:nth-of-type(2) {
 /* v2.16 six-slot dock */
 .dock { gap: 4px; padding: 7px 6px; }
 .dock-btn { min-width: 52px; padding: 9px 6px; font-size: 0.62rem; }
+.workshop-debug { white-space: pre; line-height: 1.5; }
+
+/* v2.17 seven-slot dock */
+.dock { gap: 3px; padding: 6px 5px; }
+.dock-btn { min-width: 48px; padding: 8px 4px; font-size: 0.58rem; gap: 2px; }

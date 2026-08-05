@@ -87,6 +87,7 @@ export default function EditSheet({ line, mmPerPoint, lang, onApply, onClose }) 
   return (
     <div className="sheet-backdrop" onClick={onClose}>
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
+        <div className="sheet-scroll">
         <div className="sheet-handle" />
         <div className="sheet-title">{t.title}</div>
 
@@ -185,6 +186,8 @@ export default function EditSheet({ line, mmPerPoint, lang, onApply, onClose }) 
               </button>
             ))}
           </div>
+        </div>
+
         </div>
 
         <div className="sheet-actions">

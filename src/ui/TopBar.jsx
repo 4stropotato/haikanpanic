@@ -8,7 +8,7 @@
 
 import { useContext, useState, useEffect } from "react";
 import { WorkspaceContext } from "../workspace/WorkspaceContext";
-import { SunIcon, MoonIcon, GridIcon, CrosshairIcon, MagnifierIcon, RotateIcon, GlobeIcon, CheckIcon, SendToStudioIcon, PencilIcon, MoreIcon, CubeIcon, ListIcon, EraserIcon, MoveIcon } from "./Icons";
+import { SunIcon, MoonIcon, GridIcon, CrosshairIcon, MagnifierIcon, RotateIcon, GlobeIcon, CheckIcon, SendToStudioIcon, PencilIcon, MoreIcon, CubeIcon, ListIcon, EraserIcon, MoveIcon, RedoIcon } from "./Icons";
 import { buildStudioHandoff, encodeHandoff } from "../workspace/utils/handoff";
 
 const translations = {
@@ -25,6 +25,7 @@ const translations = {
     erase: "Erase",
     move: "Move",
     undo: "Undo",
+    redo: "Redo",
     studio: "Studio",
     workshop: "Workshop",
     cutList: "Cut list",
@@ -55,6 +56,7 @@ const translations = {
     erase: "消去",
     move: "移動",
     undo: "戻す",
+    redo: "やり直し",
     studio: "スタジオ",
     workshop: "作業場",
     cutList: "材料表",
@@ -103,6 +105,10 @@ export default function TopBar() {
     setEraseMode,
     moveMode,
     setMoveMode,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
     setShowWorkshop,
     setShowCutList,
     showGL,
@@ -159,13 +165,13 @@ export default function TopBar() {
 
       {/* v2.00 floating dock: only the actions used constantly while drawing */}
       <div className="dock">
-        <button
-          className="dock-btn"
-          onClick={() => setLines(lines.slice(0, -1))}
-          disabled={!lines.length}
-        >
+        <button className="dock-btn" onClick={undo} disabled={!canUndo}>
           <RotateIcon />
           <span>{t.undo}</span>
+        </button>
+        <button className="dock-btn" onClick={redo} disabled={!canRedo}>
+          <RedoIcon />
+          <span>{t.redo}</span>
         </button>
         <button
           className={"dock-btn" + (editMode ? " glow" : "")}
@@ -209,6 +215,7 @@ export default function TopBar() {
       {showSheet && (
         <div className="sheet-backdrop" onClick={() => setShowSheet(false)}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-scroll">
             <div className="sheet-handle" />
             <div className="sheet-row">
               <span>{t.scale}</span>
@@ -319,6 +326,7 @@ export default function TopBar() {
             >
               <CrosshairIcon /> <span>{t.clear}</span>
             </button>
+            </div>
           </div>
         </div>
       )}

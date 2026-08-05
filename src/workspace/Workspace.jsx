@@ -87,6 +87,8 @@ export default function Workspace() {
   });
   const [eraseMode, setEraseMode] = useState(false);                        // v2.08 tap a line to delete it
   const [moveMode, setMoveMode] = useState(false);                          // v2.16 drag runs across the ground
+  const [past, setPast] = useState([]);                                     // v2.17 undo stack
+  const [future, setFuture] = useState([]);                                 // v2.17 redo stack
   const pipeDrag = useRef(null);
   const [jointTypes, setJointTypes] = useState(() => {                      // v2.10 corner fittings
     const demoJoint = new URLSearchParams(window.location.search).get("joint");
@@ -119,7 +121,7 @@ export default function Workspace() {
     return Number.isFinite(stored) && stored >= 0 ? stored : 0;
   });
   const [glName, setGlName] = useState(() => localStorage.getItem("haikan-gl-name") || "GL");
-  const [showGlSheet, setShowGlSheet] = useState(false);                    // v2.13 datum editor
+  const [showGlSheet, setShowGlSheet] = useState(() => new URLSearchParams(window.location.search).has("gl")); // v2.13 datum editor
   const [glCenter, setGlCenter] = useState(null);                           // v2.09 dragged centre
   const [glEditPlane, setGlEditPlane] = useState(false);                    // v2.09 drag handles on
   const planeDrag = useRef(null);
@@ -159,6 +161,17 @@ export default function Workspace() {
     localStorage.setItem("haikan-scale-mmpp", String(mmPerPoint));          // [v1.17] persist scale
   }, [mmPerPoint]);
 
+  // v2.17 Freeze the auto-fit the first time there is something to fit, so
+  // drawing or dragging a pipe never moves the ground under the drawing.
+  useEffect(() => {
+    if (!lines.length || glSizeMm > 0 || showGlSheet) return;               // not while editing
+    const plane = glPlaneGeometry(lines, mmPerPoint, { offsetMm: glOffsetMm });
+    if (!plane) return;
+    const toMm = (half) => Math.round(((half * 2) / plane.pxPerMm) / 500) * 500;
+    setGlSizeMm(Math.max(500, toMm(plane.halfU)));
+    setGlSizeVMm(Math.max(500, toMm(plane.halfV)));
+  }, [lines.length, glSizeMm, mmPerPoint, glOffsetMm]);
+
   useEffect(() => {
     localStorage.setItem("haikan-gl-mode", glContinuous ? "continuous" : "area");
     localStorage.setItem("haikan-gl-size", String(glSizeMm));               // v2.08 persist datum
@@ -197,6 +210,27 @@ export default function Workspace() {
     return () => el?.removeEventListener("wheel", handleWheel);
   }, []);
 
+  // v2.17 Every edit goes through here so undo restores the whole sketch —
+  // drawing, erasing, moving and spec changes alike — instead of only
+  // dropping the last line.
+  const commitLines = (next) => {
+    setPast((stack) => [...stack.slice(-49), lines]);
+    setFuture([]);
+    setLines(next);
+  };
+  const undo = () => {
+    if (!past.length) return;
+    setFuture((stack) => [...stack, lines]);
+    setLines(past[past.length - 1]);
+    setPast((stack) => stack.slice(0, -1));
+  };
+  const redo = () => {
+    if (!future.length) return;
+    setPast((stack) => [...stack, lines]);
+    setLines(future[future.length - 1]);
+    setFuture((stack) => stack.slice(0, -1));
+  };
+
   // v2.09 workspace-space point from a client coordinate
   const toWorkspace = (clientX, clientY) => ({
     x: (clientX - (viewport.w / 2 + offset.x)) / zoom,
@@ -218,6 +252,8 @@ export default function Workspace() {
     const point = toWorkspace(clientX, clientY);
     const index = findSegmentAt(point, lines, 26 / zoom);
     if (index < 0) return false;
+    setPast((stack) => [...stack.slice(-49), lines]);                       // one entry per drag
+    setFuture([]);
     const members = connectedIndices(lines, index);
     const anchorIndex = Math.min(...members);
     const elevations = nodeElevations(lines, mmPerPoint);
@@ -261,7 +297,7 @@ export default function Workspace() {
 
   // v2.09 Plane editing: grab a corner or a side to resize, the face to move.
   const planeGrab = (clientX, clientY) => {
-    if (!glEditPlane || glContinuous || !lines.length) return false;
+    if ((!glEditPlane && !moveMode) || glContinuous || !lines.length) return false;
     const plane = currentPlane();
     if (!plane) return false;
     const point = toWorkspace(clientX, clientY);
@@ -381,7 +417,7 @@ export default function Workspace() {
         y: (e.clientY - (viewport.h / 2 + offset.y)) / zoom,
       };
       const index = findSegmentAt(point, lines, 24 / zoom);
-      if (index >= 0) setLines(lines.filter((_, i) => i !== index));
+      if (index >= 0) commitLines(lines.filter((_, i) => i !== index));
       return;
     }
 
@@ -393,7 +429,7 @@ export default function Workspace() {
         y: (e.clientY - (viewport.h / 2 + offset.y)) / zoom,
       };
       // a corner is a fitting decision; the run behind it is a pipe spec
-      const joint = findJointAt(point, lines, 22 / zoom);
+      const joint = findJointAt(point, lines, 14 / zoom);       // v2.17 tighter, so short runs stay tappable
       if (joint) { setJointTarget(joint); return; }
       const index = findSegmentAt(point, lines, 24 / zoom);
       if (index >= 0) { setEditTarget(index); return; }                     // v2.02 open spec sheet
@@ -429,7 +465,7 @@ export default function Workspace() {
     // v1.15+ Use snapped endpoint if available, otherwise snap to grid
     const snappedStart = snapToNearestGrid(angleSnapped.start, zoom, offset);
     const snappedEnd = snappedEndpoint || snapToNearestGrid(angleSnapped.end, zoom, offset);
-    setLines([...lines, { start: snappedStart, end: snappedEnd }]);
+    commitLines([...lines, { start: snappedStart, end: snappedEnd }]);
     setStartPoint(null);
     setPreviewLine(null);
     setReadyToDraw(false);
@@ -468,6 +504,10 @@ export default function Workspace() {
     setEraseMode,
     moveMode,                                                              // v2.16 move mode
     setMoveMode,
+    undo,                                                                  // v2.17 history
+    redo,
+    canUndo: past.length > 0,
+    canRedo: future.length > 0,
     setShowWorkshop,                                                       // v2.02 open 3D view
     setShowCutList,                                                        // v2.07 材料表
     showGL,
@@ -515,7 +555,7 @@ export default function Workspace() {
             glSizeMm={glSizeMm}
             glOffsetMm={glOffsetMm}
             glCenter={glCenter}
-            glEditPlane={glEditPlane}
+            glEditPlane={glEditPlane || moveMode}
             jointTypes={jointTypes}
             glSizeVMm={glSizeVMm}
             glName={glName}
@@ -543,7 +583,7 @@ export default function Workspace() {
                 ...next[editTarget],
                 spec: { a, conn, flange, material, schedule, gap },
               };
-              setLines(next);
+              commitLines(next);
               setEditTarget(null);
             }}
           />
@@ -557,13 +597,13 @@ export default function Workspace() {
             lang={localStorage.getItem("haikan-lang") === "jp" ? "jp" : "en"}
             onClose={() => setShowGlSheet(false)}
             onReset={() => { setGlSizeMm(0); setGlSizeVMm(0); setGlCenter(null); }}
-            onApply={(next) => {
-              setGlName(next.name);
-              setGlOffsetMm(next.offsetMm);
-              setGlSizeMm(next.sizeMm);
-              setGlSizeVMm(next.sizeVMm);
-              setGlContinuous(next.continuous);
-              setShowGlSheet(false);
+            onChange={(patch) => {
+              // live: each control lands immediately, nothing waits on Apply
+              if (patch.name !== undefined) setGlName(patch.name);
+              if (patch.offsetMm !== undefined) setGlOffsetMm(patch.offsetMm);
+              if (patch.sizeMm !== undefined) setGlSizeMm(patch.sizeMm);
+              if (patch.sizeVMm !== undefined) setGlSizeVMm(patch.sizeVMm);
+              if (patch.continuous !== undefined) setGlContinuous(patch.continuous);
             }}
           />
         )}

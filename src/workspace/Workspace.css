@@ -43,19 +43,20 @@ html, body, #root {
   user-select: none;
 }
 
-canvas {
+/* v2.17 scoped: a bare `canvas` rule reached the 3D view and disabled it */
+.workspace > canvas {
   position: absolute;
   top: 0;
   left: 0;
   display: block;
 }
 
-canvas:nth-of-type(1) {
+.workspace > canvas:nth-of-type(1) {
   z-index: 0;
   pointer-events: none;
 }
 
-canvas:nth-of-type(2) {
+.workspace > canvas:nth-of-type(2) {
   z-index: 1;
   pointer-events: auto;
 }
