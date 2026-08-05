@@ -263,3 +263,149 @@ canvas:nth-of-type(2) {
   border-color: var(--accent);
   color: var(--accent);
 }
+
+/* ============ v2.00 UI redesign: glass + floating dock + sheet ============ */
+.top-bar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 10000;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.55rem 1rem;
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid color-mix(in srgb, var(--border-2) 60%, transparent);
+  box-shadow: none;
+}
+.brand { font-size: 1rem; letter-spacing: 0.02em; }
+.scale-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--accent-2);
+  border: 1px solid var(--border-2);
+  background: color-mix(in srgb, var(--panel) 70%, transparent);
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+  cursor: pointer;
+}
+
+/* floating dock */
+.action-bar { display: none; }  /* v1.18 bar retired, kept for safety */
+.dock {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  z-index: 10001;
+  display: flex;
+  gap: 6px;
+  padding: 7px;
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-2);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+.dock-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 64px;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 16px;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.66rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease, color 0.15s ease;
+}
+.dock-btn:active:not(:disabled) { transform: scale(0.92); }
+.dock-btn:disabled { opacity: 0.35; }
+.dock-btn.primary {
+  background: linear-gradient(150deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #3b6ef5));
+  color: #0d1520;
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.dock-btn.glow {
+  color: var(--accent);
+  background:
+    linear-gradient(var(--panel), var(--panel)) padding-box,
+    conic-gradient(from var(--spin, 0deg), var(--accent), var(--accent-2), var(--accent)) border-box;
+  border: 1.5px solid transparent;
+  animation: spin-border 2.5s linear infinite;
+}
+@property --spin { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+@keyframes spin-border { to { --spin: 360deg; } }
+
+/* bottom sheet */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10002;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(2px);
+  animation: fade-in 0.18s ease;
+}
+.sheet {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  border-radius: 22px 22px 0 0;
+  background: var(--panel);
+  border-top: 1px solid var(--border-2);
+  padding: 8px 14px calc(16px + env(safe-area-inset-bottom, 0px));
+  animation: slide-up 0.22s cubic-bezier(0.32, 0.72, 0.25, 1);
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.sheet-handle {
+  width: 42px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border-2);
+  margin: 6px auto 12px;
+}
+.sheet-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 6px;
+  font-size: 0.9rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-2) 55%, transparent);
+}
+.sheet-row input {
+  width: 76px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border-2);
+  background: var(--bg);
+  color: inherit;
+  font-size: 0.95rem;
+}
+.sheet-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 6px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.9rem;
+  cursor: pointer;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-2) 55%, transparent);
+}
+.sheet-btn:last-child { border-bottom: none; }
+.sheet-btn:disabled { opacity: 0.4; }
+.sheet-btn.danger { color: #f87171; }
+.sheet-btn span { flex: 1; text-align: left; }
+
+@keyframes fade-in { from { opacity: 0; } }
+@keyframes slide-up { from { transform: translateY(100%); } }
