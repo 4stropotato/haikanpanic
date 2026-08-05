@@ -1,14 +1,15 @@
-﻿// [v1.01] Grid snapping and crosshair overlay
+// [v1.01] Grid snapping and crosshair overlay
 // [v1.02] Pointer normalization and parent callback
 // [v1.03] Responsive canvas and fallback point
 // [v1.08] Retina-aware canvas and scaled rendering
 // [v1.09] Verified alignment with static workspace illusion
 // [v1.10] Unified zoom snapping logic via utility, simplified dynamic transform
+// [v1.15] Endpoint snapping with green elbow indicator
 
 import { useEffect, useRef } from "react";                         // [v1.01] React hook for canvas rendering
-import { snapToNearestGrid } from "../utils/geometry";             // [v1.10] Centralized snapping logic
+import { snapToNearestGrid, findNearestEndpoint } from "../utils/geometry"; // v1.15+ endpoint snap
 
-const SnapOverlay = ({ onSnapChange, zoom, offset }) => {
+const SnapOverlay = ({ onSnapChange, onEndpointSnap, zoom, offset, lines }) => {
   const canvasRef = useRef(null);                                  // [v1.01] Canvas DOM reference
 
   const getCoordinates = (e) => {                                  // [v1.02] Normalize mouse/touch input
@@ -42,6 +43,41 @@ const SnapOverlay = ({ onSnapChange, zoom, offset }) => {
     ctx.restore();
   };
 
+  // v1.15+ Draw green elbow indicator for endpoint snap
+  const drawElbow = (pt) => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const size = 12;                                                // v1.15+ elbow arm length
+
+    ctx.save();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+
+    // v1.15+ Draw piping elbow symbol (L-shape with rounded corner)
+    ctx.strokeStyle = "#22c55e";                                    // v1.15+ green color
+    ctx.lineWidth = 3;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
+    // v1.15+ Outer elbow pipe shape
+    ctx.beginPath();
+    ctx.moveTo(pt.x - size, pt.y);                                  // v1.15+ left arm
+    ctx.arcTo(pt.x, pt.y, pt.x, pt.y - size, 4);                    // v1.15+ rounded corner
+    ctx.lineTo(pt.x, pt.y - size);                                  // v1.15+ top arm
+    ctx.stroke();
+
+    // v1.15+ Center connection dot
+    ctx.fillStyle = "#22c55e";
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  };
+
   const handleMove = (e) => {                                       // [v1.01] Track pointer move
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -51,6 +87,17 @@ const SnapOverlay = ({ onSnapChange, zoom, offset }) => {
     raw.x -= rect.left;
     raw.y -= rect.top;
 
+    // v1.15+ Check endpoint snap first
+    const endpoint = findNearestEndpoint(raw, lines || [], zoom, offset);
+    if (endpoint) {
+      onSnapChange?.({ x: endpoint.x, y: endpoint.y });
+      onEndpointSnap?.(endpoint.workspacePoint);                   // v1.15+ notify parent of endpoint snap
+      drawElbow({ x: endpoint.x, y: endpoint.y });                 // v1.15+ draw green elbow
+      return;
+    }
+
+    // v1.15+ Fall back to grid snap
+    onEndpointSnap?.(null);                                        // v1.15+ clear endpoint snap
     const snapped = snapToNearestGrid(raw, zoom, offset);          // [v1.10] Snap to grid using utility
     if (!snapped) return;
 

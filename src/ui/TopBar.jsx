@@ -2,9 +2,12 @@
 // [v1.11] Added magnify mode cycle button (auto/follow/center)
 // [v1.13] Simplified: theme toggle + settings dropdown only
 // [v1.14] Auto-detect language (EN/JP) + language toggle in settings
+// [v1.14] Replaced emojis with clean SVG icons
 
 import { useContext, useState, useEffect } from "react";    // v1.14+ added useEffect for lang detection
 import { WorkspaceContext } from "../workspace/WorkspaceContext"; // v1.10+ shared state context
+import { SunIcon, MoonIcon, SettingsIcon, GridIcon, CrosshairIcon, MagnifierIcon, RotateIcon, GlobeIcon, CheckIcon, SendToStudioIcon } from "./Icons"; // v1.14+ SVG icons
+import { buildStudioHandoff, encodeHandoff } from "../workspace/utils/handoff"; // v1.16+ Studio handoff
 
 // v1.14+ Translations
 const translations = {
@@ -15,7 +18,9 @@ const translations = {
     auto: "Auto-Locate",
     follow: "Follow",
     center: "Center",
-    language: "Language"
+    language: "Language",
+    toStudio: "Send joint to Studio",
+    noJoint: "Draw two connected lines first"
   },
   jp: {
     grid: "グリッド",
@@ -24,7 +29,9 @@ const translations = {
     auto: "自動配置",
     follow: "追従",
     center: "中央",
-    language: "言語"
+    language: "言語",
+    toStudio: "スタジオへ送る",
+    noJoint: "接続された2本の線を描いてください"
   }
 };
 
@@ -47,7 +54,8 @@ export default function TopBar() {
     setShowMagnifier,
     setMagnifyMode,                                          // v1.11+ magnify mode setter
     setZoom,
-    setOffset
+    setOffset,
+    lines                                                    // v1.16+ drawn segments for handoff
   } = useContext(WorkspaceContext);                         // v1.10+ destructure values from context
 
   const [showSettings, setShowSettings] = useState(false);   // v1.13+ settings dropdown state
@@ -85,39 +93,55 @@ export default function TopBar() {
     setOffset({ x: 0, y: 0 });                              // v1.10+ reset offset to center
   };
 
+  // v1.16+ Build handoff from the latest joint and open Studio with it.
+  // Same-origin path: works when draw and studio are served from one host.
+  const sendToStudio = () => {
+    const envelope = buildStudioHandoff(lines || []);
+    if (!envelope) {
+      alert(t.noJoint);
+      return;
+    }
+    window.open(`/studio/?handoff=${encodeHandoff(envelope)}`, "_blank");
+  };
+
   return (
     <div className="top-bar">                               {/* v1.10+ header bar layout */}
       <span className="brand">ハイカンパニック!</span>         {/* v1.10+ app title */}
 
       <div className="controls">                            {/* v1.13+ simplified controls */}
-        {/* v1.13+ Theme toggle - always visible */}
-        <button onClick={() => setDarkMode((d) => !d)}>
-          {darkMode ? "☀" : "🌙"}
+        {/* v1.16+ Send latest joint to Studio */}
+        <button onClick={sendToStudio} title={t.toStudio}>
+          <SendToStudioIcon />
         </button>
 
-        {/* v1.13+ Settings dropdown */}
+        {/* v1.14+ Theme toggle with SVG icons */}
+        <button onClick={() => setDarkMode((d) => !d)}>
+          {darkMode ? <SunIcon /> : <MoonIcon />}
+        </button>
+
+        {/* v1.14+ Settings dropdown with SVG icons */}
         <div className="settings-dropdown">
           <button onClick={() => setShowSettings((s) => !s)}>
-            ⚙
+            <SettingsIcon />
           </button>
           {showSettings && (
             <div className="dropdown-menu">
               <button onClick={() => setShowGrid((g) => !g)}>
-                {showGrid ? `▦ ${t.grid} ✓` : `▦ ${t.grid}`}
+                <GridIcon /> <span>{t.grid}</span> {showGrid && <CheckIcon />}
               </button>
               <button onClick={resetView}>
-                ⟲ {t.centerView}
+                <CrosshairIcon /> <span>{t.centerView}</span>
               </button>
               <button onClick={() => setShowMagnifier((m) => !m)}>
-                {showMagnifier ? `🔍 ${t.magnifier} ✓` : `🔍 ${t.magnifier}`}
+                <MagnifierIcon /> <span>{t.magnifier}</span> {showMagnifier && <CheckIcon />}
               </button>
               {showMagnifier && (
                 <button onClick={cycleMagnifyMode}>
-                  ↻ {modeLabels[magnifyMode]}
+                  <RotateIcon /> <span>{modeLabels[magnifyMode]}</span>
                 </button>
               )}
               <button onClick={toggleLanguage}>
-                🌐 {t.language}: {lang === "en" ? "EN" : "JP"}
+                <GlobeIcon /> <span>{t.language}: {lang === "en" ? "EN" : "JP"}</span>
               </button>
             </div>
           )}

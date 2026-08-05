@@ -1,4 +1,4 @@
-﻿import { dx, tan30, snapRange } from "./constants";                 // v1.10+ grid constants for snapping
+﻿import { dx, tan30, snapRange, endpointSnapThreshold } from "./constants"; // v1.15+ added endpoint threshold
 
 // v1.10+ Find nearest snapped isometric grid point given screen input
 export function snapToNearestGrid(point, zoom, offset) {
@@ -68,5 +68,39 @@ export function getLensBounds(x, y, canvasWidth, canvasHeight, dpr, lensSize, zo
   const sx = Math.max(0, Math.min(cx - src / 2, canvasWidth - src)); // v1.10+ clamp crop left
   const sy = Math.max(0, Math.min(cy - src / 2, canvasHeight - src)); // v1.10+ clamp crop top
   return { sx, sy, src };                                           // v1.10+ return crop parameters
+}
+
+// v1.15+ Find nearest line endpoint within threshold distance
+export function findNearestEndpoint(screenPoint, lines, zoom, offset) {
+  const centerX = window.innerWidth / 2 + offset.x;                 // v1.15+ panned center X
+  const centerY = window.innerHeight / 2 + offset.y;                // v1.15+ panned center Y
+
+  let nearest = null;                                               // v1.15+ closest endpoint
+  let minDist = Infinity;                                           // v1.15+ minimum distance found
+
+  for (const line of lines) {
+    // v1.15+ check start endpoint
+    const startX = centerX + line.start.x * zoom;
+    const startY = centerY + line.start.y * zoom;
+    const startDist = Math.hypot(screenPoint.x - startX, screenPoint.y - startY);
+    if (startDist < minDist && startDist < endpointSnapThreshold) {
+      minDist = startDist;
+      // v1.15+ direction: from start toward end (outgoing from this endpoint)
+      const angle = Math.atan2(line.end.y - line.start.y, line.end.x - line.start.x);
+      nearest = { x: startX, y: startY, workspacePoint: line.start, angle };
+    }
+
+    // v1.15+ check end endpoint
+    const endX = centerX + line.end.x * zoom;
+    const endY = centerY + line.end.y * zoom;
+    const endDist = Math.hypot(screenPoint.x - endX, screenPoint.y - endY);
+    if (endDist < minDist && endDist < endpointSnapThreshold) {
+      minDist = endDist;
+      // v1.15+ direction: from end toward start (outgoing from this endpoint)
+      const angle = Math.atan2(line.start.y - line.end.y, line.start.x - line.end.x);
+      nearest = { x: endX, y: endY, workspacePoint: line.end, angle };
+    }
+  }
+  return nearest;                                                   // v1.15+ return nearest or null
 }
 

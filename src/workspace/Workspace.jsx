@@ -8,6 +8,7 @@
 // [v1.09] Pinch-to-zoom and panning logic
 // [v1.10] Modularized workspace architecture with context and utility-driven snapping
 // [v1.11] Magnifier modes (auto/follow/center) and hold state tracking
+// [v1.15] Endpoint snapping - snap to existing line endpoints (green elbow indicator)
 
 import { useRef, useState, useEffect } from "react";                         // [v1.01] React hooks
 import IsoGrid from "./grid/IsoGrid";                                       // [v1.10] isometric grid module
@@ -37,6 +38,7 @@ export default function Workspace() {
   const [previewLine, setPreviewLine] = useState(null);                     // [v1.02] live preview line
   const [readyToDraw, setReadyToDraw] = useState(false);                    // [v1.02] whether in draw mode
   const [isHolding, setIsHolding] = useState(false);                        // [v1.11] track touch hold state for magnifier
+  const [snappedEndpoint, setSnappedEndpoint] = useState(null);             // [v1.15] currently snapped endpoint
 
   const holdTimeout = useRef(null);                                         // [v1.04] long press timer
   const heldEnough = useRef(false);                                         // [v1.04] long press flag
@@ -136,8 +138,9 @@ export default function Workspace() {
   const triggerDraw = () => {
     if (!startPoint || !pendingEnd.current) return;
     const angleSnapped = snapToAllowedAngle(startPoint, pendingEnd.current);         // [v1.03] lock direction
-    const snappedStart = snapToNearestGrid(angleSnapped.start, zoom, offset);        // [v1.10] snapped w/ transform
-    const snappedEnd = snapToNearestGrid(angleSnapped.end, zoom, offset);
+    // v1.15+ Use snapped endpoint if available, otherwise snap to grid
+    const snappedStart = snapToNearestGrid(angleSnapped.start, zoom, offset);
+    const snappedEnd = snappedEndpoint || snapToNearestGrid(angleSnapped.end, zoom, offset);
     setLines([...lines, { start: snappedStart, end: snappedEnd }]);
     setStartPoint(null);
     setPreviewLine(null);
@@ -165,6 +168,7 @@ export default function Workspace() {
     setMagnifyMode,                                                        // [v1.11] magnify mode setter
     setZoom,
     setOffset,
+    lines,                                                                 // [v1.16] drawn segments for Studio handoff
   };
 
   return (
@@ -188,7 +192,13 @@ export default function Workspace() {
             offset={offset}
           />
           {!hideCrosshair && (
-            <SnapOverlay onSnapChange={setLastSnap} zoom={zoom} offset={offset} />
+            <SnapOverlay
+              onSnapChange={setLastSnap}
+              onEndpointSnap={setSnappedEndpoint}
+              zoom={zoom}
+              offset={offset}
+              lines={lines}
+            />
           )}
           {showMagnifier && <Magnify x={lensPos.x} y={lensPos.y} isHolding={isHolding} mode={magnifyMode} />}
         </div>

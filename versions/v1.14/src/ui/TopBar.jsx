@@ -2,9 +2,11 @@
 // [v1.11] Added magnify mode cycle button (auto/follow/center)
 // [v1.13] Simplified: theme toggle + settings dropdown only
 // [v1.14] Auto-detect language (EN/JP) + language toggle in settings
+// [v1.14] Replaced emojis with clean SVG icons
 
 import { useContext, useState, useEffect } from "react";    // v1.14+ added useEffect for lang detection
 import { WorkspaceContext } from "../workspace/WorkspaceContext"; // v1.10+ shared state context
+import { SunIcon, MoonIcon, SettingsIcon, GridIcon, CrosshairIcon, MagnifierIcon, RotateIcon, GlobeIcon, CheckIcon } from "./Icons"; // v1.14+ SVG icons
 
 // v1.14+ Translations
 const translations = {
@@ -90,34 +92,34 @@ export default function TopBar() {
       <span className="brand">ハイカンパニック!</span>         {/* v1.10+ app title */}
 
       <div className="controls">                            {/* v1.13+ simplified controls */}
-        {/* v1.13+ Theme toggle - always visible */}
+        {/* v1.14+ Theme toggle with SVG icons */}
         <button onClick={() => setDarkMode((d) => !d)}>
-          {darkMode ? "☀" : "🌙"}
+          {darkMode ? <SunIcon /> : <MoonIcon />}
         </button>
 
-        {/* v1.13+ Settings dropdown */}
+        {/* v1.14+ Settings dropdown with SVG icons */}
         <div className="settings-dropdown">
           <button onClick={() => setShowSettings((s) => !s)}>
-            ⚙
+            <SettingsIcon />
           </button>
           {showSettings && (
             <div className="dropdown-menu">
               <button onClick={() => setShowGrid((g) => !g)}>
-                {showGrid ? `▦ ${t.grid} ✓` : `▦ ${t.grid}`}
+                <GridIcon /> <span>{t.grid}</span> {showGrid && <CheckIcon />}
               </button>
               <button onClick={resetView}>
-                ⟲ {t.centerView}
+                <CrosshairIcon /> <span>{t.centerView}</span>
               </button>
               <button onClick={() => setShowMagnifier((m) => !m)}>
-                {showMagnifier ? `🔍 ${t.magnifier} ✓` : `🔍 ${t.magnifier}`}
+                <MagnifierIcon /> <span>{t.magnifier}</span> {showMagnifier && <CheckIcon />}
               </button>
               {showMagnifier && (
                 <button onClick={cycleMagnifyMode}>
-                  ↻ {modeLabels[magnifyMode]}
+                  <RotateIcon /> <span>{modeLabels[magnifyMode]}</span>
                 </button>
               )}
               <button onClick={toggleLanguage}>
-                🌐 {t.language}: {lang === "en" ? "EN" : "JP"}
+                <GlobeIcon /> <span>{t.language}: {lang === "en" ? "EN" : "JP"}</span>
               </button>
             </div>
           )}
@@ -126,4 +128,3 @@ export default function TopBar() {
     </div>
   );
 }
-
