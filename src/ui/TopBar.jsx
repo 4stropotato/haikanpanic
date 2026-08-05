@@ -32,6 +32,9 @@ const translations = {
     glCont: "Continuous",
     glSize: "Plane size",
     glAuto: "auto",
+    glHeight: "Datum height",
+    glDrag: "Drag handles",
+    glReset: "Reset plane",
     more: "More",
     scale: "Scale: 1 pt =",
     clear: "Clear all",
@@ -58,6 +61,9 @@ const translations = {
     glCont: "連続",
     glSize: "面のサイズ",
     glAuto: "自動",
+    glHeight: "基準面の高さ",
+    glDrag: "ハンドルで調整",
+    glReset: "面をリセット",
     more: "その他",
     scale: "縮尺: 1 pt =",
     clear: "全消去",
@@ -100,7 +106,12 @@ export default function TopBar() {
     glContinuous,
     setGlContinuous,
     glSizeMm,
-    setGlSizeMm
+    setGlSizeMm,
+    glOffsetMm,
+    setGlOffsetMm,
+    glEditPlane,
+    setGlEditPlane,
+    resetGlPlane
   } = useContext(WorkspaceContext);
 
   const [showSheet, setShowSheet] = useState(false);
@@ -228,18 +239,40 @@ export default function TopBar() {
                   </div>
                 </div>
                 {!glContinuous && (
-                  <div className="sheet-row">
-                    <span>{t.glSize}</span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="500"
-                      placeholder={t.glAuto}
-                      value={glSizeMm || ""}
-                      onChange={(e) => setGlSizeMm(Math.max(0, Number(e.target.value) || 0))}
-                    />
-                    <span>mm</span>
-                  </div>
+                  <>
+                    <div className="sheet-row">
+                      <span>{t.glSize}</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="500"
+                        placeholder={t.glAuto}
+                        value={glSizeMm || ""}
+                        onChange={(e) => setGlSizeMm(Math.max(0, Number(e.target.value) || 0))}
+                      />
+                      <span>mm</span>
+                    </div>
+                    <div className="sheet-row">
+                      <span>{t.glHeight}</span>
+                      <input
+                        type="number"
+                        step="100"
+                        value={glOffsetMm}
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => setGlOffsetMm(Number(e.target.value) || 0)}
+                      />
+                      <span>mm</span>
+                    </div>
+                    <button
+                      className="sheet-btn"
+                      onClick={() => { setGlEditPlane(!glEditPlane); setShowSheet(false); }}
+                    >
+                      <CrosshairIcon /> <span>{t.glDrag}</span> {glEditPlane && <CheckIcon />}
+                    </button>
+                    <button className="sheet-btn" onClick={resetGlPlane}>
+                      <RotateIcon /> <span>{t.glReset}</span>
+                    </button>
+                  </>
                 )}
               </>
             )}

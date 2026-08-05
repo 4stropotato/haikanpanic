@@ -42,7 +42,7 @@ function makeLabel(text, tone = "size") {
   return sprite;
 }
 
-export default function Workshop({ lines, mmPerPoint, onEditSegment, onClose }) {
+export default function Workshop({ lines, mmPerPoint, glOffsetMm = 0, onEditSegment, onClose }) {
   const hostRef = useRef(null);
   const apiRef = useRef(null);
   const [warnings, setWarnings] = useState([]);
@@ -52,7 +52,7 @@ export default function Workshop({ lines, mmPerPoint, onEditSegment, onClose }) 
     const host = hostRef.current;
     if (!host) return undefined;
 
-    const model = buildPipeModel(lines, mmPerPoint);
+    const model = buildPipeModel(lines, mmPerPoint, { glOffsetMm });
     setWarnings(model.warnings);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -414,7 +414,7 @@ export default function Workshop({ lines, mmPerPoint, onEditSegment, onClose }) 
       renderer.dispose();
       if (renderer.domElement.parentNode === host) host.removeChild(renderer.domElement);
     };
-  }, [lines, mmPerPoint, onEditSegment]);
+  }, [lines, mmPerPoint, glOffsetMm, onEditSegment]);
 
   return (
     <div className="workshop">

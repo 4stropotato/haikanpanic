@@ -24,6 +24,7 @@ import { snapToAllowedAngle, snapToNearestGrid } from "./utils/geometry";   // [
 import { findSegmentAt, setSegmentLength } from "./utils/editLength";       // v1.19+ tap-to-edit lengths
 import { segmentLengthMm } from "./utils/lengths";                          // v1.19+ current mm for prompt
 import { viewport } from "./utils/viewport";                                // v1.19+ tap coord conversion
+import { glPlaneGeometry, sizeFromCorner } from "./utils/glPlane";          // v2.09 datum plane
 import { zoomMin, zoomMax } from "./utils/constants";                       // [v1.10] zoom range constants
 import "./Workspace.css";                                                   // [v1.10] workspace layout styles
 
@@ -81,6 +82,13 @@ export default function Workspace() {
     const stored = Number(localStorage.getItem("haikan-gl-size"));
     return Number.isFinite(stored) && stored >= 0 ? stored : 0;
   });
+  const [glOffsetMm, setGlOffsetMm] = useState(() => {                      // v2.09 datum height
+    const stored = Number(localStorage.getItem("haikan-gl-offset"));
+    return Number.isFinite(stored) ? stored : 0;
+  });
+  const [glCenter, setGlCenter] = useState(null);                           // v2.09 dragged centre
+  const [glEditPlane, setGlEditPlane] = useState(false);                    // v2.09 drag handles on
+  const planeDrag = useRef(null);
   const [showWorkshop, setShowWorkshop] = useState(() => new URLSearchParams(window.location.search).has("workshop")); // v2.02 3D view toggle (?workshop=1 for tests)
   const [snappedEndpoint, setSnappedEndpoint] = useState(null);             // [v1.15] currently snapped endpoint
 
@@ -111,7 +119,8 @@ export default function Workspace() {
   useEffect(() => {
     localStorage.setItem("haikan-gl-mode", glContinuous ? "continuous" : "area");
     localStorage.setItem("haikan-gl-size", String(glSizeMm));               // v2.08 persist datum
-  }, [glContinuous, glSizeMm]);
+    localStorage.setItem("haikan-gl-offset", String(glOffsetMm));
+  }, [glContinuous, glSizeMm, glOffsetMm]);
 
   useEffect(() => {
     const el = workspaceRef.current;
@@ -124,7 +133,53 @@ export default function Workspace() {
     return () => el?.removeEventListener("wheel", handleWheel);
   }, []);
 
+  // v2.09 workspace-space point from a client coordinate
+  const toWorkspace = (clientX, clientY) => ({
+    x: (clientX - (viewport.w / 2 + offset.x)) / zoom,
+    y: (clientY - (viewport.h / 2 + offset.y)) / zoom,
+  });
+
+  // v2.09 Plane editing: grab a corner to resize, or the face to move it.
+  const planeGrab = (clientX, clientY) => {
+    if (!glEditPlane || glContinuous || !lines.length) return false;
+    const plane = glPlaneGeometry(lines, mmPerPoint, {
+      sizeMm: glSizeMm, offsetMm: glOffsetMm, center: glCenter,
+    });
+    if (!plane) return false;
+    const point = toWorkspace(clientX, clientY);
+    const grabRadius = 20 / zoom;
+    for (const corner of plane.corners) {
+      if (Math.hypot(point.x - corner.x, point.y - corner.y) < grabRadius) {
+        planeDrag.current = { mode: "resize", cx: plane.cx, cy: plane.cy };
+        return true;
+      }
+    }
+    planeDrag.current = {
+      mode: "move",
+      dx: plane.cx - point.x,
+      dy: plane.cy - point.y,
+    };
+    return true;
+  };
+
+  const planeMove = (clientX, clientY) => {
+    const drag = planeDrag.current;
+    if (!drag) return false;
+    const point = toWorkspace(clientX, clientY);
+    if (drag.mode === "resize") {
+      setGlSizeMm(sizeFromCorner(point, drag.cx, drag.cy, mmPerPoint));
+    } else {
+      setGlCenter({ x: point.x + drag.dx, y: point.y + drag.dy });
+    }
+    return true;
+  };
+
   const handleTouchMove = (e) => {
+    if (planeDrag.current && e.touches.length === 1) {
+      e.preventDefault();
+      planeMove(e.touches[0].clientX, e.touches[0].clientY);
+      return;
+    }
     if (e.touches.length === 2) {
       e.preventDefault();
       const [t1, t2] = e.touches;
@@ -147,7 +202,10 @@ export default function Workspace() {
     }
   };
 
-  const handleTouchStart = () => {
+  const handleTouchStart = (e) => {
+    if (e.touches.length === 1 && planeGrab(e.touches[0].clientX, e.touches[0].clientY)) {
+      return;                                                              // v2.09 dragging the datum
+    }
     heldEnough.current = false;
     setIsHolding(true);                                                    // [v1.11] magnifier moves to top
     holdTimeout.current = setTimeout(() => {
@@ -156,6 +214,7 @@ export default function Workspace() {
   };
 
   const handleTouchEnd = () => {
+    if (planeDrag.current) { planeDrag.current = null; return; }
     lastTouch.current = null;
     clearTimeout(holdTimeout.current);
     setIsHolding(false);                                                   // [v1.11] magnifier returns to crosshair
@@ -266,6 +325,11 @@ export default function Workspace() {
     setGlContinuous,
     glSizeMm,
     setGlSizeMm,
+    glOffsetMm,
+    setGlOffsetMm,
+    glEditPlane,
+    setGlEditPlane,
+    resetGlPlane: () => { setGlCenter(null); setGlSizeMm(0); setGlOffsetMm(0); },
   };
 
   return (
@@ -275,6 +339,9 @@ export default function Workspace() {
         <div
           className="workspace"
           ref={workspaceRef}
+          onMouseDown={(e) => planeGrab(e.clientX, e.clientY)}
+          onMouseMove={(e) => { if (planeDrag.current) planeMove(e.clientX, e.clientY); }}
+          onMouseUp={() => { planeDrag.current = null; }}
           onClick={handleClick}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
@@ -291,6 +358,9 @@ export default function Workspace() {
             showGL={showGL}
             glContinuous={glContinuous}
             glSizeMm={glSizeMm}
+            glOffsetMm={glOffsetMm}
+            glCenter={glCenter}
+            glEditPlane={glEditPlane}
           />
           {!hideCrosshair && (
             <SnapOverlay
@@ -332,6 +402,7 @@ export default function Workspace() {
           <Workshop
             lines={lines}
             mmPerPoint={mmPerPoint}
+            glOffsetMm={glOffsetMm}
             onEditSegment={setEditTarget}
             onClose={() => setShowWorkshop(false)}
           />

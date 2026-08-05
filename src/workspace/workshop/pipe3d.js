@@ -110,7 +110,7 @@ export function nodeElevations(lines, mmPerPoint) {
   return out;
 }
 
-export function buildPipeModel(lines, mmPerPoint) {
+export function buildPipeModel(lines, mmPerPoint, options = {}) {
   if (!lines.length) return { runs: [], elbows: [], reducers: [], flanges: [], points: [], warnings: [] };
 
   // Unspecified lines get an OD proportional to the sketch so any sketch
@@ -127,13 +127,16 @@ export function buildPipeModel(lines, mmPerPoint) {
   // ground line, making every elevation readable as height above GL.
   let minY = Infinity;
   for (const seg of segments) minY = Math.min(minY, seg.p1.y, seg.p2.y);
-  if (Number.isFinite(minY) && Math.abs(minY) > EPS) {
+  // v2.09 the datum can sit below the lowest pipe, which lifts the whole
+  // model in 3D exactly as the 2D plane offset shows it.
+  const lift = (Number.isFinite(minY) ? -minY : 0) + (options.glOffsetMm ?? 0);
+  if (Math.abs(lift) > EPS) {
     const seen = new Set();
     for (const seg of segments) {
       for (const p of [seg.p1, seg.p2]) {
         if (seen.has(p)) continue;
         seen.add(p);
-        p.y -= minY;
+        p.y += lift;
       }
     }
   }
