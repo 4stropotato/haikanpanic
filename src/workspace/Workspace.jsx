@@ -33,7 +33,8 @@ import {
   glPlaneGeometry, sizeFromHandle, insidePlane,
 } from "./utils/glPlane";                                                   // v2.09 datum plane
 import GlSheet from "../ui/GlSheet";
-import { findJointAt, jointTypeOf } from "./utils/joints";                  // v2.10 corner fittings
+import { loadDatums, saveDatums, makeDatum } from "./utils/datums";
+import { findJointAt, jointSettingOf } from "./utils/joints";               // v2.10 corner fittings
 import JointSheet from "../ui/JointSheet";
 import { zoomMin, zoomMax } from "./utils/constants";                       // [v1.10] zoom range constants
 import "./Workspace.css";                                                   // [v1.10] workspace layout styles
@@ -102,27 +103,21 @@ export default function Workspace() {
       return {};
     }
   });
-  const [jointTarget, setJointTarget] = useState(null);
+  const [jointTarget, setJointTarget] = useState(() => {                    // ?joint2=1 opens the picker
+    if (!new URLSearchParams(window.location.search).has("joint2")) return null;
+    const s2 = 11.547;
+    const point = { x: 0, y: -12 * s2 };
+    return {
+      key: `${point.x.toFixed(3)},${point.y.toFixed(3)}`,
+      point,
+      legs: [{ index: 0, which: 2 }, { index: 1, which: 1 }],
+    };
+  });
   const [showCutList, setShowCutList] = useState(() => new URLSearchParams(window.location.search).has("cutlist")); // v2.07 材料表 sheet
   const [showGL, setShowGL] = useState(true);                               // v2.07 GL/EL in 2D
-  const [glContinuous, setGlContinuous] = useState(                         // v2.08 plane mode
-    () => localStorage.getItem("haikan-gl-mode") === "continuous",
-  );
-  const [glSizeMm, setGlSizeMm] = useState(() => {                          // v2.08 0 = auto fit
-    const stored = Number(localStorage.getItem("haikan-gl-size"));
-    return Number.isFinite(stored) && stored >= 0 ? stored : 0;
-  });
-  const [glOffsetMm, setGlOffsetMm] = useState(() => {                      // v2.09 datum height
-    const stored = Number(localStorage.getItem("haikan-gl-offset"));
-    return Number.isFinite(stored) ? stored : 0;
-  });
-  const [glSizeVMm, setGlSizeVMm] = useState(() => {                        // v2.13 depth, 0 = auto
-    const stored = Number(localStorage.getItem("haikan-gl-sizev"));
-    return Number.isFinite(stored) && stored >= 0 ? stored : 0;
-  });
-  const [glName, setGlName] = useState(() => localStorage.getItem("haikan-gl-name") || "GL");
-  const [showGlSheet, setShowGlSheet] = useState(() => new URLSearchParams(window.location.search).has("gl")); // v2.13 datum editor
-  const [glCenter, setGlCenter] = useState(null);                           // v2.09 dragged centre
+  const [showGlSheet, setShowGlSheet] = useState(() => new URLSearchParams(window.location.search).has("gl"));
+  const [datums, setDatums] = useState(loadDatums);                         // v2.19 GL / FL / TOS list
+  const [datumIndex, setDatumIndex] = useState(0);                          // which one the sheet edits
   const [glEditPlane, setGlEditPlane] = useState(false);                    // v2.09 drag handles on
   const planeDrag = useRef(null);
   const [showWorkshop, setShowWorkshop] = useState(() => new URLSearchParams(window.location.search).has("workshop")); // v2.02 3D view toggle (?workshop=1 for tests)
@@ -161,24 +156,24 @@ export default function Workspace() {
     localStorage.setItem("haikan-scale-mmpp", String(mmPerPoint));          // [v1.17] persist scale
   }, [mmPerPoint]);
 
-  // v2.17 Freeze the auto-fit the first time there is something to fit, so
-  // drawing or dragging a pipe never moves the ground under the drawing.
+  // v2.19 Fit a plane to the drawing once, when it is first created. After
+  // that it holds its footprint, so drawing or dragging a pipe never moves
+  // the ground under the work.
   useEffect(() => {
-    if (!lines.length || glSizeMm > 0 || showGlSheet) return;               // not while editing
-    const plane = glPlaneGeometry(lines, mmPerPoint, { offsetMm: glOffsetMm });
+    if (!lines.length) return;
+    const pending = datums.findIndex((d) => !d.fitted);
+    if (pending < 0) return;
+    const plane = glPlaneGeometry(lines, mmPerPoint, datums[pending]);
     if (!plane) return;
-    const toMm = (half) => Math.round(((half * 2) / plane.pxPerMm) / 500) * 500;
-    setGlSizeMm(Math.max(500, toMm(plane.halfU)));
-    setGlSizeVMm(Math.max(500, toMm(plane.halfV)));
-  }, [lines.length, glSizeMm, mmPerPoint, glOffsetMm]);
+    const toMm = (half) => Math.max(500, Math.round(((half * 2) / plane.pxPerMm) / 500) * 500);
+    setDatums((list) => list.map((d, i) => (i === pending
+      ? { ...d, sizeMm: toMm(plane.halfU), sizeVMm: toMm(plane.halfV), fitted: true }
+      : d)));
+  }, [lines.length, datums, mmPerPoint]);
 
   useEffect(() => {
-    localStorage.setItem("haikan-gl-mode", glContinuous ? "continuous" : "area");
-    localStorage.setItem("haikan-gl-size", String(glSizeMm));               // v2.08 persist datum
-    localStorage.setItem("haikan-gl-offset", String(glOffsetMm));
-    localStorage.setItem("haikan-gl-sizev", String(glSizeVMm));
-    localStorage.setItem("haikan-gl-name", glName);
-  }, [glContinuous, glSizeMm, glOffsetMm, glSizeVMm, glName]);
+    saveDatums(datums);                                                     // v2.19 persist every level
+  }, [datums]);
 
   // v2.12 Zoom about a screen anchor. Without this the view always zoomed
   // toward the centre and whatever you were looking at slid away.
@@ -237,9 +232,12 @@ export default function Workspace() {
     y: (clientY - (viewport.h / 2 + offset.y)) / zoom,
   });
 
-  const currentPlane = () => glPlaneGeometry(lines, mmPerPoint, {
-    sizeMm: glSizeMm, sizeVMm: glSizeVMm, offsetMm: glOffsetMm, center: glCenter,
-  });
+  const primary = datums[0];
+  const patchDatum = (i, patch) => setDatums(
+    (list) => list.map((d, index) => (index === i ? { ...d, ...patch } : d)),
+  );
+  const planeAt = (i) => glPlaneGeometry(lines, mmPerPoint, datums[i]);
+  const currentPlane = () => planeAt(datumIndex);
 
   // v2.16 Move tool. A drag translates the whole welded run across the
   // ground plane. Screen movement is read as horizontal motion only, so the
@@ -297,7 +295,7 @@ export default function Workspace() {
 
   // v2.09 Plane editing: grab a corner or a side to resize, the face to move.
   const planeGrab = (clientX, clientY) => {
-    if ((!glEditPlane && !moveMode) || glContinuous || !lines.length) return false;
+    if ((!glEditPlane && !moveMode) || datums[datumIndex]?.continuous || !lines.length) return false;
     const plane = currentPlane();
     if (!plane) return false;
     const point = toWorkspace(clientX, clientY);
@@ -328,10 +326,12 @@ export default function Workspace() {
     const point = toWorkspace(clientX, clientY);
     if (drag.mode === "resize") {
       const size = sizeFromHandle(point, drag.cx, drag.cy, mmPerPoint, drag.axis);
-      if (size.u != null) setGlSizeMm(size.u);
-      if (size.v != null) setGlSizeVMm(size.v);
+      const patch = { fitted: true };
+      if (size.u != null) patch.sizeMm = size.u;
+      if (size.v != null) patch.sizeVMm = size.v;
+      patchDatum(datumIndex, patch);
     } else {
-      setGlCenter({ x: point.x + drag.dx, y: point.y + drag.dy });
+      patchDatum(datumIndex, { center: { x: point.x + drag.dx, y: point.y + drag.dy } });
     }
     return true;
   };
@@ -429,13 +429,22 @@ export default function Workspace() {
         y: (e.clientY - (viewport.h / 2 + offset.y)) / zoom,
       };
       // a corner is a fitting decision; the run behind it is a pipe spec
-      const joint = findJointAt(point, lines, 14 / zoom);       // v2.17 tighter, so short runs stay tappable
+      const joint = findJointAt(point, lines, 18 / zoom);       // v2.20 corners stay reachable
       if (joint) { setJointTarget(joint); return; }
       const index = findSegmentAt(point, lines, 24 / zoom);
       if (index >= 0) { setEditTarget(index); return; }                     // v2.02 open spec sheet
-      // nothing drawn under the tap: the datum owns the rest of the plane
-      const plane = showGL && !glContinuous ? currentPlane() : null;
-      if (plane && insidePlane(point, plane)) setShowGlSheet(true);
+      // nothing drawn under the tap: whichever datum covers this spot owns it
+      if (showGL) {
+        for (let i = datums.length - 1; i >= 0; i -= 1) {
+          if (datums[i].continuous) continue;
+          const plane = planeAt(i);
+          if (plane && insidePlane(point, plane)) {
+            setDatumIndex(i);
+            setShowGlSheet(true);
+            return;
+          }
+        }
+      }
       return;
     }
     if (!("ontouchstart" in window || navigator.maxTouchPoints > 0)) return;
@@ -512,16 +521,13 @@ export default function Workspace() {
     setShowCutList,                                                        // v2.07 材料表
     showGL,
     setShowGL,
-    glContinuous,
-    setGlContinuous,
-    glSizeMm,
-    setGlSizeMm,
-    glOffsetMm,
-    setGlOffsetMm,
+    datums,
     glEditPlane,
     setGlEditPlane,
     setShowGlSheet,
-    resetGlPlane: () => { setGlCenter(null); setGlSizeMm(0); setGlOffsetMm(0); },
+    resetDatum: () => setDatums(                                            // refit the primary
+      (list) => list.map((d, i) => (i === 0 ? { ...d, fitted: false, sizeMm: 0, sizeVMm: 0, center: null } : d)),
+    ),
   };
 
   return (
@@ -551,14 +557,10 @@ export default function Workspace() {
             offset={offset}
             mmPerPoint={mmPerPoint}
             showGL={showGL}
-            glContinuous={glContinuous}
-            glSizeMm={glSizeMm}
-            glOffsetMm={glOffsetMm}
-            glCenter={glCenter}
+            datums={datums}
+            activeDatum={showGlSheet ? datumIndex : -1}
             glEditPlane={glEditPlane || moveMode}
             jointTypes={jointTypes}
-            glSizeVMm={glSizeVMm}
-            glName={glName}
           />
           {!hideCrosshair && (
             <SnapOverlay
@@ -590,32 +592,36 @@ export default function Workspace() {
         )}
         {showGlSheet && (
           <GlSheet
-            value={{
-              name: glName, offsetMm: glOffsetMm, sizeMm: glSizeMm,
-              sizeVMm: glSizeVMm, continuous: glContinuous,
-            }}
+            datums={datums}
+            index={datumIndex}
             lang={localStorage.getItem("haikan-lang") === "jp" ? "jp" : "en"}
+            onSelect={setDatumIndex}
             onClose={() => setShowGlSheet(false)}
-            onReset={() => { setGlSizeMm(0); setGlSizeVMm(0); setGlCenter(null); }}
-            onChange={(patch) => {
-              // live: each control lands immediately, nothing waits on Apply
-              if (patch.name !== undefined) setGlName(patch.name);
-              if (patch.offsetMm !== undefined) setGlOffsetMm(patch.offsetMm);
-              if (patch.sizeMm !== undefined) setGlSizeMm(patch.sizeMm);
-              if (patch.sizeVMm !== undefined) setGlSizeVMm(patch.sizeVMm);
-              if (patch.continuous !== undefined) setGlContinuous(patch.continuous);
+            onChange={(patch) => patchDatum(datumIndex, patch)}
+            onRefit={() => patchDatum(datumIndex, { fitted: false, sizeMm: 0, sizeVMm: 0, center: null })}
+            onAdd={() => {
+              const next = makeDatum("FL", (datums[datums.length - 1]?.offsetMm ?? 0) + 1000);
+              setDatums([...datums, next]);
+              setDatumIndex(datums.length);
+            }}
+            onRemove={() => {
+              if (datums.length < 2) return;
+              setDatums(datums.filter((_, i) => i !== datumIndex));
+              setDatumIndex(0);
             }}
           />
         )}
         {jointTarget && (
           <JointSheet
             nominalA={lines[jointTarget.legs[0].index]?.spec?.a ?? 100}
-            current={jointTypeOf(jointTarget, lines, jointTypes)}
+            setting={jointSettingOf(jointTarget, lines, jointTypes)}
             lang={localStorage.getItem("haikan-lang") === "jp" ? "jp" : "en"}
             onClose={() => setJointTarget(null)}
-            onPick={(type) => {
-              setJointTypes({ ...jointTypes, [jointTarget.key]: type });
-              setJointTarget(null);
+            onChange={(next) => setJointTypes({ ...jointTypes, [jointTarget.key]: next })}
+            onReset={() => {
+              const rest = { ...jointTypes };
+              delete rest[jointTarget.key];
+              setJointTypes(rest);
             }}
           />
         )}
@@ -632,7 +638,7 @@ export default function Workspace() {
           <Workshop
             lines={lines}
             mmPerPoint={mmPerPoint}
-            glOffsetMm={glOffsetMm}
+            glOffsetMm={primary?.offsetMm ?? 0}
             jointTypes={jointTypes}
             onEditSegment={setEditTarget}
             onClose={() => setShowWorkshop(false)}

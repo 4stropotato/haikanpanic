@@ -27,9 +27,8 @@ function labelFor(line, mmPerPoint) {
 
 const DrawLayer = ({
   lines, preview, isDark, zoom, offset, mmPerPoint = 10,
-  showGL = true, glContinuous = false, glSizeMm = 0,
-  glOffsetMm = 0, glCenter = null, glEditPlane = false, jointTypes = {},
-  glSizeVMm = 0, glName = "GL",
+  showGL = true, glEditPlane = false,
+  jointTypes = {}, datums = [], activeDatum = -1,
 }) => { // [v1.09] Accept zoom and offset for scaling
   const canvasRef = useRef(null);                                 // [v1.02] Canvas DOM reference
   const { w: vpW, h: vpH } = useViewport();                       // v1.18+ re-render on resize
@@ -82,75 +81,78 @@ const DrawLayer = ({
       ctx.fillText(text, mx + nx * off, my + ny * off);
     };
 
-    // v2.09 GL/FL datum plane: a clean isometric rhombus (no hatch — the
-    // workspace grid already carries the texture), with drop leaders that
-    // follow the DRAWN geometry so they always land on the plane.
-    if (showGL && lines.length) {
-      const plane = glPlaneGeometry(lines, mmPerPoint, {
-        sizeMm: glSizeMm, sizeVMm: glSizeVMm, offsetMm: glOffsetMm, center: glCenter,
-      });
-      if (plane) {
+    // v2.19 Datum planes. A job has several levels, so every datum in the
+    // list is drawn; the first one is primary and carries the EL leaders.
+    if (showGL && lines.length && datums.length) {
+      datums.forEach((datum, datumIdx) => {
+        const plane = glPlaneGeometry(lines, mmPerPoint, datum);
+        if (!plane) return;
         const { corners, edges, nodes } = plane;
+        const active = datumIdx === activeDatum;
+        const tint = datumIdx === 0 ? "245,186,102" : "124,196,255";
+
         ctx.save();
-        if (glContinuous) {
+        if (datum.continuous) {
           const left = ((-width / 2) - offset.x) / zoom;
           const top = ((-height / 2) - offset.y) / zoom;
-          ctx.fillStyle = "rgba(245,186,102,0.05)";
+          ctx.fillStyle = `rgba(${tint},0.05)`;
           ctx.fillRect(left, top, (width * 2) / zoom, (height * 2) / zoom);
         } else {
           ctx.beginPath();
           ctx.moveTo(corners[0].x, corners[0].y);
           for (const corner of corners.slice(1)) ctx.lineTo(corner.x, corner.y);
           ctx.closePath();
-          ctx.fillStyle = "rgba(245,186,102,0.055)";
+          ctx.fillStyle = `rgba(${tint},${active ? 0.09 : 0.055})`;
           ctx.fill();
-          ctx.strokeStyle = glEditPlane
-            ? "rgba(245,186,102,0.85)"
-            : "rgba(245,186,102,0.38)";
-          ctx.lineWidth = (glEditPlane ? 1.8 : 1.2) / zoom;
+          ctx.strokeStyle = `rgba(${tint},${active || glEditPlane ? 0.85 : 0.38})`;
+          ctx.lineWidth = (active || glEditPlane ? 1.8 : 1.2) / zoom;
           ctx.stroke();
         }
         ctx.restore();
 
-        // drop leaders + elevation callouts
+        // label: name and its own elevation
         ctx.save();
-        ctx.strokeStyle = "rgba(245,186,102,0.45)";
-        ctx.setLineDash([6 / zoom, 5 / zoom]);
-        ctx.lineWidth = 1 / zoom;
         ctx.font = `bold ${12 / zoom}px system-ui, sans-serif`;
-        ctx.fillStyle = "#f5ba66";
-        ctx.textAlign = "right";
-        ctx.textBaseline = "middle";
-        for (const node of nodes) {
-          if (Math.abs(node.ground.y - node.point.y) < 2) continue;
-          ctx.beginPath();
-          ctx.moveTo(node.point.x, node.point.y);
-          ctx.lineTo(node.ground.x, node.ground.y);
-          ctx.stroke();
-          // sit the callout just under the node, clear of the run's own
-          // length label which lives at the segment midpoint
-          ctx.fillText(
-            `EL +${node.elevation}`,
-            node.point.x - (14 / zoom),
-            node.point.y + (16 / zoom),
-          );
-        }
-        ctx.setLineDash([]);
+        ctx.fillStyle = `rgb(${tint})`;
         ctx.textAlign = "left";
         ctx.textBaseline = "top";
-        ctx.fillText(`${glName} ±0`, corners[2].x + (10 / zoom), corners[2].y + (6 / zoom));
+        const elText = datum.offsetMm ? ` +${datum.offsetMm}` : " ±0";
+        ctx.fillText(`${datum.name}${elText}`, corners[2].x + (10 / zoom), corners[2].y + (6 / zoom));
         ctx.restore();
 
-        // drag handles while the plane is being edited
-        if (glEditPlane && !glContinuous) {
+        if (datumIdx === 0) {
+          ctx.save();
+          ctx.strokeStyle = "rgba(245,186,102,0.45)";
+          ctx.setLineDash([6 / zoom, 5 / zoom]);
+          ctx.lineWidth = 1 / zoom;
+          ctx.font = `bold ${12 / zoom}px system-ui, sans-serif`;
+          ctx.fillStyle = "#f5ba66";
+          ctx.textAlign = "right";
+          ctx.textBaseline = "middle";
+          for (const node of nodes) {
+            if (Math.abs(node.ground.y - node.point.y) < 2) continue;
+            ctx.beginPath();
+            ctx.moveTo(node.point.x, node.point.y);
+            ctx.lineTo(node.ground.x, node.ground.y);
+            ctx.stroke();
+            ctx.fillText(
+              `EL +${node.elevation}`,
+              node.point.x - (14 / zoom),
+              node.point.y + (16 / zoom),
+            );
+          }
+          ctx.restore();
+        }
+
+        // handles only on the plane being edited
+        if (active && glEditPlane && !datum.continuous) {
           ctx.save();
           ctx.strokeStyle = "rgba(10,14,20,0.9)";
           ctx.lineWidth = 2 / zoom;
-          // round handles resize both axes, square ones resize a single side
           for (const corner of corners) {
             ctx.beginPath();
             ctx.arc(corner.x, corner.y, 9 / zoom, 0, Math.PI * 2);
-            ctx.fillStyle = "rgba(245,186,102,0.92)";
+            ctx.fillStyle = `rgba(${tint},0.92)`;
             ctx.fill();
             ctx.stroke();
           }
@@ -158,13 +160,13 @@ const DrawLayer = ({
           for (const edge of edges) {
             ctx.beginPath();
             ctx.rect(edge.point.x - half, edge.point.y - half, half * 2, half * 2);
-            ctx.fillStyle = "rgba(245,186,102,0.72)";
+            ctx.fillStyle = `rgba(${tint},0.72)`;
             ctx.fill();
             ctx.stroke();
           }
           ctx.restore();
         }
-      }
+      });
     }
 
     for (const line of lines) {
@@ -209,7 +211,8 @@ const DrawLayer = ({
     }
 
     ctx.restore();                                                // [v1.10] End transform block
-  }, [lines, preview, isDark, zoom, offset, mmPerPoint, showGL, glContinuous, glSizeMm, glOffsetMm, glCenter, glEditPlane, jointTypes, glSizeVMm, glName, vpW, vpH]);         // [v1.10] Redraw on zoom or pan
+  }, [lines, preview, isDark, zoom, offset, mmPerPoint, showGL, glEditPlane,
+      jointTypes, datums, activeDatum, vpW, vpH]);   // [v1.10] Redraw on zoom or pan
 
   return (
     <canvas

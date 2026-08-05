@@ -30,13 +30,8 @@ const translations = {
     workshop: "Workshop",
     cutList: "Cut list",
     glRef: "GL plane",
-    glArea: "Area",
-    glCont: "Continuous",
-    glSize: "Plane size",
-    glAuto: "auto",
-    glHeight: "Datum height",
+    glEdit: "Datums (GL / FL)",
     glDrag: "Drag handles",
-    glReset: "Reset plane",
     more: "More",
     scale: "Scale: 1 pt =",
     clear: "Clear all",
@@ -61,13 +56,8 @@ const translations = {
     workshop: "作業場",
     cutList: "材料表",
     glRef: "GL 面",
-    glArea: "範囲",
-    glCont: "連続",
-    glSize: "面のサイズ",
-    glAuto: "自動",
-    glHeight: "基準面の高さ",
+    glEdit: "基準面 (GL / FL)",
     glDrag: "ハンドルで調整",
-    glReset: "面をリセット",
     more: "その他",
     scale: "縮尺: 1 pt =",
     clear: "全消去",
@@ -113,15 +103,8 @@ export default function TopBar() {
     setShowCutList,
     showGL,
     setShowGL,
-    glContinuous,
-    setGlContinuous,
-    glSizeMm,
-    setGlSizeMm,
-    glOffsetMm,
-    setGlOffsetMm,
     glEditPlane,
     setGlEditPlane,
-    resetGlPlane,
     setShowGlSheet
   } = useContext(WorkspaceContext);
 
@@ -240,57 +223,12 @@ export default function TopBar() {
             <button className="sheet-btn" onClick={() => setShowGL(!showGL)}>
               <GridIcon /> <span>{t.glRef}</span> {showGL && <CheckIcon />}
             </button>
-            {showGL && (
-              <>
-                <div className="sheet-row">
-                  <div className="seg-group">
-                    <button
-                      className={"seg-btn" + (glContinuous ? "" : " on")}
-                      onClick={() => setGlContinuous(false)}
-                    >
-                      {t.glArea}
-                    </button>
-                    <button
-                      className={"seg-btn" + (glContinuous ? " on" : "")}
-                      onClick={() => setGlContinuous(true)}
-                    >
-                      {t.glCont}
-                    </button>
-                  </div>
-                </div>
-                {!glContinuous && (
-                  <>
-                    <div className="sheet-row">
-                      <span>{t.glSize}</span>
-                      <input
-                        type="number"
-                        min="0"
-                        step="500"
-                        placeholder={t.glAuto}
-                        value={glSizeMm || ""}
-                        onChange={(e) => setGlSizeMm(Math.max(0, Number(e.target.value) || 0))}
-                      />
-                      <span>mm</span>
-                    </div>
-                    <button
-                      className="sheet-btn"
-                      onClick={() => { setShowSheet(false); setShowGlSheet(true); }}
-                    >
-                      <PencilIcon /> <span>{t.glHeight}</span>
-                    </button>
-                    <button
-                      className="sheet-btn"
-                      onClick={() => { setGlEditPlane(!glEditPlane); setShowSheet(false); }}
-                    >
-                      <CrosshairIcon /> <span>{t.glDrag}</span> {glEditPlane && <CheckIcon />}
-                    </button>
-                    <button className="sheet-btn" onClick={resetGlPlane}>
-                      <RotateIcon /> <span>{t.glReset}</span>
-                    </button>
-                  </>
-                )}
-              </>
-            )}
+            <button
+              className="sheet-btn"
+              onClick={() => { setShowSheet(false); setShowGlSheet(true); }}
+            >
+              <PencilIcon /> <span>{t.glEdit}</span>
+            </button>
             <button className="sheet-btn" onClick={sendToStudio}>
               <SendToStudioIcon /> <span>{t.studio}</span>
             </button>

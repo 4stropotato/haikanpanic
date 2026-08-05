@@ -10,7 +10,7 @@ const TEXT = {
     empty: "Draw something first.",
     no: "#", size: "Size", spec: "Spec", center: "Centre", cut: "CUT", kg: "kg",
     totals: "Totals by size", fittings: "Fittings", weight: "Total weight",
-    elbow: "elbow", reducer: "reducer", flange: "flange", tee: "tee",
+    elbow: "elbow", reducer: "reducer", flange: "flange", tee: "tee", wye: "wye",
     note: "Cut = centre length − fitting take-out − root gaps",
     close: "Close", copy: "Copy",
   },
@@ -19,7 +19,7 @@ const TEXT = {
     empty: "先に描いてください。",
     no: "番", size: "呼び径", spec: "材質", center: "芯々", cut: "切断", kg: "kg",
     totals: "呼び径別 合計", fittings: "継手", weight: "総重量",
-    elbow: "エルボ", reducer: "レジューサ", flange: "フランジ", tee: "チーズ",
+    elbow: "エルボ", reducer: "レジューサ", flange: "フランジ", tee: "チーズ", wye: "ワイ",
     note: "切断長 = 芯々 − 継手の取り代 − ルートギャップ",
     close: "閉じる", copy: "コピー",
   },
@@ -46,14 +46,18 @@ export default function CutList({ lines, mmPerPoint, jointTypes = {}, lang, onCl
   const fittings = [];
   const elbowsBySize = new Map();
   for (const elbow of model.elbows) {
-    const key = `${elbow.od}|${elbow.kind === "elbowSR" ? "SR" : "LR"}`;
+    const kind = { elbowSR: "SR", elbowCut: "cut" }[elbow.kind] ?? "LR";
+    const key = `${elbow.od}|${kind}`;
     elbowsBySize.set(key, (elbowsBySize.get(key) ?? 0) + 1);
   }
   for (const [key, count] of elbowsBySize) {
     const [odKey, kind] = key.split("|");
     fittings.push(`${count} × ${t.elbow} ${kind} ${elbow90Label(Number(odKey))}`);
   }
-  for (const [size, count] of countBy(model.tees, (tee) => tee.nominalA)) {
+  for (const [size, count] of countBy(model.tees.filter((x) => x.kind === "wye"), (x) => x.nominalA)) {
+    fittings.push(`${count} × ${t.wye} ${size}A`);
+  }
+  for (const [size, count] of countBy(model.tees.filter((x) => x.kind !== "wye"), (x) => x.nominalA)) {
     fittings.push(`${count} × ${t.tee} ${size}A`);
   }
   if (model.reducers.length) fittings.push(`${model.reducers.length} × ${t.reducer}`);

@@ -147,3 +147,13 @@ const TEE_CENTRE_TO_END = {
 export function teeCentreToEnd(nominalA) {
   return TEE_CENTRE_TO_END[nominalA] ?? (nominalA ? nominalA * 1.05 : 105);
 }
+
+// v2.20 45 degree lateral (wye) run centre to branch end, ASME B16.9.
+const WYE_CENTRE_TO_END = {
+  25: 108, 32: 127, 40: 140, 50: 178, 65: 216, 80: 254, 100: 305,
+  125: 368, 150: 419, 200: 533, 250: 635, 300: 749, 350: 800, 400: 900,
+};
+
+export function wyeCentreToEnd(nominalA) {
+  return WYE_CENTRE_TO_END[nominalA] ?? teeCentreToEnd(nominalA) * 2.5;
+}

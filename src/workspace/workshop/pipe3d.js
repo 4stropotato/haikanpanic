@@ -9,7 +9,7 @@ import { segmentLengthMm } from "../utils/lengths";
 import {
   pipeSpec, nominalInch, flangeSpec, wallThickness, massPerMetre, material, teeCentreToEnd,
 } from "../data/jis";
-import { key2D as jointKey, sketchJoints, jointTypeOf } from "../utils/joints";
+import { sketchJoints, jointSettingOf } from "../utils/joints";
 import { pointStep } from "../utils/constants";
 
 const EPS = 1e-6;
@@ -177,7 +177,7 @@ export function buildPipeModel(lines, mmPerPoint, options = {}) {
   // the fitter's choice per corner, keyed by the sketch point
   const chosenTypes = new Map();
   for (const joint of sketchJoints(lines)) {
-    chosenTypes.set(joint.key, jointTypeOf(joint, lines, options.jointTypes));
+    chosenTypes.set(joint.key, jointSettingOf(joint, lines, options.jointTypes));
   }
 
   for (const { p, refs } of ends.values()) {
@@ -201,7 +201,10 @@ export function buildPipeModel(lines, mmPerPoint, options = {}) {
     const bigA = Math.max(segA.nominalA ?? 0, segB.nominalA ?? 0);
     const sizesDiffer = segA.od !== segB.od;
     const sketchKey = refA.which === 1 ? segA.key1 : segA.key2;
-    const jointType = chosenTypes.get(sketchKey) ?? "elbowLR";
+    const setting = chosenTypes.get(sketchKey) ?? { type: "elbowLR" };
+    const jointType = setting.type;
+    const override = Number.isFinite(setting.takeoutMm) && setting.takeoutMm > 0
+      ? setting.takeoutMm : null;
 
     if (refA.which === 1) segA.weld1 = true; else segA.weld2 = true;
     if (refB.which === 1) segB.weld1 = true; else segB.weld2 = true;
@@ -222,12 +225,15 @@ export function buildPipeModel(lines, mmPerPoint, options = {}) {
     }
 
     // --- チーズ used as a corner: two ports on the legs, one spare ---
-    if (jointType === "tee") {
-      const c2e = teeCentreToEnd(bigA || 100);
+    if (jointType === "tee" || jointType === "wye") {
+      const c2e = override ?? (jointType === "wye"
+        ? wyeCentreToEnd(bigA || 100)
+        : teeCentreToEnd(bigA || 100));
       const od = Math.max(segA.od, segB.od);
       tees.push({
         p,
         od,
+        kind: jointType,
         nominalA: bigA || null,
         arms: [mul(u, c2e), mul(v, c2e), mul(u, -c2e)],
       });
@@ -241,10 +247,14 @@ export function buildPipeModel(lines, mmPerPoint, options = {}) {
 
     // --- elbow ---
     const alpha = between / 2;                    // half-angle between legs
-    const radius = elbowRadius(bigA || 100, jointType);
-    const tangent = radius / Math.tan(alpha);     // center-to-face distance
+    // A cut-down elbow keeps the bend but not the standard take-out, so the
+    // override wins over the table when the fitter has measured one.
+    const radius = elbowRadius(bigA || 100, jointType === "elbowSR" ? "elbowSR" : "elbowLR");
+    const standard = radius / Math.tan(alpha);    // center-to-face distance
+    const tangent = override ?? (jointType === "elbowCut" ? standard / 2 : standard);
     const bisector = norm(add(u, v));
-    const center = add(p, mul(bisector, radius / Math.sin(alpha)));
+    const arcRadius = tangent * Math.tan(alpha);  // follow the actual take-out
+    const center = add(p, mul(bisector, arcRadius / Math.sin(alpha)));
     const start = add(p, mul(u, tangent));
     const end = add(p, mul(v, tangent));
 
@@ -261,7 +271,7 @@ export function buildPipeModel(lines, mmPerPoint, options = {}) {
     // elbow takes the larger size; a reducer follows on the smaller leg
     const elbowOd = Math.max(segA.od, segB.od);
     elbows.push({
-      path, od: elbowOd, kind: jointType, nominalA: bigA || null,
+      path, od: elbowOd, kind: jointType, nominalA: bigA || null, takeout: tangent,
       deflectionDeg: Math.round((Math.PI - between) * (180 / Math.PI)),
     });
 
@@ -376,6 +386,7 @@ function buildTee(segments, refs, p, tees) {
   tees.push({
     p,
     od: Math.max(...legs.map((leg) => leg.seg.od)),
+    kind: "tee",
     nominalA: bigA || null,
     arms: legs.map((leg) => mul(leg.u, c2e)),
   });

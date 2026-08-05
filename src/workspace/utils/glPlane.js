@@ -26,10 +26,12 @@ export function isoCoords(point, cx, cy) {
   };
 }
 
-export function glPlaneGeometry(lines, mmPerPoint, options = {}) {
+// v2.19 A site has more than one datum — GL outside, FL on each floor, TOS
+// on a platform — so planes are a list. `plane` is one entry of that list.
+export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
   const {
     sizeMm = 0, sizeVMm = 0, offsetMm = 0, center = null,
-  } = options;
+  } = plane;
   if (!lines.length) return null;
 
   const pxPerMm = pointStep / mmPerPoint;

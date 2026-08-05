@@ -706,3 +706,28 @@ html, body, #root {
 /* v2.17 seven-slot dock */
 .dock { gap: 3px; padding: 6px 5px; }
 .dock-btn { min-width: 48px; padding: 8px 4px; font-size: 0.58rem; gap: 2px; }
+
+/* v2.19 datum tabs */
+.datum-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 6px 6px 10px;
+}
+.datum-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 64px;
+  padding: 7px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border-2);
+  background: var(--bg);
+  color: var(--muted, #8fa0b5);
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.datum-tab.on { border-color: var(--accent-2); color: var(--accent-2); }
+.datum-tab.add { justify-content: center; align-items: center; min-width: 46px; font-size: 1rem; }
+.datum-el { font-size: 0.66rem; font-weight: 600; opacity: 0.8; }

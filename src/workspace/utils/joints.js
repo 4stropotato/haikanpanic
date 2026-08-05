@@ -1,19 +1,35 @@
-// v2.10 Sketch joints — the corners where drawn lines meet. Each one is a
-// real fitting decision: long elbow, short elbow, チーズ (tee), or a plain
-// mitered weld. Identified by the shared 2D point so the choice survives
-// edits to either leg.
+// v2.20 Sketch joints — the corners where drawn lines meet. Each one is a
+// real fitting decision. A joint's setting is an object so an elbow can also
+// carry a take-out override, which is how a cut-down elbow or a tight-gemba
+// special gets drawn without inventing a new fitting type.
 const EPS = 1e-6;
 
 export const key2D = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
 
-export const JOINT_TYPES = ["elbowLR", "elbowSR", "tee", "weld"];
+export const JOINT_TYPES = ["elbowLR", "elbowSR", "elbowCut", "tee", "wye", "weld"];
 
 export const JOINT_LABEL = {
-  en: { elbowLR: "Elbow LR", elbowSR: "Elbow SR", tee: "Tee", weld: "Miter weld" },
-  jp: { elbowLR: "ロングエルボ", elbowSR: "ショートエルボ", tee: "チーズ", weld: "溶接（エビ）" },
+  en: {
+    elbowLR: "Elbow LR",
+    elbowSR: "Elbow SR",
+    elbowCut: "Cut elbow",
+    tee: "Tee",
+    wye: "Wye 45°",
+    weld: "Miter weld",
+  },
+  jp: {
+    elbowLR: "ロングエルボ",
+    elbowSR: "ショートエルボ",
+    elbowCut: "切詰エルボ",
+    tee: "チーズ",
+    wye: "ワイ 45°",
+    weld: "エビ・溶接",
+  },
 };
 
-export const JOINT_MARK = { elbowLR: "L", elbowSR: "S", tee: "T", weld: "W" };
+export const JOINT_MARK = {
+  elbowLR: "L", elbowSR: "S", elbowCut: "C", tee: "T", wye: "Y", weld: "W",
+};
 
 // Every point shared by two or more line ends, with its legs.
 export function sketchJoints(lines) {
@@ -46,8 +62,10 @@ export function findJointAt(point, lines, maxDist) {
 // Default when the fitter has not chosen: a straight pass-through is just a
 // weld, a bend is a long-radius elbow, three legs is a tee.
 export function defaultJointType(joint, lines) {
+  if (!joint?.legs || joint.legs.length < 2) return "elbowLR";
   if (joint.legs.length >= 3) return "tee";
   const [a, b] = joint.legs;
+  if (!lines[a?.index] || !lines[b?.index]) return "elbowLR";
   const dir = (leg) => {
     const line = lines[leg.index];
     const from = leg.which === 1 ? line.start : line.end;
@@ -63,10 +81,16 @@ export function defaultJointType(joint, lines) {
   return dot < -1 + 0.02 ? "weld" : "elbowLR";
 }
 
+// Settings were plain strings before take-out overrides existed.
+export function jointSettingOf(joint, lines, jointTypes) {
+  const stored = jointTypes?.[joint.key];
+  if (typeof stored === "string" && JOINT_TYPES.includes(stored)) return { type: stored };
+  if (stored && typeof stored === "object" && JOINT_TYPES.includes(stored.type)) return stored;
+  return { type: defaultJointType(joint, lines) };
+}
+
 export function jointTypeOf(joint, lines, jointTypes) {
-  const chosen = jointTypes?.[joint.key];
-  if (chosen && JOINT_TYPES.includes(chosen)) return chosen;
-  return defaultJointType(joint, lines);
+  return jointSettingOf(joint, lines, jointTypes).type;
 }
 
 export { EPS };
