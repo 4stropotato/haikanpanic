@@ -23,8 +23,10 @@ import { WorkspaceContext } from "./WorkspaceContext";                      // [
 import { snapToAllowedAngle, snapToNearestGrid } from "./utils/geometry";   // [v1.10] math utilities
 import { findSegmentAt, setSegmentLength } from "./utils/editLength";       // v1.19+ tap-to-edit lengths
 import { segmentLengthMm } from "./utils/lengths";                          // v1.19+ current mm for prompt
-import { viewport } from "./utils/viewport";                                // v1.19+ tap coord conversion
+import { viewport, observeViewport } from "./utils/viewport";               // v1.19+ tap coord conversion
 import { glPlaneGeometry, sizeFromCorner } from "./utils/glPlane";          // v2.09 datum plane
+import { findJointAt, jointTypeOf } from "./utils/joints";                  // v2.10 corner fittings
+import JointSheet from "../ui/JointSheet";
 import { zoomMin, zoomMax } from "./utils/constants";                       // [v1.10] zoom range constants
 import "./Workspace.css";                                                   // [v1.10] workspace layout styles
 
@@ -73,6 +75,19 @@ export default function Workspace() {
   const [editMode, setEditMode] = useState(false);                          // v1.19+ tap segments to edit lengths
   const [editTarget, setEditTarget] = useState(null);                       // v2.02 segment being edited
   const [eraseMode, setEraseMode] = useState(false);                        // v2.08 tap a line to delete it
+  const [jointTypes, setJointTypes] = useState(() => {                      // v2.10 corner fittings
+    const demoJoint = new URLSearchParams(window.location.search).get("joint");
+    if (demoJoint) {                                                        // seed for screenshots
+      const s2 = 11.547;
+      return { [`${(0).toFixed(3)},${(-10 * s2).toFixed(3)}`]: demoJoint };
+    }
+    try {
+      return JSON.parse(localStorage.getItem("haikan-joints-v1")) ?? {};
+    } catch {
+      return {};
+    }
+  });
+  const [jointTarget, setJointTarget] = useState(null);
   const [showCutList, setShowCutList] = useState(() => new URLSearchParams(window.location.search).has("cutlist")); // v2.07 材料表 sheet
   const [showGL, setShowGL] = useState(true);                               // v2.07 GL/EL in 2D
   const [glContinuous, setGlContinuous] = useState(                         // v2.08 plane mode
@@ -103,6 +118,10 @@ export default function Workspace() {
   useEffect(() => {
     document.body.setAttribute("data-theme", darkMode ? "dark" : "light");  // [v1.01] apply dark/light theme
   }, [darkMode]);
+
+  useEffect(() => {
+    observeViewport(workspaceRef.current);                                  // v2.11 size from the element
+  }, []);
 
   useEffect(() => {
     if (lastSnap) setLensPos(lastSnap);                                     // [v1.08] update magnifier position
@@ -249,6 +268,9 @@ export default function Workspace() {
         x: (e.clientX - (viewport.w / 2 + offset.x)) / zoom,
         y: (e.clientY - (viewport.h / 2 + offset.y)) / zoom,
       };
+      // a corner is a fitting decision; the run behind it is a pipe spec
+      const joint = findJointAt(point, lines, 22 / zoom);
+      if (joint) { setJointTarget(joint); return; }
       const index = findSegmentAt(point, lines, 24 / zoom);
       if (index >= 0) setEditTarget(index);                                 // v2.02 open spec sheet
       return;
@@ -361,6 +383,7 @@ export default function Workspace() {
             glOffsetMm={glOffsetMm}
             glCenter={glCenter}
             glEditPlane={glEditPlane}
+            jointTypes={jointTypes}
           />
           {!hideCrosshair && (
             <SnapOverlay
@@ -390,10 +413,23 @@ export default function Workspace() {
             }}
           />
         )}
+        {jointTarget && (
+          <JointSheet
+            nominalA={lines[jointTarget.legs[0].index]?.spec?.a ?? 100}
+            current={jointTypeOf(jointTarget, lines, jointTypes)}
+            lang={localStorage.getItem("haikan-lang") === "jp" ? "jp" : "en"}
+            onClose={() => setJointTarget(null)}
+            onPick={(type) => {
+              setJointTypes({ ...jointTypes, [jointTarget.key]: type });
+              setJointTarget(null);
+            }}
+          />
+        )}
         {showCutList && (
           <CutList
             lines={lines}
             mmPerPoint={mmPerPoint}
+            jointTypes={jointTypes}
             lang={localStorage.getItem("haikan-lang") === "jp" ? "jp" : "en"}
             onClose={() => setShowCutList(false)}
           />
@@ -403,6 +439,7 @@ export default function Workspace() {
             lines={lines}
             mmPerPoint={mmPerPoint}
             glOffsetMm={glOffsetMm}
+            jointTypes={jointTypes}
             onEditSegment={setEditTarget}
             onClose={() => setShowWorkshop(false)}
           />

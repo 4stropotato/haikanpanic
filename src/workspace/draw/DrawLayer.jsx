@@ -10,6 +10,7 @@ import { pointStep } from "../utils/constants";                 // v1.17+ dot-st
 import { useViewport } from "../utils/viewport";                // v1.18+ live workspace size
 import { segmentLengthMm } from "../utils/lengths";             // v2.05 pure length math
 import { glPlaneGeometry } from "../utils/glPlane";              // v2.09 GL/FL datum plane
+import { sketchJoints, jointTypeOf, JOINT_MARK } from "../utils/joints"; // v2.10 corner fittings
 
 export { segmentLengthMm } from "../utils/lengths";   // v2.05 moved to pure module
 
@@ -27,7 +28,7 @@ function labelFor(line, mmPerPoint) {
 const DrawLayer = ({
   lines, preview, isDark, zoom, offset, mmPerPoint = 10,
   showGL = true, glContinuous = false, glSizeMm = 0,
-  glOffsetMm = 0, glCenter = null, glEditPlane = false,
+  glOffsetMm = 0, glCenter = null, glEditPlane = false, jointTypes = {},
 }) => { // [v1.09] Accept zoom and offset for scaling
   const canvasRef = useRef(null);                                 // [v1.02] Canvas DOM reference
   const { w: vpW, h: vpH } = useViewport();                       // v1.18+ re-render on resize
@@ -166,6 +167,26 @@ const DrawLayer = ({
     ctx.lineWidth = 2 / zoom;
     for (const line of lines) drawLabel(line);                    // v1.17+ labels above lines
 
+    // v2.10 corner fittings: L / S / T / W so the choice is visible on the
+    // drawing, the way a fitter marks up an isometric by hand.
+    for (const joint of sketchJoints(lines)) {
+      const type = jointTypeOf(joint, lines, jointTypes);
+      const r = 9 / zoom;
+      ctx.beginPath();
+      ctx.arc(joint.point.x, joint.point.y, r, 0, Math.PI * 2);
+      ctx.fillStyle = isDark ? "rgba(10,14,20,0.92)" : "rgba(255,255,255,0.92)";
+      ctx.fill();
+      ctx.strokeStyle = "#7cc4ff";
+      ctx.lineWidth = 1.6 / zoom;
+      ctx.stroke();
+      ctx.fillStyle = "#7cc4ff";
+      ctx.font = `bold ${11 / zoom}px system-ui, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(JOINT_MARK[type], joint.point.x, joint.point.y);
+    }
+    ctx.lineWidth = 2 / zoom;
+
     if (preview) {
       ctx.strokeStyle = isDark ? "white" : "black";
       ctx.lineWidth = 2 / zoom;
@@ -179,7 +200,7 @@ const DrawLayer = ({
     }
 
     ctx.restore();                                                // [v1.10] End transform block
-  }, [lines, preview, isDark, zoom, offset, mmPerPoint, showGL, glContinuous, glSizeMm, glOffsetMm, glCenter, glEditPlane, vpW, vpH]);         // [v1.10] Redraw on zoom or pan
+  }, [lines, preview, isDark, zoom, offset, mmPerPoint, showGL, glContinuous, glSizeMm, glOffsetMm, glCenter, glEditPlane, jointTypes, vpW, vpH]);         // [v1.10] Redraw on zoom or pan
 
   return (
     <canvas

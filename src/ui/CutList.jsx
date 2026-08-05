@@ -10,7 +10,7 @@ const TEXT = {
     empty: "Draw something first.",
     no: "#", size: "Size", spec: "Spec", center: "Centre", cut: "CUT", kg: "kg",
     totals: "Totals by size", fittings: "Fittings", weight: "Total weight",
-    elbow: "elbow", reducer: "reducer", flange: "flange",
+    elbow: "elbow", reducer: "reducer", flange: "flange", tee: "tee",
     note: "Cut = centre length − fitting take-out − root gaps",
     close: "Close", copy: "Copy",
   },
@@ -19,15 +19,15 @@ const TEXT = {
     empty: "先に描いてください。",
     no: "番", size: "呼び径", spec: "材質", center: "芯々", cut: "切断", kg: "kg",
     totals: "呼び径別 合計", fittings: "継手", weight: "総重量",
-    elbow: "エルボ", reducer: "レジューサ", flange: "フランジ",
+    elbow: "エルボ", reducer: "レジューサ", flange: "フランジ", tee: "チーズ",
     note: "切断長 = 芯々 − 継手の取り代 − ルートギャップ",
     close: "閉じる", copy: "コピー",
   },
 };
 
-export default function CutList({ lines, mmPerPoint, lang, onClose }) {
+export default function CutList({ lines, mmPerPoint, jointTypes = {}, lang, onClose }) {
   const t = TEXT[lang === "jp" ? "jp" : "en"];
-  const model = buildPipeModel(lines, mmPerPoint);
+  const model = buildPipeModel(lines, mmPerPoint, { jointTypes });
   const runs = model.runs;
 
   const totals = new Map();
@@ -46,10 +46,15 @@ export default function CutList({ lines, mmPerPoint, lang, onClose }) {
   const fittings = [];
   const elbowsBySize = new Map();
   for (const elbow of model.elbows) {
-    elbowsBySize.set(elbow.od, (elbowsBySize.get(elbow.od) ?? 0) + 1);
+    const key = `${elbow.od}|${elbow.kind === "elbowSR" ? "SR" : "LR"}`;
+    elbowsBySize.set(key, (elbowsBySize.get(key) ?? 0) + 1);
   }
-  for (const [odKey, count] of elbowsBySize) {
-    fittings.push(`${count} × ${t.elbow} ${elbow90Label(odKey)}`);
+  for (const [key, count] of elbowsBySize) {
+    const [odKey, kind] = key.split("|");
+    fittings.push(`${count} × ${t.elbow} ${kind} ${elbow90Label(Number(odKey))}`);
+  }
+  for (const [size, count] of countBy(model.tees, (tee) => tee.nominalA)) {
+    fittings.push(`${count} × ${t.tee} ${size}A`);
   }
   if (model.reducers.length) fittings.push(`${model.reducers.length} × ${t.reducer}`);
   for (const [size, count] of countBy(model.flanges, (f) => f.nominalA)) {

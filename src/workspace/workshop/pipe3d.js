@@ -6,7 +6,10 @@
 // Everything is mm. The renderer only draws what this returns.
 import { isoDirectionTo3D } from "../utils/handoff";
 import { segmentLengthMm } from "../utils/lengths";
-import { pipeSpec, nominalInch, flangeSpec, wallThickness, massPerMetre, material } from "../data/jis";
+import {
+  pipeSpec, nominalInch, flangeSpec, wallThickness, massPerMetre, material, teeCentreToEnd,
+} from "../data/jis";
+import { key2D as jointKey, sketchJoints, jointTypeOf } from "../utils/joints";
 import { pointStep } from "../utils/constants";
 
 const EPS = 1e-6;
@@ -45,10 +48,12 @@ export function reducerLength(largerA) {
   return REDUCER_LENGTH[largerA] ?? Math.max(76, largerA * 0.8);
 }
 
-// JIS B2311 long-radius elbow bend radius: R = 1.5 x nominal diameter.
-export function elbowRadius(nominalA) {
+// JIS B2311 elbow bend radius. Long radius R = 1.5D is the default;
+// short radius R = 1.0D is the ショートエルボ.
+export function elbowRadius(nominalA, kind = "elbowLR") {
+  const factor = kind === "elbowSR" ? 1.0 : 1.5;
   const inch = nominalInch(nominalA);
-  return inch ? 1.5 * inch * 25.4 : 1.5 * nominalA;
+  return inch ? factor * inch * 25.4 : factor * nominalA;
 }
 
 const key2D = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
@@ -80,6 +85,7 @@ function placeNodes(lines, mmPerPoint, defaultOd) {
     const conn = line.spec?.conn ?? "BW";
     segments.push({
       p1, p2, dir, od, nominalA, lengthMm, conn, materialId, schedule,
+      key1: key2D(line.start), key2: key2D(line.end),
       // 裏波 root gap only applies to butt-welded joints
       gap: conn === "BW" ? (line.spec?.gap ?? material(materialId).gap) : 0,
       wall: nominalA ? wallThickness(nominalA, schedule) : null,
@@ -111,7 +117,7 @@ export function nodeElevations(lines, mmPerPoint) {
 }
 
 export function buildPipeModel(lines, mmPerPoint, options = {}) {
-  if (!lines.length) return { runs: [], elbows: [], reducers: [], flanges: [], points: [], warnings: [] };
+  if (!lines.length) return { runs: [], elbows: [], reducers: [], tees: [], flanges: [], points: [], warnings: [] };
 
   // Unspecified lines get an OD proportional to the sketch so any sketch
   // still reads as pipe; a real JIS spec always wins.
@@ -154,8 +160,19 @@ export function buildPipeModel(lines, mmPerPoint, options = {}) {
 
   const elbows = [];
   const reducers = [];
+  const tees = [];
+
+  // the fitter's choice per corner, keyed by the sketch point
+  const chosenTypes = new Map();
+  for (const joint of sketchJoints(lines)) {
+    chosenTypes.set(joint.key, jointTypeOf(joint, lines, options.jointTypes));
+  }
 
   for (const { p, refs } of ends.values()) {
+    if (refs.length === 3) {
+      buildTee(segments, refs, p, tees);
+      continue;
+    }
     if (refs.length !== 2) continue;
     const [refA, refB] = refs;
     const segA = segments[refA.index];
@@ -171,6 +188,8 @@ export function buildPipeModel(lines, mmPerPoint, options = {}) {
 
     const bigA = Math.max(segA.nominalA ?? 0, segB.nominalA ?? 0);
     const sizesDiffer = segA.od !== segB.od;
+    const sketchKey = refA.which === 1 ? segA.key1 : segA.key2;
+    const jointType = chosenTypes.get(sketchKey) ?? "elbowLR";
 
     if (refA.which === 1) segA.weld1 = true; else segA.weld2 = true;
     if (refB.which === 1) segB.weld1 = true; else segB.weld2 = true;
@@ -190,9 +209,27 @@ export function buildPipeModel(lines, mmPerPoint, options = {}) {
       continue;
     }
 
+    // --- チーズ used as a corner: two ports on the legs, one spare ---
+    if (jointType === "tee") {
+      const c2e = teeCentreToEnd(bigA || 100);
+      const od = Math.max(segA.od, segB.od);
+      tees.push({
+        p,
+        od,
+        nominalA: bigA || null,
+        arms: [mul(u, c2e), mul(v, c2e), mul(u, -c2e)],
+      });
+      if (refA.which === 1) segA.trim1 = c2e; else segA.trim2 = c2e;
+      if (refB.which === 1) segB.trim1 = c2e; else segB.trim2 = c2e;
+      continue;
+    }
+
+    // --- mitered weld: the pipes meet directly, no fitting ---
+    if (jointType === "weld") continue;
+
     // --- elbow ---
     const alpha = between / 2;                    // half-angle between legs
-    const radius = elbowRadius(bigA || 100);
+    const radius = elbowRadius(bigA || 100, jointType);
     const tangent = radius / Math.tan(alpha);     // center-to-face distance
     const bisector = norm(add(u, v));
     const center = add(p, mul(bisector, radius / Math.sin(alpha)));
@@ -211,7 +248,10 @@ export function buildPipeModel(lines, mmPerPoint, options = {}) {
     }
     // elbow takes the larger size; a reducer follows on the smaller leg
     const elbowOd = Math.max(segA.od, segB.od);
-    elbows.push({ path, od: elbowOd, deflectionDeg: Math.round((Math.PI - between) * (180 / Math.PI)) });
+    elbows.push({
+      path, od: elbowOd, kind: jointType, nominalA: bigA || null,
+      deflectionDeg: Math.round((Math.PI - between) * (180 / Math.PI)),
+    });
 
     let trimA = tangent;
     let trimB = tangent;
@@ -305,5 +345,26 @@ export function buildPipeModel(lines, mmPerPoint, options = {}) {
     }
   }
 
-  return { runs, elbows, reducers, flanges, points, warnings };
+  return { runs, elbows, reducers, tees, flanges, points, warnings };
+}
+
+// v2.10 Three legs meeting is a tee: the two collinear legs are the run,
+// the odd one out is the branch. Every leg is trimmed by the centre-to-end.
+function buildTee(segments, refs, p, tees) {
+  const legs = refs.map((ref) => {
+    const seg = segments[ref.index];
+    const outward = ref.which === 1 ? seg.dir : mul(seg.dir, -1);
+    return { ref, seg, u: norm(outward) };
+  });
+  const bigA = Math.max(...legs.map((leg) => leg.seg.nominalA ?? 0));
+  const c2e = teeCentreToEnd(bigA || 100);
+  for (const leg of legs) {
+    if (leg.ref.which === 1) leg.seg.trim1 = c2e; else leg.seg.trim2 = c2e;
+  }
+  tees.push({
+    p,
+    od: Math.max(...legs.map((leg) => leg.seg.od)),
+    nominalA: bigA || null,
+    arms: legs.map((leg) => mul(leg.u, c2e)),
+  });
 }

@@ -136,3 +136,14 @@ export function flangeSpec(nominalA) {
   const [od, t, boltCircle, boltCount, boltDia] = row;
   return { od, t, boltCircle, boltCount, boltDia };
 }
+
+// v2.10 ASME B16.9 / JIS B2311 straight tee, centre to end (mm).
+const TEE_CENTRE_TO_END = {
+  15: 25, 20: 29, 25: 38, 32: 48, 40: 57, 50: 64, 65: 76, 80: 86, 90: 95,
+  100: 105, 125: 124, 150: 143, 200: 178, 250: 216, 300: 254, 350: 279,
+  400: 305, 450: 343, 500: 381,
+};
+
+export function teeCentreToEnd(nominalA) {
+  return TEE_CENTRE_TO_END[nominalA] ?? (nominalA ? nominalA * 1.05 : 105);
+}

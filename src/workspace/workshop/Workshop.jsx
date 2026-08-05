@@ -42,7 +42,9 @@ function makeLabel(text, tone = "size") {
   return sprite;
 }
 
-export default function Workshop({ lines, mmPerPoint, glOffsetMm = 0, onEditSegment, onClose }) {
+export default function Workshop({
+  lines, mmPerPoint, glOffsetMm = 0, jointTypes = {}, onEditSegment, onClose,
+}) {
   const hostRef = useRef(null);
   const apiRef = useRef(null);
   const [warnings, setWarnings] = useState([]);
@@ -52,8 +54,16 @@ export default function Workshop({ lines, mmPerPoint, glOffsetMm = 0, onEditSegm
     const host = hostRef.current;
     if (!host) return undefined;
 
-    const model = buildPipeModel(lines, mmPerPoint, { glOffsetMm });
-    setWarnings(model.warnings);
+    // A geometry fault must never blank the view: report it and carry on
+    // with whatever could be built.
+    let model;
+    try {
+      model = buildPipeModel(lines, mmPerPoint, { glOffsetMm, jointTypes });
+      setWarnings(model.warnings);
+    } catch (error) {
+      setWarnings([`geometry: ${String(error?.message ?? error).slice(0, 120)}`]);
+      model = { runs: [], elbows: [], reducers: [], tees: [], flanges: [], points: [], warnings: [] };
+    }
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -136,6 +146,17 @@ export default function Workshop({ lines, mmPerPoint, glOffsetMm = 0, onEditSegm
 
     for (const reducer of model.reducers) {
       addTube(reducer.p1, reducer.p2, reducer.od2, reducer.od1, fittingMat);
+    }
+
+    // チーズ: one arm per port, all meeting at the joint centre
+    for (const tee of model.tees ?? []) {
+      for (const arm of tee.arms) {
+        addTube(
+          tee.p,
+          { x: tee.p.x + arm.x, y: tee.p.y + arm.y, z: tee.p.z + arm.z },
+          tee.od, tee.od, fittingMat,
+        );
+      }
     }
 
     // JIS 10K flanges: face disc plus bolts around the bolt circle
@@ -414,7 +435,7 @@ export default function Workshop({ lines, mmPerPoint, glOffsetMm = 0, onEditSegm
       renderer.dispose();
       if (renderer.domElement.parentNode === host) host.removeChild(renderer.domElement);
     };
-  }, [lines, mmPerPoint, glOffsetMm, onEditSegment]);
+  }, [lines, mmPerPoint, glOffsetMm, jointTypes, onEditSegment]);
 
   return (
     <div className="workshop">

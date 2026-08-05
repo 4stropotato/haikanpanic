@@ -606,3 +606,37 @@ canvas:nth-of-type(2) {
   border: 1.5px solid rgba(248, 113, 113, 0.55);
   background: rgba(248, 113, 113, 0.1);
 }
+
+/* v2.10 corner fitting picker */
+.joint-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 0 8px;
+  border: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-2) 55%, transparent);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+.joint-option.on { color: var(--accent); }
+.joint-mark {
+  width: 34px; height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  border: 1.5px solid currentColor;
+  font-weight: 800;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+.joint-name { flex: 1; font-size: 0.92rem; font-weight: 600; }
+.joint-take { font-size: 0.74rem; color: var(--muted, #8fa0b5); }
+
+/* v2.11 the app owns the visible height; the workspace fills what is left.
+   Dynamic viewport units keep this correct while iOS chrome shows/hides. */
+.app { height: 100vh; height: 100dvh; }
+.workspace { height: auto; min-height: 0; }
