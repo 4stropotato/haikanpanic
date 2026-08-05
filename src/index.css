@@ -409,3 +409,17 @@ canvas:nth-of-type(2) {
 
 @keyframes fade-in { from { opacity: 0; } }
 @keyframes slide-up { from { transform: translateY(100%); } }
+
+
+/* v2.01 canvas stage: deep space + soft vignette + corner glow */
+[data-theme='dark'] { --workspace: #0a0e14; }
+.workspace::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  background:
+    radial-gradient(120% 90% at 50% 40%, transparent 55%, rgba(0, 0, 0, 0.34) 100%),
+    radial-gradient(600px 300px at 85% -5%, rgba(124, 196, 255, 0.07), transparent 70%);
+}

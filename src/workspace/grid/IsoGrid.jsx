@@ -39,8 +39,9 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 } }) => {  // [v1.09] A
       ctx.beginPath();
       ctx.moveTo(x1, y1);
       ctx.lineTo(x2, y2);
-      ctx.strokeStyle = bold ? "#4cc1f7" : "#3aa0d8";              // [v1.0] Use brighter color for bold lines
-      ctx.lineWidth = bold ? 1.2 : 0.4;                            // [v1.0] Bold lines are thicker
+      // v2.01 premium grid: quiet field, bold lines only gently brighter
+      ctx.strokeStyle = bold ? "rgba(124,196,255,0.34)" : "rgba(124,196,255,0.13)";
+      ctx.lineWidth = bold ? 1.1 : 0.5;
       ctx.stroke();
     };
 
