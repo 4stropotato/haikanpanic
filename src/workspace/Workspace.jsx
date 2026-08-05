@@ -17,6 +17,7 @@ import SnapOverlay from "./snap/SnapOverlay";                               // [
 import Magnify from "./magnify/Magnify";                                    // [v1.07] real-time magnifier lens
 import TopBar from "../ui/TopBar";                                          // [v1.10] top control bar
 import EditSheet from "../ui/EditSheet";                                    // v2.02 spec editor sheet
+import CutList from "../ui/CutList";                                        // v2.07 材料表
 import Workshop from "./workshop/Workshop";                                 // v2.02 3D pipes view
 import { WorkspaceContext } from "./WorkspaceContext";                      // [v1.10] shared state context
 import { snapToAllowedAngle, snapToNearestGrid } from "./utils/geometry";   // [v1.10] math utilities
@@ -70,6 +71,8 @@ export default function Workspace() {
   const [isHolding, setIsHolding] = useState(false);                        // [v1.11] track touch hold state for magnifier
   const [editMode, setEditMode] = useState(false);                          // v1.19+ tap segments to edit lengths
   const [editTarget, setEditTarget] = useState(null);                       // v2.02 segment being edited
+  const [showCutList, setShowCutList] = useState(() => new URLSearchParams(window.location.search).has("cutlist")); // v2.07 材料表 sheet
+  const [showGL, setShowGL] = useState(true);                               // v2.07 GL/EL in 2D
   const [showWorkshop, setShowWorkshop] = useState(() => new URLSearchParams(window.location.search).has("workshop")); // v2.02 3D view toggle (?workshop=1 for tests)
   const [snappedEndpoint, setSnappedEndpoint] = useState(null);             // [v1.15] currently snapped endpoint
 
@@ -229,6 +232,9 @@ export default function Workspace() {
     editMode,                                                              // v1.19+ edit-length mode
     setEditMode,
     setShowWorkshop,                                                       // v2.02 open 3D view
+    setShowCutList,                                                        // v2.07 材料表
+    showGL,
+    setShowGL,
   };
 
   return (
@@ -251,6 +257,7 @@ export default function Workspace() {
             zoom={zoom}
             offset={offset}
             mmPerPoint={mmPerPoint}
+            showGL={showGL}
           />
           {!hideCrosshair && (
             <SnapOverlay
@@ -269,12 +276,23 @@ export default function Workspace() {
             mmPerPoint={mmPerPoint}
             lang={localStorage.getItem("haikan-lang") === "jp" ? "jp" : "en"}
             onClose={() => setEditTarget(null)}
-            onApply={({ mm, a, conn, flange }) => {
+            onApply={({ mm, a, conn, flange, material, schedule, gap }) => {
               const next = setSegmentLength(lines, editTarget, mm, mmPerPoint);
-              next[editTarget] = { ...next[editTarget], spec: { a, conn, flange } };
+              next[editTarget] = {
+                ...next[editTarget],
+                spec: { a, conn, flange, material, schedule, gap },
+              };
               setLines(next);
               setEditTarget(null);
             }}
+          />
+        )}
+        {showCutList && (
+          <CutList
+            lines={lines}
+            mmPerPoint={mmPerPoint}
+            lang={localStorage.getItem("haikan-lang") === "jp" ? "jp" : "en"}
+            onClose={() => setShowCutList(false)}
           />
         )}
         {showWorkshop && (

@@ -8,7 +8,7 @@
 
 import { useContext, useState, useEffect } from "react";
 import { WorkspaceContext } from "../workspace/WorkspaceContext";
-import { SunIcon, MoonIcon, GridIcon, CrosshairIcon, MagnifierIcon, RotateIcon, GlobeIcon, CheckIcon, SendToStudioIcon, PencilIcon, MoreIcon, CubeIcon } from "./Icons";
+import { SunIcon, MoonIcon, GridIcon, CrosshairIcon, MagnifierIcon, RotateIcon, GlobeIcon, CheckIcon, SendToStudioIcon, PencilIcon, MoreIcon, CubeIcon, ListIcon } from "./Icons";
 import { buildStudioHandoff, encodeHandoff } from "../workspace/utils/handoff";
 
 const translations = {
@@ -25,6 +25,8 @@ const translations = {
     undo: "Undo",
     studio: "Studio",
     workshop: "Workshop",
+    cutList: "Cut list",
+    glRef: "GL / elevations",
     more: "More",
     scale: "Scale: 1 pt =",
     clear: "Clear all",
@@ -44,6 +46,8 @@ const translations = {
     undo: "戻す",
     studio: "スタジオ",
     workshop: "作業場",
+    cutList: "材料表",
+    glRef: "GL・高さ表示",
     more: "その他",
     scale: "縮尺: 1 pt =",
     clear: "全消去",
@@ -77,7 +81,10 @@ export default function TopBar() {
     setMmPerPoint,
     editMode,
     setEditMode,
-    setShowWorkshop
+    setShowWorkshop,
+    setShowCutList,
+    showGL,
+    setShowGL
   } = useContext(WorkspaceContext);
 
   const [showSheet, setShowSheet] = useState(false);
@@ -168,6 +175,16 @@ export default function TopBar() {
               />
               <span>mm</span>
             </div>
+            <button
+              className="sheet-btn"
+              onClick={() => { setShowSheet(false); setShowCutList(true); }}
+              disabled={!lines.length}
+            >
+              <ListIcon /> <span>{t.cutList}</span>
+            </button>
+            <button className="sheet-btn" onClick={() => setShowGL(!showGL)}>
+              <GridIcon /> <span>{t.glRef}</span> {showGL && <CheckIcon />}
+            </button>
             <button className="sheet-btn" onClick={sendToStudio}>
               <SendToStudioIcon /> <span>{t.studio}</span>
             </button>

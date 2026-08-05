@@ -9,6 +9,7 @@ import { useEffect, useRef } from "react";                      // v1.10+ React 
 import { pointStep } from "../utils/constants";                 // v1.17+ dot-step distance for real lengths
 import { useViewport } from "../utils/viewport";                // v1.18+ live workspace size
 import { segmentLengthMm } from "../utils/lengths";             // v2.05 pure length math
+import { nodeElevations } from "../workshop/pipe3d";            // v2.07 GL/EL datum
 
 export { segmentLengthMm } from "../utils/lengths";   // v2.05 moved to pure module
 
@@ -16,11 +17,14 @@ export { segmentLengthMm } from "../utils/lengths";   // v2.05 moved to pure mod
 // length regardless of drawn length (label is authoritative, per DRAW2 spec).
 function labelFor(line, mmPerPoint) {
   const mm = line.lengthMm ?? segmentLengthMm(line, mmPerPoint);
-  const spec = line.spec ? `  ${line.spec.a}A ${line.spec.conn}` : "";
-  return `${mm}mm${spec}`;
+  if (!line.spec) return `${mm}mm`;
+  const { a, conn, material, schedule } = line.spec;
+  const grade = material && material !== "SGP" ? ` ${material.replace("TP", "")}` : "";
+  const sch = schedule && schedule !== "SGP" ? ` ${schedule}` : "";
+  return `${mm}mm  ${a}A${grade}${sch} ${conn}`;
 }
 
-const DrawLayer = ({ lines, preview, isDark, zoom, offset, mmPerPoint = 10 }) => { // [v1.09] Accept zoom and offset for scaling
+const DrawLayer = ({ lines, preview, isDark, zoom, offset, mmPerPoint = 10, showGL = true }) => { // [v1.09] Accept zoom and offset for scaling
   const canvasRef = useRef(null);                                 // [v1.02] Canvas DOM reference
   const { w: vpW, h: vpH } = useViewport();                       // v1.18+ re-render on resize
 
@@ -72,6 +76,51 @@ const DrawLayer = ({ lines, preview, isDark, zoom, offset, mmPerPoint = 10 }) =>
       ctx.fillText(text, mx + nx * off, my + ny * off);
     };
 
+    // v2.07 GL datum: the lowest drawn node is the ground line, and every
+    // node above it gets an EL callout — the reference a fitter reads first.
+    if (showGL && lines.length) {
+      const elevations = nodeElevations(lines, mmPerPoint);
+      let groundY = -Infinity;
+      const nodes = [];
+      for (const line of lines) {
+        for (const point of [line.start, line.end]) {
+          const key = `${point.x.toFixed(3)},${point.y.toFixed(3)}`;
+          const elevation = elevations.get(key);
+          if (elevation == null) continue;
+          if (point.y > groundY) groundY = point.y;
+          nodes.push({ point, elevation, key });
+        }
+      }
+      if (Number.isFinite(groundY)) {
+        const left = (-width / 2 - offset.x) / zoom;
+        const right = (width / 2 - offset.x + width) / zoom;
+        ctx.save();
+        ctx.setLineDash([10 / zoom, 7 / zoom]);
+        ctx.strokeStyle = "rgba(245,186,102,0.5)";
+        ctx.lineWidth = 1.4 / zoom;
+        ctx.beginPath();
+        ctx.moveTo(left, groundY);
+        ctx.lineTo(right, groundY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.font = `bold ${12 / zoom}px system-ui, sans-serif`;
+        ctx.fillStyle = "#f5ba66";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "bottom";
+        ctx.fillText("GL ±0", left + (14 / zoom), groundY - (5 / zoom));
+
+        const seen = new Set();
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
+        for (const node of nodes) {
+          if (node.elevation <= 1 || seen.has(node.key)) continue;
+          seen.add(node.key);
+          ctx.fillText(`EL +${node.elevation}`, node.point.x - (10 / zoom), node.point.y);
+        }
+        ctx.restore();
+      }
+    }
+
     for (const line of lines) {
       ctx.beginPath();
       ctx.moveTo(line.start.x, line.start.y);                     // [v1.09] Use workspace-space coordinates directly
@@ -94,7 +143,7 @@ const DrawLayer = ({ lines, preview, isDark, zoom, offset, mmPerPoint = 10 }) =>
     }
 
     ctx.restore();                                                // [v1.10] End transform block
-  }, [lines, preview, isDark, zoom, offset, mmPerPoint, vpW, vpH]);         // [v1.10] Redraw on zoom or pan
+  }, [lines, preview, isDark, zoom, offset, mmPerPoint, showGL, vpW, vpH]);         // [v1.10] Redraw on zoom or pan
 
   return (
     <canvas

@@ -115,3 +115,13 @@ export const CubeIcon = () => (
     <line x1="12" y1="22.08" x2="12" y2="12"/>
   </svg>
 );
+
+// v2.07 cut-list icon
+export const ListIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/>
+    <circle cx="4.5" cy="6" r="1.4" fill="currentColor" stroke="none"/>
+    <circle cx="4.5" cy="12" r="1.4" fill="currentColor" stroke="none"/>
+    <circle cx="4.5" cy="18" r="1.4" fill="currentColor" stroke="none"/>
+  </svg>
+);

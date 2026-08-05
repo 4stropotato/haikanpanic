@@ -56,15 +56,66 @@ export function elbowCenterToFace(nominalA, angleDeg = 90) {
 }
 
 // v1.20+ Cut length of a run between two fittings: true centerline length
-// minus each end's deduction (center-to-face minus welding gap).
+// minus each end's deduction. The root gap makes the pipe SHORTER: the gap
+// is the gap left open for the 裏波 (uranami) back-bead, so it adds to the
+// assembled length and must come off the cut.
 export function cutLength(centerMm, endA = {}, endB = {}) {
   const deduction = (end) => {
     if (!end.fitting) return 0;
     const c2f = elbowCenterToFace(end.nominalA, end.angleDeg ?? 90) ?? 0;
-    const gap = end.gapMm ?? 0;
-    return c2f - gap;
+    return c2f + (end.gapMm ?? 0);
   };
   return Math.round((centerMm - deduction(endA) - deduction(endB)) * 10) / 10;
+}
+
+// v2.07 Materials. `density` g/cm3, `defaultSchedule` is what the shop
+// reaches for first, `gap` is the usual 裏波 root gap for that material.
+export const MATERIALS = [
+  { id: "SGP", label: "SGP 配管用炭素鋼", spec: "JIS G3452", density: 7.85, defaultSchedule: "SGP", gap: 2 },
+  { id: "STPG370", label: "STPG370 圧力配管", spec: "JIS G3454", density: 7.85, defaultSchedule: "Sch40", gap: 2.5 },
+  { id: "SUS304TP", label: "SUS304TP", spec: "JIS G3459", density: 7.93, defaultSchedule: "Sch10S", gap: 2.5 },
+  { id: "SUS316TP", label: "SUS316TP", spec: "JIS G3459", density: 7.98, defaultSchedule: "Sch10S", gap: 2.5 },
+];
+
+export function material(id) {
+  return MATERIALS.find((row) => row.id === id) ?? MATERIALS[0];
+}
+
+// v2.07 Wall thickness by schedule (mm). SGP comes from the G3452 table
+// above; Sch40/80 are B36.10M, Sch10S is B36.19M (stainless).
+const SCHEDULE_WALL = {
+  Sch40: {
+    15: 2.77, 20: 2.87, 25: 3.38, 32: 3.56, 40: 3.68, 50: 3.91, 65: 5.16,
+    80: 5.49, 90: 5.74, 100: 6.02, 125: 6.55, 150: 7.11, 200: 8.18,
+    250: 9.27, 300: 10.31, 350: 11.13, 400: 12.7, 450: 14.27, 500: 15.09,
+  },
+  Sch80: {
+    15: 3.73, 20: 3.91, 25: 4.55, 32: 4.85, 40: 5.08, 50: 5.54, 65: 7.01,
+    80: 7.62, 90: 8.08, 100: 8.56, 125: 9.53, 150: 10.97, 200: 12.7,
+    250: 15.09, 300: 17.45, 350: 19.05, 400: 21.44, 450: 23.83, 500: 26.19,
+  },
+  Sch10S: {
+    15: 2.11, 20: 2.11, 25: 2.77, 32: 2.77, 40: 2.77, 50: 2.77, 65: 3.05,
+    80: 3.05, 90: 3.05, 100: 3.05, 125: 3.4, 150: 3.4, 200: 3.76,
+    250: 4.19, 300: 4.57, 350: 4.78, 400: 4.78, 450: 4.78, 500: 5.54,
+  },
+};
+
+export const SCHEDULES = ["SGP", "Sch10S", "Sch40", "Sch80"];
+
+export function wallThickness(nominalA, schedule = "SGP") {
+  if (schedule === "SGP") return pipeSpec(nominalA)?.t ?? null;
+  return SCHEDULE_WALL[schedule]?.[nominalA] ?? pipeSpec(nominalA)?.t ?? null;
+}
+
+// v2.07 Mass per metre from the actual wall: pi*(OD-t)*t*density.
+// Verified against 配管tap: 100A SGP -> 12.2 kg/m.
+export function massPerMetre(nominalA, schedule = "SGP", materialId = "SGP") {
+  const od = pipeSpec(nominalA)?.od;
+  const t = wallThickness(nominalA, schedule);
+  if (!od || !t) return null;
+  const kg = (Math.PI * (od - t) * t * material(materialId).density) / 1000;
+  return Math.round(kg * 100) / 100;
 }
 
 // v2.06 JIS B2220 10K slip-on flange dimensions:

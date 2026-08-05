@@ -6,7 +6,7 @@
 // Everything is mm. The renderer only draws what this returns.
 import { isoDirectionTo3D } from "../utils/handoff";
 import { segmentLengthMm } from "../utils/lengths";
-import { pipeSpec, nominalInch, flangeSpec } from "../data/jis";
+import { pipeSpec, nominalInch, flangeSpec, wallThickness, massPerMetre, material } from "../data/jis";
 import { pointStep } from "../utils/constants";
 
 const EPS = 1e-6;
@@ -75,15 +75,39 @@ function placeNodes(lines, mmPerPoint, defaultOd) {
     pos.set(endKey, p2);
     const nominalA = line.spec?.a ?? null;
     const od = nominalA ? (pipeSpec(nominalA)?.od ?? defaultOd) : defaultOd;
+    const materialId = line.spec?.material ?? "SGP";
+    const schedule = line.spec?.schedule ?? material(materialId).defaultSchedule;
+    const conn = line.spec?.conn ?? "BW";
     segments.push({
-      p1, p2, dir, od, nominalA, lengthMm,
-      conn: line.spec?.conn ?? null,
+      p1, p2, dir, od, nominalA, lengthMm, conn, materialId, schedule,
+      // 裏波 root gap only applies to butt-welded joints
+      gap: conn === "BW" ? (line.spec?.gap ?? material(materialId).gap) : 0,
+      wall: nominalA ? wallThickness(nominalA, schedule) : null,
+      kgm: nominalA ? massPerMetre(nominalA, schedule, materialId) : null,
       flange: line.spec?.flange ?? "none",
       lineIndex: segments.length,
-      trim1: 0, trim2: 0,
+      trim1: 0, trim2: 0, weld1: false, weld2: false,
     });
   }
   return segments;
+}
+
+// v2.07 Elevation of every sketch node above GL, keyed by its 2D position.
+// The 2D isometric uses this to print EL callouts and the GL line.
+export function nodeElevations(lines, mmPerPoint) {
+  const out = new Map();
+  if (!lines.length) return out;
+  const segments = placeNodes(lines, mmPerPoint, 60);
+  let minY = Infinity;
+  for (const seg of segments) minY = Math.min(minY, seg.p1.y, seg.p2.y);
+  if (!Number.isFinite(minY)) return out;
+  lines.forEach((line, index) => {
+    const seg = segments[index];
+    if (!seg) return;
+    out.set(key2D(line.start), Math.round(seg.p1.y - minY));
+    out.set(key2D(line.end), Math.round(seg.p2.y - minY));
+  });
+  return out;
 }
 
 export function buildPipeModel(lines, mmPerPoint) {
@@ -144,6 +168,9 @@ export function buildPipeModel(lines, mmPerPoint) {
 
     const bigA = Math.max(segA.nominalA ?? 0, segB.nominalA ?? 0);
     const sizesDiffer = segA.od !== segB.od;
+
+    if (refA.which === 1) segA.weld1 = true; else segA.weld2 = true;
+    if (refB.which === 1) segB.weld1 = true; else segB.weld2 = true;
 
     if (straight) {
       if (!sizesDiffer) continue;                 // plain butt weld, nothing to draw
@@ -212,12 +239,20 @@ export function buildPipeModel(lines, mmPerPoint) {
     const spec = flangeSpec(seg.nominalA ?? 0);
     if (!spec) continue;
     if (wantStart) {
-      flanges.push({ p: add(seg.p1, mul(seg.dir, seg.trim1)), dir: seg.dir, pipeOd: seg.od, ...spec });
+      flanges.push({
+        p: add(seg.p1, mul(seg.dir, seg.trim1)), dir: seg.dir,
+        pipeOd: seg.od, nominalA: seg.nominalA, ...spec,
+      });
       seg.trim1 += spec.t;
+      seg.weld1 = true;
     }
     if (wantEnd) {
-      flanges.push({ p: sub(seg.p2, mul(seg.dir, seg.trim2)), dir: seg.dir, pipeOd: seg.od, ...spec });
+      flanges.push({
+        p: sub(seg.p2, mul(seg.dir, seg.trim2)), dir: seg.dir,
+        pipeOd: seg.od, nominalA: seg.nominalA, ...spec,
+      });
       seg.trim2 += spec.t;
+      seg.weld2 = true;
     }
   }
 
@@ -235,13 +270,22 @@ export function buildPipeModel(lines, mmPerPoint) {
       warnings.push(`${label}: too short for its fittings`);
       continue;
     }
+    const gapTotal = (seg.weld1 ? seg.gap : 0) + (seg.weld2 ? seg.gap : 0);
+    const cutLengthMm = Math.round((seg.lengthMm - total - gapTotal) * 10) / 10;
     runs.push({
       p1: add(seg.p1, mul(seg.dir, seg.trim1)),
       p2: sub(seg.p2, mul(seg.dir, seg.trim2)),
       od: seg.od,
       nominalA: seg.nominalA,
       lengthMm: seg.lengthMm,
+      cutLengthMm,
       conn: seg.conn,
+      materialId: seg.materialId,
+      schedule: seg.schedule,
+      wall: seg.wall,
+      kgm: seg.kgm,
+      gap: seg.gap,
+      weldEnds: (seg.weld1 ? 1 : 0) + (seg.weld2 ? 1 : 0),
       lineIndex: seg.lineIndex,
       mid: mul(add(seg.p1, seg.p2), 0.5),
     });

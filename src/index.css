@@ -554,3 +554,47 @@ canvas:nth-of-type(2) {
 /* v2.06 sheets must sit above the 3D workshop so editing works there too */
 .sheet-backdrop { z-index: 10020; }
 .workshop-tools button.on { border-color: var(--accent); color: var(--accent); }
+
+/* v2.07 cut list table */
+.sheet.cutlist { max-height: 82vh; }
+.cut-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  margin-bottom: 4px;
+}
+.cut-table th {
+  text-align: left;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted, #8fa0b5);
+  padding: 6px 6px;
+  border-bottom: 1px solid var(--border-2);
+}
+.cut-table td {
+  padding: 8px 6px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-2) 45%, transparent);
+  vertical-align: top;
+}
+.cut-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.cut-table .dim { color: var(--muted, #8fa0b5); }
+.cut-table .strong { color: var(--accent); font-weight: 700; }
+.cut-table .sub { font-size: 0.68rem; opacity: 0.75; }
+.cut-section {
+  margin: 14px 6px 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.cut-total {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 6px;
+  font-size: 0.8rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-2) 45%, transparent);
+}
+.cut-total.strong { color: var(--accent-2); font-weight: 700; border-bottom: none; }
