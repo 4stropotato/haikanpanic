@@ -550,3 +550,7 @@ canvas:nth-of-type(2) {
   color: var(--muted, #97a4b6);
 }
 .sheet-hint.warn { color: #f5ba66; }
+
+/* v2.06 sheets must sit above the 3D workshop so editing works there too */
+.sheet-backdrop { z-index: 10020; }
+.workshop-tools button.on { border-color: var(--accent); color: var(--accent); }

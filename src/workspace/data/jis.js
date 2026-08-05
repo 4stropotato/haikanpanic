@@ -66,3 +66,22 @@ export function cutLength(centerMm, endA = {}, endB = {}) {
   };
   return Math.round((centerMm - deduction(endA) - deduction(endB)) * 10) / 10;
 }
+
+// v2.06 JIS B2220 10K slip-on flange dimensions:
+// [flange OD, thickness, bolt circle dia, bolt count, bolt dia]
+const FLANGE_10K = {
+  15: [95, 12, 70, 4, 12], 20: [100, 14, 75, 4, 12], 25: [125, 14, 90, 4, 16],
+  32: [135, 16, 100, 4, 16], 40: [140, 16, 105, 4, 16], 50: [155, 16, 120, 4, 16],
+  65: [175, 18, 140, 4, 16], 80: [185, 18, 150, 8, 16], 90: [195, 18, 160, 8, 16],
+  100: [210, 18, 175, 8, 16], 125: [250, 20, 210, 8, 20], 150: [280, 22, 240, 8, 20],
+  200: [330, 22, 290, 12, 20], 250: [400, 24, 355, 12, 22], 300: [445, 24, 400, 16, 22],
+  350: [490, 26, 445, 16, 22], 400: [560, 28, 510, 16, 24], 450: [620, 30, 565, 20, 24],
+  500: [675, 30, 620, 20, 24],
+};
+
+export function flangeSpec(nominalA) {
+  const row = FLANGE_10K[nominalA];
+  if (!row) return null;
+  const [od, t, boltCircle, boltCount, boltDia] = row;
+  return { od, t, boltCircle, boltCount, boltDia };
+}

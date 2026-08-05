@@ -50,9 +50,9 @@ export default function Workspace() {
       const c = { x: 20 * c30 * s, y: b.y + 20 * s30 * s };
       const d = { x: c.x + 12 * c30 * s, y: c.y + 12 * s30 * s };
       return [
-        { start: a, end: b, lengthMm: 620, spec: { a: 100, conn: "BW" } },
+        { start: a, end: b, lengthMm: 620, spec: { a: 100, conn: "BW", flange: "start" } },
         { start: b, end: c, lengthMm: 1500, spec: { a: 100, conn: "BW" } },
-        { start: c, end: d, lengthMm: 800, spec: { a: 50, conn: "BW" } },
+        { start: c, end: d, lengthMm: 800, spec: { a: 50, conn: "BW", flange: "end" } },
       ];
     }
     try {
@@ -269,16 +269,21 @@ export default function Workspace() {
             mmPerPoint={mmPerPoint}
             lang={localStorage.getItem("haikan-lang") === "jp" ? "jp" : "en"}
             onClose={() => setEditTarget(null)}
-            onApply={({ mm, a, conn }) => {
+            onApply={({ mm, a, conn, flange }) => {
               const next = setSegmentLength(lines, editTarget, mm, mmPerPoint);
-              next[editTarget] = { ...next[editTarget], spec: { a, conn } };
+              next[editTarget] = { ...next[editTarget], spec: { a, conn, flange } };
               setLines(next);
               setEditTarget(null);
             }}
           />
         )}
         {showWorkshop && (
-          <Workshop lines={lines} mmPerPoint={mmPerPoint} onClose={() => setShowWorkshop(false)} />
+          <Workshop
+            lines={lines}
+            mmPerPoint={mmPerPoint}
+            onEditSegment={setEditTarget}
+            onClose={() => setShowWorkshop(false)}
+          />
         )}
       </div>
     </WorkspaceContext.Provider>

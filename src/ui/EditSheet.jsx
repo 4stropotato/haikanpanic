@@ -6,21 +6,25 @@ import { SGP, pipeSpec } from "../workspace/data/jis";
 import { segmentLengthMm } from "../workspace/utils/lengths";
 
 const CONN_TYPES = ["BW", "SW", "ねじ"];
+const FLANGE_MODES = ["none", "start", "end", "both"];
 
 export default function EditSheet({ line, mmPerPoint, lang, onApply, onClose }) {
   const [mm, setMm] = useState(String(line.lengthMm ?? segmentLengthMm(line, mmPerPoint)));
   const [nominalA, setNominalA] = useState(line.spec?.a ?? 100);
   const [conn, setConn] = useState(line.spec?.conn ?? "BW");
+  const [flange, setFlange] = useState(line.spec?.flange ?? "none");
 
   const t = lang === "jp"
     ? {
       title: "配管の編集", length: "長さ", size: "サイズ", conn: "接続",
-      apply: "適用", cancel: "キャンセル",
+      apply: "適用", cancel: "キャンセル", flange: "フランジ",
+      flangeLabels: { none: "なし", start: "始", end: "終", both: "両端" },
       tooShort: (od) => `外径 ${od}mm より短いので3Dでは管に見えません`,
     }
     : {
       title: "Edit pipe", length: "Length", size: "Size", conn: "Joint",
-      apply: "Apply", cancel: "Cancel",
+      apply: "Apply", cancel: "Cancel", flange: "Flange",
+      flangeLabels: { none: "None", start: "Start", end: "End", both: "Both" },
       tooShort: (od) => `Shorter than the ${od}mm outside diameter — it will not read as pipe in 3D`,
     };
 
@@ -32,7 +36,7 @@ export default function EditSheet({ line, mmPerPoint, lang, onApply, onClose }) 
   const apply = () => {
     const value = Number(mm);
     if (!Number.isFinite(value) || value <= 0) return;
-    onApply({ mm: value, a: nominalA, conn });
+    onApply({ mm: value, a: nominalA, conn, flange });
   };
 
   return (
@@ -74,6 +78,20 @@ export default function EditSheet({ line, mmPerPoint, lang, onApply, onClose }) 
                 onClick={() => setConn(type)}
               >
                 {type}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="sheet-row">
+          <span>{t.flange}</span>
+          <div className="seg-group">
+            {FLANGE_MODES.map((mode) => (
+              <button
+                key={mode}
+                className={"seg-btn" + (flange === mode ? " on" : "")}
+                onClick={() => setFlange(mode)}
+              >
+                {t.flangeLabels[mode]}
               </button>
             ))}
           </div>

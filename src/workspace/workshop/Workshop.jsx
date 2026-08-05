@@ -1,39 +1,52 @@
-// v2.05 WORKSHOP — the 3D view inside Draw. Renders the fabrication model
-// from pipe3d.js: straight runs, swept long-radius elbows, and concentric
-// reducers where the size changes. CAD camera: orbit / pinch-zoom / pan.
+// v2.06 WORKSHOP — the 3D mode of the isometric. Renders the fabrication
+// model from pipe3d.js (runs, swept elbows, reducers, JIS 10K flanges) with
+// a GL datum, elevation callouts and length dimensions, and stays editable:
+// tapping a pipe opens the same spec sheet as the 2D view.
+//
+// Camera control is hand-written on touch/mouse events rather than
+// OrbitControls: it has to work on the phone, so nothing is left to a
+// library's gesture assumptions.
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
-import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { buildPipeModel } from "./pipe3d";
 
 const V = (p) => new THREE.Vector3(p.x, p.y, p.z);
 
-// Size label as a cheap canvas sprite so pipes are identifiable in 3D.
-function makeLabel(text) {
+// Text label as a canvas sprite. `tone` picks the accent colour.
+function makeLabel(text, tone = "size") {
+  const palette = {
+    size: { border: "#7cc4ff", fill: "#eaf0f7" },
+    elev: { border: "#f5ba66", fill: "#f5ba66" },
+  }[tone];
+  const probe = document.createElement("canvas").getContext("2d");
+  probe.font = "bold 32px system-ui, sans-serif";
+  const width = Math.ceil(probe.measureText(text).width) + 32;
   const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 64;
+  canvas.width = width;
+  canvas.height = 56;
   const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "rgba(10,14,20,0.82)";
-  ctx.fillRect(6, 8, 244, 48);
-  ctx.strokeStyle = "#7cc4ff";
+  ctx.fillStyle = "rgba(10,14,20,0.85)";
+  ctx.fillRect(1, 1, width - 2, 54);
+  ctx.strokeStyle = palette.border;
   ctx.lineWidth = 2;
-  ctx.strokeRect(6, 8, 244, 48);
-  ctx.fillStyle = "#eaf0f7";
-  ctx.font = "bold 30px system-ui, sans-serif";
+  ctx.strokeRect(1, 1, width - 2, 54);
+  ctx.fillStyle = palette.fill;
+  ctx.font = "bold 32px system-ui, sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(text, 128, 33);
+  ctx.fillText(text, width / 2, 29);
   const texture = new THREE.CanvasTexture(canvas);
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, depthTest: false }));
   sprite.renderOrder = 10;
+  sprite.userData.aspect = width / 56;
   return sprite;
 }
 
-export default function Workshop({ lines, mmPerPoint, onClose }) {
+export default function Workshop({ lines, mmPerPoint, onEditSegment, onClose }) {
   const hostRef = useRef(null);
   const apiRef = useRef(null);
   const [warnings, setWarnings] = useState([]);
+  const [showDims, setShowDims] = useState(true);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -45,7 +58,6 @@ export default function Workshop({ lines, mmPerPoint, onClose }) {
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(host.clientWidth || 1, host.clientHeight || 1);
-    // input must reach the canvas: no browser gestures, no parent handlers
     Object.assign(renderer.domElement.style, {
       display: "block", width: "100%", height: "100%", touchAction: "none",
     });
@@ -68,39 +80,53 @@ export default function Workshop({ lines, mmPerPoint, onClose }) {
     const fittingMat = new THREE.MeshStandardMaterial({
       color: 0xf0a94a, metalness: 0.6, roughness: 0.38,
     });
+    const flangeMat = new THREE.MeshStandardMaterial({
+      color: 0x9fb0c4, metalness: 0.8, roughness: 0.28,
+    });
+    const boltMat = new THREE.MeshStandardMaterial({
+      color: 0x2e3844, metalness: 0.9, roughness: 0.45,
+    });
 
     const group = new THREE.Group();
     const bounds = new THREE.Box3();
     const up = new THREE.Vector3(0, 1, 0);
-    const labels = [];
+    const sprites = [];
+    const dimObjects = [];
+    const pickable = [];
 
-    const addTube = (p1, p2, odTop, odBottom, material) => {
+    const addTube = (p1, p2, odTop, odBottom, material, meta) => {
       const a = V(p1);
       const b = V(p2);
       const dir = b.clone().sub(a);
       const height = dir.length();
-      if (height < 0.5) return;
+      if (height < 0.5) return null;
       const geometry = new THREE.CylinderGeometry(odTop / 2, odBottom / 2, height, 32, 1);
       const mesh = new THREE.Mesh(geometry, material);
       mesh.position.copy(a).add(dir.clone().multiplyScalar(0.5));
       mesh.quaternion.setFromUnitVectors(up, dir.normalize());
+      if (meta) mesh.userData = meta;
       group.add(mesh);
       bounds.expandByPoint(a);
       bounds.expandByPoint(b);
+      return mesh;
+    };
+
+    const addSprite = (sprite, position) => {
+      sprite.position.copy(position);
+      sprites.push({ sprite });
+      group.add(sprite);
+      return sprite;
     };
 
     for (const run of model.runs) {
-      addTube(run.p1, run.p2, run.od, run.od, steel);
-      if (run.nominalA) {
-        const label = makeLabel(`${run.nominalA}A`);
-        const mid = V(run.p1).add(V(run.p2)).multiplyScalar(0.5);
-        label.position.copy(mid).add(new THREE.Vector3(0, (run.od * 0.9) + 40, 0));
-        labels.push({ sprite: label });
-        group.add(label);
-      }
+      const mesh = addTube(run.p1, run.p2, run.od, run.od, steel, { lineIndex: run.lineIndex });
+      if (mesh) pickable.push(mesh);
+      const mid = V(run.p1).add(V(run.p2)).multiplyScalar(0.5);
+      const label = makeLabel(`${run.nominalA ? `${run.nominalA}A` : "pipe"} · ${run.lengthMm}`);
+      addSprite(label, mid.clone().add(new THREE.Vector3(0, (run.od * 0.8) + 60, 0)));
+      dimObjects.push(label);
     }
 
-    // elbows: sweep the pipe section along the bend path
     for (const elbow of model.elbows) {
       const curve = new THREE.CatmullRomCurve3(elbow.path.map(V));
       const geometry = new THREE.TubeGeometry(curve, 24, elbow.od / 2, 32, false);
@@ -112,73 +138,243 @@ export default function Workshop({ lines, mmPerPoint, onClose }) {
       addTube(reducer.p1, reducer.p2, reducer.od2, reducer.od1, fittingMat);
     }
 
+    // JIS 10K flanges: face disc plus bolts around the bolt circle
+    for (const flange of model.flanges) {
+      const dir = V(flange.dir).normalize();
+      const face = V(flange.p);
+      const back = face.clone().add(dir.clone().multiplyScalar(flange.t));
+      addTube(face, back, flange.od, flange.od, flangeMat);
+      const quat = new THREE.Quaternion().setFromUnitVectors(up, dir);
+      const boltGeom = new THREE.CylinderGeometry(
+        flange.boltDia / 2, flange.boltDia / 2, flange.t * 1.9, 10, 1,
+      );
+      for (let i = 0; i < flange.boltCount; i += 1) {
+        const angle = (i / flange.boltCount) * Math.PI * 2;
+        const offset = new THREE.Vector3(
+          Math.cos(angle) * (flange.boltCircle / 2), 0, Math.sin(angle) * (flange.boltCircle / 2),
+        ).applyQuaternion(quat);
+        const bolt = new THREE.Mesh(boltGeom, boltMat);
+        bolt.quaternion.copy(quat);
+        bolt.position.copy(face).add(dir.clone().multiplyScalar(flange.t / 2)).add(offset);
+        group.add(bolt);
+      }
+    }
+
     scene.add(group);
 
-    const size = bounds.isEmpty()
+    const modelSize = bounds.isEmpty()
       ? 2000
-      : Math.max(2000, bounds.getSize(new THREE.Vector3()).length() * 1.5);
-    const grid = new THREE.GridHelper(size, 24, 0x2b4a66, 0x1a2635);
-    grid.position.y = (bounds.isEmpty() ? 0 : bounds.min.y) - Math.max(size * 0.04, 60);
+      : Math.max(1500, bounds.getSize(new THREE.Vector3()).length());
+
+    // --- GL datum: ground plane at y = 0 with elevation callouts ---
+    const grid = new THREE.GridHelper(modelSize * 2.2, 20, 0x35597a, 0x1b2836);
+    grid.position.y = 0;
     scene.add(grid);
+    addSprite(makeLabel("GL ±0", "elev"), new THREE.Vector3(
+      bounds.isEmpty() ? 0 : bounds.min.x - (modelSize * 0.14),
+      0,
+      bounds.isEmpty() ? 0 : bounds.max.z,
+    ));
+
+    const leaderMat = new THREE.LineDashedMaterial({
+      color: 0xf5ba66,
+      dashSize: modelSize * 0.02,
+      gapSize: modelSize * 0.014,
+      opacity: 0.75,
+      transparent: true,
+    });
+    const seenElevations = new Set();
+    for (const point of model.points) {
+      const elevation = Math.round(point.y);
+      if (elevation <= 1 || seenElevations.has(elevation)) continue;
+      seenElevations.add(elevation);
+      const geometry = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(point.x, 0, point.z),
+        new THREE.Vector3(point.x, point.y, point.z),
+      ]);
+      const line = new THREE.Line(geometry, leaderMat);
+      line.computeLineDistances();
+      group.add(line);
+      dimObjects.push(line);
+      const label = makeLabel(`EL +${elevation}`, "elev");
+      addSprite(label, new THREE.Vector3(point.x, point.y * 0.5, point.z));
+      dimObjects.push(label);
+    }
 
     const camera = new THREE.PerspectiveCamera(
-      48, (host.clientWidth || 1) / (host.clientHeight || 1), 1, size * 40,
+      48, (host.clientWidth || 1) / (host.clientHeight || 1), 1, modelSize * 60,
     );
-    const center = bounds.isEmpty()
+    const target = bounds.isEmpty()
       ? new THREE.Vector3()
       : bounds.getCenter(new THREE.Vector3());
-    const radius = bounds.isEmpty()
-      ? 1200
-      : Math.max(bounds.getSize(new THREE.Vector3()).length() * 0.9, 600);
-    const home = new THREE.Vector3(
-      center.x + (radius * 0.9), center.y + (radius * 0.55), center.z + (radius * 0.9),
-    );
-    camera.position.copy(home);
+    const homeTarget = target.clone();
 
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.copy(center);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.09;
-    controls.enableRotate = true;
-    controls.enableZoom = true;
-    controls.enablePan = true;
-    controls.zoomSpeed = 1.1;
-    controls.rotateSpeed = 0.9;
-    controls.minDistance = 60;
-    controls.maxDistance = size * 12;
-    // one finger orbits, two fingers pinch-zoom and pan
-    controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
-    controls.mouseButtons = {
-      LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN,
+    // --- hand-written orbit camera ---
+    const state = {
+      radius: Math.max(modelSize * 1.35, 900),
+      theta: Math.PI * 0.25,
+      phi: Math.PI * 0.36,
     };
-    controls.update();
+    const homeState = { ...state };
+    const applyCamera = () => {
+      state.phi = THREE.MathUtils.clamp(state.phi, 0.06, Math.PI - 0.06);
+      state.radius = THREE.MathUtils.clamp(state.radius, 120, modelSize * 24);
+      camera.position.set(
+        target.x + (state.radius * Math.sin(state.phi) * Math.sin(state.theta)),
+        target.y + (state.radius * Math.cos(state.phi)),
+        target.z + (state.radius * Math.sin(state.phi) * Math.cos(state.theta)),
+      );
+      camera.lookAt(target);
+    };
+    applyCamera();
+
+    const el = renderer.domElement;
+    const drag = { active: false, x: 0, y: 0, moved: 0, pinch: 0, mode: "none" };
+    const raycaster = new THREE.Raycaster();
+
+    const pickAt = (clientX, clientY) => {
+      if (!onEditSegment) return;
+      const rect = el.getBoundingClientRect();
+      const ndc = new THREE.Vector2(
+        (((clientX - rect.left) / rect.width) * 2) - 1,
+        (-((clientY - rect.top) / rect.height) * 2) + 1,
+      );
+      raycaster.setFromCamera(ndc, camera);
+      const hit = raycaster.intersectObjects(pickable, false)[0];
+      if (hit?.object?.userData?.lineIndex != null) {
+        onEditSegment(hit.object.userData.lineIndex);
+      }
+    };
+
+    const panBy = (dx, dy) => {
+      const right = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0);
+      const upVec = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 1);
+      const scale = state.radius * 0.0016;
+      target.add(right.multiplyScalar(-dx * scale)).add(upVec.multiplyScalar(dy * scale));
+    };
+    const rotateBy = (dx, dy) => {
+      state.theta -= dx * 0.007;
+      state.phi -= dy * 0.007;
+    };
+    const touchInfo = (touches) => {
+      const [a, b] = touches;
+      return {
+        dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
+        mx: (a.clientX + b.clientX) / 2,
+        my: (a.clientY + b.clientY) / 2,
+      };
+    };
+
+    const onTouchStart = (event) => {
+      event.preventDefault();
+      if (event.touches.length === 1) {
+        drag.active = true;
+        drag.mode = "rotate";
+        drag.x = event.touches[0].clientX;
+        drag.y = event.touches[0].clientY;
+        drag.moved = 0;
+      } else if (event.touches.length === 2) {
+        const info = touchInfo(event.touches);
+        drag.active = true;
+        drag.mode = "pinch";
+        drag.pinch = info.dist;
+        drag.x = info.mx;
+        drag.y = info.my;
+        drag.moved = 999;
+      }
+    };
+    const onTouchMove = (event) => {
+      if (!drag.active) return;
+      event.preventDefault();
+      if (drag.mode === "rotate" && event.touches.length === 1) {
+        const dx = event.touches[0].clientX - drag.x;
+        const dy = event.touches[0].clientY - drag.y;
+        drag.x = event.touches[0].clientX;
+        drag.y = event.touches[0].clientY;
+        drag.moved += Math.abs(dx) + Math.abs(dy);
+        rotateBy(dx, dy);
+      } else if (drag.mode === "pinch" && event.touches.length === 2) {
+        const info = touchInfo(event.touches);
+        if (drag.pinch > 0) state.radius *= drag.pinch / Math.max(info.dist, 1);
+        panBy(info.mx - drag.x, info.my - drag.y);
+        drag.pinch = info.dist;
+        drag.x = info.mx;
+        drag.y = info.my;
+      }
+      applyCamera();
+    };
+    const onTouchEnd = (event) => {
+      if (drag.mode === "rotate" && drag.moved < 12) {
+        const touch = event.changedTouches[0];
+        if (touch) pickAt(touch.clientX, touch.clientY);
+      }
+      drag.active = event.touches.length > 0;
+      drag.mode = event.touches.length === 1 ? "rotate" : "none";
+      if (event.touches.length === 1) {
+        drag.x = event.touches[0].clientX;
+        drag.y = event.touches[0].clientY;
+        drag.moved = 999;
+      }
+    };
+
+    const onMouseDown = (event) => {
+      drag.active = true;
+      drag.mode = event.button === 2 ? "pan" : "rotate";
+      drag.x = event.clientX;
+      drag.y = event.clientY;
+      drag.moved = 0;
+    };
+    const onMouseMove = (event) => {
+      if (!drag.active) return;
+      const dx = event.clientX - drag.x;
+      const dy = event.clientY - drag.y;
+      drag.x = event.clientX;
+      drag.y = event.clientY;
+      drag.moved += Math.abs(dx) + Math.abs(dy);
+      if (drag.mode === "pan") panBy(dx, dy); else rotateBy(dx, dy);
+      applyCamera();
+    };
+    const onMouseUp = (event) => {
+      if (drag.active && drag.mode === "rotate" && drag.moved < 6) {
+        pickAt(event.clientX, event.clientY);
+      }
+      drag.active = false;
+    };
+    const onWheel = (event) => {
+      event.preventDefault();
+      state.radius *= event.deltaY > 0 ? 1.12 : 0.89;
+      applyCamera();
+    };
+    const onContextMenu = (event) => event.preventDefault();
+
+    el.addEventListener("touchstart", onTouchStart, { passive: false });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd);
+    el.addEventListener("touchcancel", onTouchEnd);
+    el.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    el.addEventListener("wheel", onWheel, { passive: false });
+    el.addEventListener("contextmenu", onContextMenu);
 
     apiRef.current = {
-      dolly: (factor) => {
-        const offset = camera.position.clone().sub(controls.target);
-        const distance = THREE.MathUtils.clamp(
-          offset.length() * factor, controls.minDistance, controls.maxDistance,
-        );
-        camera.position.copy(controls.target).add(offset.setLength(distance));
-        controls.update();
-      },
+      dolly: (factor) => { state.radius *= factor; applyCamera(); },
       home: () => {
-        camera.position.copy(home);
-        controls.target.copy(center);
-        controls.update();
+        Object.assign(state, homeState);
+        target.copy(homeTarget);
+        applyCamera();
       },
+      setDims: (visible) => { for (const obj of dimObjects) obj.visible = visible; },
     };
 
     let alive = true;
     const tick = () => {
       if (!alive) return;
-      // keep labels a constant on-screen size
-      const distance = camera.position.distanceTo(controls.target);
-      for (const { sprite } of labels) {
-        const scale = distance * 0.06;
-        sprite.scale.set(scale, scale * 0.25, 1);
+      const distance = camera.position.distanceTo(target);
+      for (const { sprite } of sprites) {
+        const height = distance * 0.035;
+        sprite.scale.set(height * (sprite.userData.aspect || 4), height, 1);
       }
-      controls.update();
       renderer.render(scene, camera);
       requestAnimationFrame(tick);
     };
@@ -197,8 +393,16 @@ export default function Workshop({ lines, mmPerPoint, onClose }) {
     return () => {
       alive = false;
       observer.disconnect();
-      controls.dispose();
       apiRef.current = null;
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+      el.removeEventListener("touchcancel", onTouchEnd);
+      el.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("contextmenu", onContextMenu);
       scene.traverse((obj) => {
         obj.geometry?.dispose?.();
         const materials = Array.isArray(obj.material) ? obj.material : [obj.material];
@@ -210,7 +414,7 @@ export default function Workshop({ lines, mmPerPoint, onClose }) {
       renderer.dispose();
       if (renderer.domElement.parentNode === host) host.removeChild(renderer.domElement);
     };
-  }, [lines, mmPerPoint]);
+  }, [lines, mmPerPoint, onEditSegment]);
 
   return (
     <div className="workshop">
@@ -223,6 +427,17 @@ export default function Workshop({ lines, mmPerPoint, onClose }) {
         <button onClick={() => apiRef.current?.dolly(0.75)} aria-label="zoom in">＋</button>
         <button onClick={() => apiRef.current?.dolly(1.33)} aria-label="zoom out">－</button>
         <button onClick={() => apiRef.current?.home()} aria-label="reset view">⌂</button>
+        <button
+          className={showDims ? "on" : ""}
+          onClick={() => {
+            const next = !showDims;
+            setShowDims(next);
+            apiRef.current?.setDims(next);
+          }}
+          aria-label="toggle dimensions"
+        >
+          寸
+        </button>
       </div>
       {warnings.length > 0 && (
         <div className="workshop-warn">

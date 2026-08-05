@@ -6,7 +6,7 @@
 // Everything is mm. The renderer only draws what this returns.
 import { isoDirectionTo3D } from "../utils/handoff";
 import { segmentLengthMm } from "../utils/lengths";
-import { pipeSpec, nominalInch } from "../data/jis";
+import { pipeSpec, nominalInch, flangeSpec } from "../data/jis";
 import { pointStep } from "../utils/constants";
 
 const EPS = 1e-6;
@@ -78,6 +78,8 @@ function placeNodes(lines, mmPerPoint, defaultOd) {
     segments.push({
       p1, p2, dir, od, nominalA, lengthMm,
       conn: line.spec?.conn ?? null,
+      flange: line.spec?.flange ?? "none",
+      lineIndex: segments.length,
       trim1: 0, trim2: 0,
     });
   }
@@ -85,7 +87,7 @@ function placeNodes(lines, mmPerPoint, defaultOd) {
 }
 
 export function buildPipeModel(lines, mmPerPoint) {
-  if (!lines.length) return { runs: [], elbows: [], reducers: [], warnings: [] };
+  if (!lines.length) return { runs: [], elbows: [], reducers: [], flanges: [], points: [], warnings: [] };
 
   // Unspecified lines get an OD proportional to the sketch so any sketch
   // still reads as pipe; a real JIS spec always wins.
@@ -96,6 +98,21 @@ export function buildPipeModel(lines, mmPerPoint) {
   const defaultOd = Math.min(Math.max(median * 0.12, 4), 114.3);
 
   const segments = placeNodes(lines, mmPerPoint, defaultOd);
+
+  // v2.06 GL datum: drop the whole model so its lowest point sits on the
+  // ground line, making every elevation readable as height above GL.
+  let minY = Infinity;
+  for (const seg of segments) minY = Math.min(minY, seg.p1.y, seg.p2.y);
+  if (Number.isFinite(minY) && Math.abs(minY) > EPS) {
+    const seen = new Set();
+    for (const seg of segments) {
+      for (const p of [seg.p1, seg.p2]) {
+        if (seen.has(p)) continue;
+        seen.add(p);
+        p.y -= minY;
+      }
+    }
+  }
 
   // Group segment ends by 3D position to find joints.
   const ends = new Map();
@@ -187,9 +204,27 @@ export function buildPipeModel(lines, mmPerPoint) {
     if (refB.which === 1) segB.trim1 = trimB; else segB.trim2 = trimB;
   }
 
+  // v2.06 flanges sit on the pipe ends the user marked.
+  const flanges = [];
+  for (const seg of segments) {
+    const wantStart = seg.flange === "start" || seg.flange === "both";
+    const wantEnd = seg.flange === "end" || seg.flange === "both";
+    const spec = flangeSpec(seg.nominalA ?? 0);
+    if (!spec) continue;
+    if (wantStart) {
+      flanges.push({ p: add(seg.p1, mul(seg.dir, seg.trim1)), dir: seg.dir, pipeOd: seg.od, ...spec });
+      seg.trim1 += spec.t;
+    }
+    if (wantEnd) {
+      flanges.push({ p: sub(seg.p2, mul(seg.dir, seg.trim2)), dir: seg.dir, pipeOd: seg.od, ...spec });
+      seg.trim2 += spec.t;
+    }
+  }
+
   // Trim the straight runs so the fittings have room.
   const runs = [];
   const warnings = [];
+  const points = [];
   for (const seg of segments) {
     const total = seg.trim1 + seg.trim2;
     const label = `${seg.lengthMm}mm${seg.nominalA ? ` ${seg.nominalA}A` : ""}`;
@@ -205,8 +240,23 @@ export function buildPipeModel(lines, mmPerPoint) {
       p2: sub(seg.p2, mul(seg.dir, seg.trim2)),
       od: seg.od,
       nominalA: seg.nominalA,
+      lengthMm: seg.lengthMm,
+      conn: seg.conn,
+      lineIndex: seg.lineIndex,
+      mid: mul(add(seg.p1, seg.p2), 0.5),
     });
   }
 
-  return { runs, elbows, reducers, warnings };
+  // unique endpoints, for elevation annotation against GL
+  const pointKeys = new Set();
+  for (const seg of segments) {
+    for (const p of [seg.p1, seg.p2]) {
+      const k = key3D(p);
+      if (pointKeys.has(k)) continue;
+      pointKeys.add(k);
+      points.push(p);
+    }
+  }
+
+  return { runs, elbows, reducers, flanges, points, warnings };
 }
