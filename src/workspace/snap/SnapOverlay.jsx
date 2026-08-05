@@ -6,6 +6,7 @@
 // [v1.10] Unified zoom snapping logic via utility, simplified dynamic transform
 // [v1.15] Endpoint snapping with green elbow indicator
 
+import { viewport, useViewport } from "../utils/viewport"; // v1.18+ live workspace size
 import { useEffect, useRef } from "react";                         // [v1.01] React hook for canvas rendering
 import { snapToNearestGrid, findNearestEndpoint } from "../utils/geometry"; // v1.15+ endpoint snap
 
@@ -135,8 +136,8 @@ const SnapOverlay = ({ onSnapChange, onEndpointSnap, zoom, offset, lines }) => {
     const snapped = snapToNearestGrid(raw, zoom, offset);          // [v1.10] Snap to grid using utility
     if (!snapped) return;
 
-    const centerX = window.innerWidth / 2 + offset.x;
-    const centerY = window.innerHeight / 2 + offset.y;
+    const centerX = viewport.w / 2 + offset.x;                 // v1.18+ shared center
+    const centerY = viewport.h / 2 + offset.y;
     const screenX = centerX + snapped.x * zoom;                    // [v1.10] Convert to screen coordinates
     const screenY = centerY + snapped.y * zoom;
 
@@ -144,18 +145,17 @@ const SnapOverlay = ({ onSnapChange, onEndpointSnap, zoom, offset, lines }) => {
     drawCrosshair({ x: screenX, y: screenY });                     // [v1.01] Draw visual indicator
   };
 
+  const { w: vpW, h: vpH } = useViewport();                      // v1.18+ re-render on resize
   useEffect(() => {                                                // [v1.03] Initialize canvas size
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const dpr = window.devicePixelRatio || 1;
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    canvas.width = width * dpr;                                    // [v1.08] Physical resolution
-    canvas.height = height * dpr;
-    canvas.style.width = `${width}px`;                             // [v1.08] Logical screen size
-    canvas.style.height = `${height}px`;
-  }, []);
+    canvas.width = vpW * dpr;                                      // [v1.08] Physical resolution
+    canvas.height = vpH * dpr;
+    canvas.style.width = `${vpW}px`;                               // [v1.08] Logical screen size
+    canvas.style.height = `${vpH}px`;
+  }, [vpW, vpH]);
 
   return (
     <canvas

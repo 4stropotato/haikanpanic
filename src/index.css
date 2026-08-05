@@ -171,3 +171,90 @@ canvas:nth-of-type(2) {
 .dropdown-menu button:disabled {
   opacity: 0.4;
 }
+
+/* ============ v1.18+ Phone-first UI pass ============ */
+:root {
+  --panel: #ffffff;
+  --border-2: #d5deea;
+  --accent: #1d6fb8;
+  --accent-2: #d98b1f;
+}
+[data-theme='dark'] {
+  --bg: #0f141b;
+  --text: #eaf0f7;
+  --workspace: #141a23;
+  --panel: #171d26;
+  --border-2: #263140;
+  --accent: #7cc4ff;
+  --accent-2: #f5ba66;
+}
+
+.top-bar {
+  border-bottom: 1px solid var(--border-2);
+  padding: 0.5rem 0.9rem;
+  gap: 0.5rem;
+}
+.brand {
+  font-size: 1.05rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.controls button {
+  width: 44px;                       /* v1.18+ real touch target */
+  height: 44px;
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border-2);
+}
+.controls button:active { transform: scale(0.96); }
+
+.dropdown-menu {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border-2);
+}
+.dropdown-menu button { min-height: 44px; }
+
+/* v1.18+ bottom action bar */
+.action-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10001;
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid var(--border-2);
+}
+.action-btn {
+  flex: 1;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--border-2);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.action-btn:disabled { opacity: 0.4; }
+.action-btn:active:not(:disabled) { transform: scale(0.97); }
+.action-btn.primary {
+  background: var(--accent);
+  color: #0d1520;
+  border-color: transparent;
+}
+.action-btn.scale-chip {
+  color: var(--accent-2);
+  white-space: nowrap;
+}

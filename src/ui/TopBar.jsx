@@ -120,11 +120,6 @@ export default function TopBar() {
       <span className="brand">ハイカンパニック!</span>         {/* v1.10+ app title */}
 
       <div className="controls">                            {/* v1.13+ simplified controls */}
-        {/* v1.16+ Send latest joint to Studio */}
-        <button onClick={sendToStudio} title={t.toStudio}>
-          <SendToStudioIcon />
-        </button>
-
         {/* v1.14+ Theme toggle with SVG icons */}
         <button onClick={() => setDarkMode((d) => !d)}>
           {darkMode ? <SunIcon /> : <MoonIcon />}
@@ -168,19 +163,34 @@ export default function TopBar() {
                 />
                 <span>mm</span>
               </div>
-              {/* v1.17+ undo last line / clear all */}
-              <button onClick={() => setLines(lines.slice(0, -1))} disabled={!lines.length}>
-                <RotateIcon /> <span>{t.undo}</span>
-              </button>
-              <button
-                onClick={() => { if (window.confirm(t.clearConfirm)) setLines([]); }}
-                disabled={!lines.length}
-              >
-                <CrosshairIcon /> <span>{t.clear}</span>
-              </button>
             </div>
           )}
         </div>
+      </div>
+
+      {/* v1.18+ Thumb-reachable action bar: the working controls live at the
+          bottom of the screen where a phone thumb actually is. */}
+      <div className="action-bar">
+        <button
+          className="action-btn"
+          onClick={() => setLines(lines.slice(0, -1))}
+          disabled={!lines.length}
+        >
+          <RotateIcon /> <span>{t.undo}</span>
+        </button>
+        <button
+          className="action-btn"
+          onClick={() => { if (window.confirm(t.clearConfirm)) setLines([]); }}
+          disabled={!lines.length}
+        >
+          <CrosshairIcon /> <span>{t.clear}</span>
+        </button>
+        <button className="action-btn scale-chip" onClick={() => setShowSettings(true)}>
+          1pt = {mmPerPoint}mm
+        </button>
+        <button className="action-btn primary" onClick={sendToStudio}>
+          <SendToStudioIcon /> <span>Studio</span>
+        </button>
       </div>
     </div>
   );

@@ -1,9 +1,10 @@
 ﻿import { dx, tan30, snapRange, endpointSnapThreshold } from "./constants"; // v1.15+ added endpoint threshold
+import { viewport } from "./viewport"; // v1.18+ shared workspace size (matches canvas layers)
 
 // v1.10+ Find nearest snapped isometric grid point given screen input
 export function snapToNearestGrid(point, zoom, offset) {
-  const centerX = window.innerWidth / 2 + offset.x;                 // v1.10+ calculate panned center X
-  const centerY = window.innerHeight / 2 + offset.y;                // v1.10+ calculate panned center Y
+  const centerX = viewport.w / 2 + offset.x;                        // v1.18+ shared center X
+  const centerY = viewport.h / 2 + offset.y;
   const px = (point.x - centerX) / zoom;                            // v1.10+ convert to workspace X
   const py = (point.y - centerY) / zoom;                            // v1.10+ convert to workspace Y
 
@@ -72,8 +73,8 @@ export function getLensBounds(x, y, canvasWidth, canvasHeight, dpr, lensSize, zo
 
 // v1.15+ Find nearest line endpoint within threshold distance
 export function findNearestEndpoint(screenPoint, lines, zoom, offset) {
-  const centerX = window.innerWidth / 2 + offset.x;                 // v1.15+ panned center X
-  const centerY = window.innerHeight / 2 + offset.y;                // v1.15+ panned center Y
+  const centerX = viewport.w / 2 + offset.x;                        // v1.18+ shared center X
+  const centerY = viewport.h / 2 + offset.y;
 
   let nearest = null;                                               // v1.15+ closest endpoint
   let minDist = Infinity;                                           // v1.15+ minimum distance found

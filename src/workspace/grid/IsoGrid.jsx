@@ -6,17 +6,19 @@
 
 import { useEffect, useRef } from "react";                          // [v1.10] React hook for lifecycle
 import { dx, tan30, gridSize } from "../utils/constants";          // [v1.10] Centralized grid constants
+import { useViewport } from "../utils/viewport";                   // v1.18+ live workspace size
 
 const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 } }) => {  // [v1.09] Accept zoom and offset props
-  const canvasRef = useRef(null);                                  // [v1.0] Reference to canvas element
+  const canvasRef = useRef(null);
+  const { w: vpW, h: vpH } = useViewport();                          // v1.18+ re-render on resize                                  // [v1.0] Reference to canvas element
 
   useEffect(() => {
     const canvas = canvasRef.current;                              // [v1.0] Get canvas DOM element
     const ctx = canvas.getContext("2d");                           // [v1.0] Get 2D drawing context
     const slope = 1 / tan30;                                       // [v1.10] Use inverse tan30 for slant slope
     const dpr = window.devicePixelRatio || 1;                      // [v1.08] Support HiDPI (Retina) screens
-    const width = window.innerWidth;
-    const height = window.innerHeight;
+    const width = vpW;
+    const height = vpH;
 
     canvas.width = width * dpr;                                    // [v1.08] Set physical canvas size
     canvas.height = height * dpr;
@@ -61,7 +63,7 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 } }) => {  // [v1.09] A
     ctx.fillStyle = "red";
     ctx.fill();
     ctx.restore();
-  }, [show, zoom, offset]);                                       // [v1.09] Redraw on zoom/pan/show change
+  }, [show, zoom, offset, vpW, vpH]);                                       // [v1.09] Redraw on zoom/pan/show change
 
   return (
     <canvas

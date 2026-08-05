@@ -7,6 +7,7 @@
 
 import { useEffect, useRef } from "react";                      // v1.10+ React hook for canvas updates
 import { pointStep } from "../utils/constants";                 // v1.17+ dot-step distance for real lengths
+import { useViewport } from "../utils/viewport";                // v1.18+ live workspace size
 
 // v1.17+ Segment length in mm: drawn px -> grid points -> configured scale.
 export function segmentLengthMm(line, mmPerPoint) {
@@ -23,13 +24,14 @@ function labelFor(line, mmPerPoint) {
 
 const DrawLayer = ({ lines, preview, isDark, zoom, offset, mmPerPoint = 10 }) => { // [v1.09] Accept zoom and offset for scaling
   const canvasRef = useRef(null);                                 // [v1.02] Canvas DOM reference
+  const { w: vpW, h: vpH } = useViewport();                       // v1.18+ re-render on resize
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
 
-    const width = window.innerWidth;                              // [v1.02] Fullscreen canvas width
-    const height = window.innerHeight;                            // [v1.02] Fullscreen canvas height
+    const width = vpW;                                            // v1.18+ shared viewport size
+    const height = vpH;
     const dpr = window.devicePixelRatio || 1;                     // [v1.08] Retina awareness
 
     canvas.width = width * dpr;                                   // [v1.08] Set physical resolution
@@ -94,7 +96,7 @@ const DrawLayer = ({ lines, preview, isDark, zoom, offset, mmPerPoint = 10 }) =>
     }
 
     ctx.restore();                                                // [v1.10] End transform block
-  }, [lines, preview, isDark, zoom, offset, mmPerPoint]);         // [v1.10] Redraw on zoom or pan
+  }, [lines, preview, isDark, zoom, offset, mmPerPoint, vpW, vpH]);         // [v1.10] Redraw on zoom or pan
 
   return (
     <canvas
