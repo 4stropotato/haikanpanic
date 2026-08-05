@@ -197,6 +197,8 @@ export default function Workspace() {
     setPreviewLine(null);
     setReadyToDraw(false);
     pendingEnd.current = null;
+    setEditTarget(lines.length);            // v2.03 spec sheet opens after every draw:
+                                            // sketch gesture -> type true length/size/joint
   };
 
   useEffect(() => {

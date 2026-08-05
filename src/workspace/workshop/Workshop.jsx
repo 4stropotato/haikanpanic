@@ -83,16 +83,25 @@ export default function Workshop({ lines, mmPerPoint, onClose }) {
     // joints: sphere slightly larger than the biggest pipe meeting there
     const jointRadius = new Map();
     for (const seg of segments) {
+      const segLen = seg.p2.clone().sub(seg.p1).length();
       for (const p of [seg.p1, seg.p2]) {
         const k = `${p.x.toFixed(1)},${p.y.toFixed(1)},${p.z.toFixed(1)}`;
         const entry = jointRadius.get(k);
-        if (!entry) jointRadius.set(k, { p, r: seg.od / 2, count: 1 });
-        else { entry.r = Math.max(entry.r, seg.od / 2); entry.count += 1; }
+        if (!entry) jointRadius.set(k, { p, r: seg.od / 2, minLen: segLen, count: 1 });
+        else {
+          entry.r = Math.max(entry.r, seg.od / 2);
+          entry.minLen = Math.min(entry.minLen, segLen);
+          entry.count += 1;
+        }
       }
     }
-    for (const { p, r, count } of jointRadius.values()) {
+    for (const { p, r, minLen, count } of jointRadius.values()) {
       if (count < 2) continue;
-      const mesh = new THREE.Mesh(new THREE.SphereGeometry(r * 1.18, 24, 18), jointMaterial);
+      // v2.03 cap: the elbow ball may never swallow a short pipe — it stays
+      // under 45% of the shortest adjacent run.
+      const radius = Math.min(r * 1.18, Math.max(minLen * 0.45, 1));
+      if (radius < r * 0.35) continue;
+      const mesh = new THREE.Mesh(new THREE.SphereGeometry(radius, 24, 18), jointMaterial);
       mesh.position.copy(p);
       group.add(mesh);
     }
