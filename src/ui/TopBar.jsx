@@ -8,7 +8,7 @@
 
 import { useContext, useState, useEffect } from "react";
 import { WorkspaceContext } from "../workspace/WorkspaceContext";
-import { SunIcon, MoonIcon, GridIcon, CrosshairIcon, MagnifierIcon, RotateIcon, GlobeIcon, CheckIcon, SendToStudioIcon, PencilIcon, MoreIcon, CubeIcon, ListIcon } from "./Icons";
+import { SunIcon, MoonIcon, GridIcon, CrosshairIcon, MagnifierIcon, RotateIcon, GlobeIcon, CheckIcon, SendToStudioIcon, PencilIcon, MoreIcon, CubeIcon, ListIcon, EraserIcon } from "./Icons";
 import { buildStudioHandoff, encodeHandoff } from "../workspace/utils/handoff";
 
 const translations = {
@@ -22,11 +22,16 @@ const translations = {
     language: "Language",
     noJoint: "Draw two connected lines first",
     edit: "Edit",
+    erase: "Erase",
     undo: "Undo",
     studio: "Studio",
     workshop: "Workshop",
     cutList: "Cut list",
-    glRef: "GL / elevations",
+    glRef: "GL plane",
+    glArea: "Area",
+    glCont: "Continuous",
+    glSize: "Plane size",
+    glAuto: "auto",
     more: "More",
     scale: "Scale: 1 pt =",
     clear: "Clear all",
@@ -43,11 +48,16 @@ const translations = {
     language: "言語",
     noJoint: "接続された2本の線を描いてください",
     edit: "編集",
+    erase: "消去",
     undo: "戻す",
     studio: "スタジオ",
     workshop: "作業場",
     cutList: "材料表",
-    glRef: "GL・高さ表示",
+    glRef: "GL 面",
+    glArea: "範囲",
+    glCont: "連続",
+    glSize: "面のサイズ",
+    glAuto: "自動",
     more: "その他",
     scale: "縮尺: 1 pt =",
     clear: "全消去",
@@ -81,10 +91,16 @@ export default function TopBar() {
     setMmPerPoint,
     editMode,
     setEditMode,
+    eraseMode,
+    setEraseMode,
     setShowWorkshop,
     setShowCutList,
     showGL,
-    setShowGL
+    setShowGL,
+    glContinuous,
+    setGlContinuous,
+    glSizeMm,
+    setGlSizeMm
   } = useContext(WorkspaceContext);
 
   const [showSheet, setShowSheet] = useState(false);
@@ -137,11 +153,19 @@ export default function TopBar() {
         </button>
         <button
           className={"dock-btn" + (editMode ? " glow" : "")}
-          onClick={() => setEditMode(!editMode)}
+          onClick={() => { setEditMode(!editMode); setEraseMode(false); }}
           disabled={!lines.length}
         >
           <PencilIcon />
           <span>{t.edit}</span>
+        </button>
+        <button
+          className={"dock-btn" + (eraseMode ? " danger-glow" : "")}
+          onClick={() => { setEraseMode(!eraseMode); setEditMode(false); }}
+          disabled={!lines.length}
+        >
+          <EraserIcon />
+          <span>{t.erase}</span>
         </button>
         <button
           className="dock-btn primary"
@@ -185,6 +209,40 @@ export default function TopBar() {
             <button className="sheet-btn" onClick={() => setShowGL(!showGL)}>
               <GridIcon /> <span>{t.glRef}</span> {showGL && <CheckIcon />}
             </button>
+            {showGL && (
+              <>
+                <div className="sheet-row">
+                  <div className="seg-group">
+                    <button
+                      className={"seg-btn" + (glContinuous ? "" : " on")}
+                      onClick={() => setGlContinuous(false)}
+                    >
+                      {t.glArea}
+                    </button>
+                    <button
+                      className={"seg-btn" + (glContinuous ? " on" : "")}
+                      onClick={() => setGlContinuous(true)}
+                    >
+                      {t.glCont}
+                    </button>
+                  </div>
+                </div>
+                {!glContinuous && (
+                  <div className="sheet-row">
+                    <span>{t.glSize}</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="500"
+                      placeholder={t.glAuto}
+                      value={glSizeMm || ""}
+                      onChange={(e) => setGlSizeMm(Math.max(0, Number(e.target.value) || 0))}
+                    />
+                    <span>mm</span>
+                  </div>
+                )}
+              </>
+            )}
             <button className="sheet-btn" onClick={sendToStudio}>
               <SendToStudioIcon /> <span>{t.studio}</span>
             </button>

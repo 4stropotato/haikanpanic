@@ -598,3 +598,11 @@ canvas:nth-of-type(2) {
   border-bottom: 1px solid color-mix(in srgb, var(--border-2) 45%, transparent);
 }
 .cut-total.strong { color: var(--accent-2); font-weight: 700; border-bottom: none; }
+
+/* v2.08 five-slot dock + erase mode */
+.dock-btn { min-width: 56px; padding: 9px 8px; }
+.dock-btn.danger-glow {
+  color: #f87171;
+  border: 1.5px solid rgba(248, 113, 113, 0.55);
+  background: rgba(248, 113, 113, 0.1);
+}

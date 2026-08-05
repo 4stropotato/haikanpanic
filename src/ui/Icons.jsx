@@ -125,3 +125,12 @@ export const ListIcon = () => (
     <circle cx="4.5" cy="18" r="1.4" fill="currentColor" stroke="none"/>
   </svg>
 );
+
+// v2.08 eraser icon
+export const EraserIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 16.5 12.5 8a2 2 0 0 1 2.8 0l3.7 3.7a2 2 0 0 1 0 2.8L14 20H7.5Z"/>
+    <line x1="9" y1="20" x2="20" y2="20"/>
+    <line x1="9.5" y1="11" x2="16" y2="17.5"/>
+  </svg>
+);

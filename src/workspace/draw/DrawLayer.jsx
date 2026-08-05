@@ -24,7 +24,10 @@ function labelFor(line, mmPerPoint) {
   return `${mm}mm  ${a}A${grade}${sch} ${conn}`;
 }
 
-const DrawLayer = ({ lines, preview, isDark, zoom, offset, mmPerPoint = 10, showGL = true }) => { // [v1.09] Accept zoom and offset for scaling
+const DrawLayer = ({
+  lines, preview, isDark, zoom, offset, mmPerPoint = 10,
+  showGL = true, glContinuous = false, glSizeMm = 0,
+}) => { // [v1.09] Accept zoom and offset for scaling
   const canvasRef = useRef(null);                                 // [v1.02] Canvas DOM reference
   const { w: vpW, h: vpH } = useViewport();                       // v1.18+ re-render on resize
 
@@ -76,49 +79,132 @@ const DrawLayer = ({ lines, preview, isDark, zoom, offset, mmPerPoint = 10, show
       ctx.fillText(text, mx + nx * off, my + ny * off);
     };
 
-    // v2.07 GL datum: the lowest drawn node is the ground line, and every
-    // node above it gets an EL callout — the reference a fitter reads first.
+    // v2.08 GL/FL datum as a real isometric PLANE, not a line: the ground
+    // is spanned by the two horizontal iso axes (±30°), so it projects to a
+    // rhombus. Nodes drop to it with thin leaders, which is how a fitter
+    // reads how high a run floats. Kept very faint so it never competes
+    // with the drawing.
     if (showGL && lines.length) {
       const elevations = nodeElevations(lines, mmPerPoint);
-      let groundY = -Infinity;
+      const pxPerMm = pointStep / mmPerPoint;
+      const ux = Math.cos(-Math.PI / 6);
+      const uy = Math.sin(-Math.PI / 6);
+      const vx = Math.cos((-5 * Math.PI) / 6);
+      const vy = Math.sin((-5 * Math.PI) / 6);
+
       const nodes = [];
+      const seen = new Set();
       for (const line of lines) {
         for (const point of [line.start, line.end]) {
           const key = `${point.x.toFixed(3)},${point.y.toFixed(3)}`;
-          const elevation = elevations.get(key);
-          if (elevation == null) continue;
-          if (point.y > groundY) groundY = point.y;
-          nodes.push({ point, elevation, key });
+          if (seen.has(key)) continue;
+          seen.add(key);
+          const elevation = elevations.get(key) ?? 0;
+          nodes.push({
+            point,
+            elevation,
+            ground: { x: point.x, y: point.y + (elevation * pxPerMm) },
+          });
         }
       }
-      if (Number.isFinite(groundY)) {
-        const left = (-width / 2 - offset.x) / zoom;
-        const right = (width / 2 - offset.x + width) / zoom;
-        ctx.save();
-        ctx.setLineDash([10 / zoom, 7 / zoom]);
-        ctx.strokeStyle = "rgba(245,186,102,0.5)";
-        ctx.lineWidth = 1.4 / zoom;
-        ctx.beginPath();
-        ctx.moveTo(left, groundY);
-        ctx.lineTo(right, groundY);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.font = `bold ${12 / zoom}px system-ui, sans-serif`;
-        ctx.fillStyle = "#f5ba66";
-        ctx.textAlign = "left";
-        ctx.textBaseline = "bottom";
-        ctx.fillText("GL ±0", left + (14 / zoom), groundY - (5 / zoom));
 
-        const seen = new Set();
-        ctx.textAlign = "right";
-        ctx.textBaseline = "middle";
-        for (const node of nodes) {
-          if (node.elevation <= 1 || seen.has(node.key)) continue;
-          seen.add(node.key);
-          ctx.fillText(`EL +${node.elevation}`, node.point.x - (10 / zoom), node.point.y);
-        }
+      // centroid and extent of the ground footprint, in iso-axis coords
+      let cx = 0;
+      let cy = 0;
+      for (const node of nodes) { cx += node.ground.x; cy += node.ground.y; }
+      cx /= nodes.length;
+      cy /= nodes.length;
+      let reach = 0;
+      for (const node of nodes) {
+        const dx = node.ground.x - cx;
+        const dy = node.ground.y - cy;
+        const a = (dx / (2 * ux)) - dy;
+        const b = (-dx / (2 * ux)) - dy;
+        reach = Math.max(reach, Math.abs(a), Math.abs(b));
+      }
+      const half = glSizeMm > 0
+        ? (glSizeMm / 2) * pxPerMm
+        : (reach * 1.4) + (pointStep * 3);
+
+      ctx.save();
+      const corners = [
+        { x: cx + ((ux + vx) * half), y: cy + ((uy + vy) * half) },
+        { x: cx + ((ux - vx) * half), y: cy + ((uy - vy) * half) },
+        { x: cx - ((ux + vx) * half), y: cy - ((uy + vy) * half) },
+        { x: cx - ((ux - vx) * half), y: cy - ((uy - vy) * half) },
+      ];
+
+      if (glContinuous) {
+        // ground everywhere: tint the visible workspace instead of a patch
+        const left = ((-width / 2) - offset.x) / zoom;
+        const top = ((-height / 2) - offset.y) / zoom;
+        ctx.beginPath();
+        ctx.rect(left, top, (width * 2) / zoom, (height * 2) / zoom);
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(corners[0].x, corners[0].y);
+        for (const corner of corners.slice(1)) ctx.lineTo(corner.x, corner.y);
+        ctx.closePath();
+      }
+      ctx.fillStyle = "rgba(245,186,102,0.045)";
+      ctx.fill();
+      ctx.clip();
+
+      // faint hatch along both ground axes so the plane reads as a surface
+      ctx.strokeStyle = "rgba(245,186,102,0.16)";
+      ctx.lineWidth = 0.8 / zoom;
+      const step = pointStep * 5;
+      const span = half + (pointStep * 40);
+      for (let d = -span; d <= span; d += step) {
+        ctx.beginPath();
+        ctx.moveTo(cx + (ux * d) - (vx * span), cy + (uy * d) - (vy * span));
+        ctx.lineTo(cx + (ux * d) + (vx * span), cy + (uy * d) + (vy * span));
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(cx + (vx * d) - (ux * span), cy + (vy * d) - (uy * span));
+        ctx.lineTo(cx + (vx * d) + (ux * span), cy + (vy * d) + (uy * span));
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      if (!glContinuous) {
+        ctx.save();
+        ctx.strokeStyle = "rgba(245,186,102,0.4)";
+        ctx.lineWidth = 1.2 / zoom;
+        ctx.beginPath();
+        ctx.moveTo(corners[0].x, corners[0].y);
+        for (const corner of corners.slice(1)) ctx.lineTo(corner.x, corner.y);
+        ctx.closePath();
+        ctx.stroke();
         ctx.restore();
       }
+
+      // drop leaders + elevation callouts
+      ctx.save();
+      ctx.strokeStyle = "rgba(245,186,102,0.45)";
+      ctx.setLineDash([6 / zoom, 5 / zoom]);
+      ctx.lineWidth = 1 / zoom;
+      ctx.font = `bold ${12 / zoom}px system-ui, sans-serif`;
+      ctx.fillStyle = "#f5ba66";
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+      for (const node of nodes) {
+        if (node.elevation <= 1) continue;
+        ctx.beginPath();
+        ctx.moveTo(node.point.x, node.point.y);
+        ctx.lineTo(node.ground.x, node.ground.y);
+        ctx.stroke();
+        ctx.fillText(
+          `EL +${node.elevation}`,
+          node.point.x - (10 / zoom),
+          (node.point.y + node.ground.y) / 2,
+        );
+      }
+      ctx.setLineDash([]);
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText("GL ±0", corners[2].x + (10 / zoom), corners[2].y + (6 / zoom));
+      ctx.restore();
     }
 
     for (const line of lines) {
@@ -143,7 +229,7 @@ const DrawLayer = ({ lines, preview, isDark, zoom, offset, mmPerPoint = 10, show
     }
 
     ctx.restore();                                                // [v1.10] End transform block
-  }, [lines, preview, isDark, zoom, offset, mmPerPoint, showGL, vpW, vpH]);         // [v1.10] Redraw on zoom or pan
+  }, [lines, preview, isDark, zoom, offset, mmPerPoint, showGL, glContinuous, glSizeMm, vpW, vpH]);         // [v1.10] Redraw on zoom or pan
 
   return (
     <canvas

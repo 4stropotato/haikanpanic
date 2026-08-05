@@ -71,8 +71,16 @@ export default function Workspace() {
   const [isHolding, setIsHolding] = useState(false);                        // [v1.11] track touch hold state for magnifier
   const [editMode, setEditMode] = useState(false);                          // v1.19+ tap segments to edit lengths
   const [editTarget, setEditTarget] = useState(null);                       // v2.02 segment being edited
+  const [eraseMode, setEraseMode] = useState(false);                        // v2.08 tap a line to delete it
   const [showCutList, setShowCutList] = useState(() => new URLSearchParams(window.location.search).has("cutlist")); // v2.07 材料表 sheet
   const [showGL, setShowGL] = useState(true);                               // v2.07 GL/EL in 2D
+  const [glContinuous, setGlContinuous] = useState(                         // v2.08 plane mode
+    () => localStorage.getItem("haikan-gl-mode") === "continuous",
+  );
+  const [glSizeMm, setGlSizeMm] = useState(() => {                          // v2.08 0 = auto fit
+    const stored = Number(localStorage.getItem("haikan-gl-size"));
+    return Number.isFinite(stored) && stored >= 0 ? stored : 0;
+  });
   const [showWorkshop, setShowWorkshop] = useState(() => new URLSearchParams(window.location.search).has("workshop")); // v2.02 3D view toggle (?workshop=1 for tests)
   const [snappedEndpoint, setSnappedEndpoint] = useState(null);             // [v1.15] currently snapped endpoint
 
@@ -99,6 +107,11 @@ export default function Workspace() {
   useEffect(() => {
     localStorage.setItem("haikan-scale-mmpp", String(mmPerPoint));          // [v1.17] persist scale
   }, [mmPerPoint]);
+
+  useEffect(() => {
+    localStorage.setItem("haikan-gl-mode", glContinuous ? "continuous" : "area");
+    localStorage.setItem("haikan-gl-size", String(glSizeMm));               // v2.08 persist datum
+  }, [glContinuous, glSizeMm]);
 
   useEffect(() => {
     const el = workspaceRef.current;
@@ -158,6 +171,18 @@ export default function Workspace() {
   };
 
   const handleClick = (e) => {
+    // v2.08 Erase mode: a tap removes the nearest segment. The GL plane and
+    // every derived number recompute from what is left.
+    if (eraseMode) {
+      const point = {
+        x: (e.clientX - (viewport.w / 2 + offset.x)) / zoom,
+        y: (e.clientY - (viewport.h / 2 + offset.y)) / zoom,
+      };
+      const index = findSegmentAt(point, lines, 24 / zoom);
+      if (index >= 0) setLines(lines.filter((_, i) => i !== index));
+      return;
+    }
+
     // v1.19+ Edit mode: a tap selects the nearest segment and asks for its
     // true length in mm; the chain moves to match. Draw taps are suspended.
     if (editMode) {
@@ -231,10 +256,16 @@ export default function Workspace() {
     setMmPerPoint,
     editMode,                                                              // v1.19+ edit-length mode
     setEditMode,
+    eraseMode,                                                             // v2.08 erase mode
+    setEraseMode,
     setShowWorkshop,                                                       // v2.02 open 3D view
     setShowCutList,                                                        // v2.07 材料表
     showGL,
     setShowGL,
+    glContinuous,
+    setGlContinuous,
+    glSizeMm,
+    setGlSizeMm,
   };
 
   return (
@@ -258,6 +289,8 @@ export default function Workspace() {
             offset={offset}
             mmPerPoint={mmPerPoint}
             showGL={showGL}
+            glContinuous={glContinuous}
+            glSizeMm={glSizeMm}
           />
           {!hideCrosshair && (
             <SnapOverlay
