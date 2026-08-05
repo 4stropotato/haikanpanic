@@ -2,9 +2,11 @@
 // testing, so what you see is exactly what you can drag.
 //
 // The ground is spanned by the two horizontal iso axes, so it projects to a
-// rhombus. A node's drop to the plane must follow the DRAWN geometry (the
-// sketch is schematic: drawn length and true length are independent), while
-// the EL callout reports the TRUE elevation from the typed lengths.
+// rhombus. A node drops to the plane by exactly its elevation, so the length
+// of a leader is always proportional to the EL it is labelled with — an
+// earlier version measured the drop from the drawn geometry instead, which
+// anchored every disconnected piece at zero and made the leaders disagree
+// with their own labels.
 import { pointStep } from "./constants";
 import { nodeElevations } from "../workshop/pipe3d";
 
@@ -13,26 +15,6 @@ export const ISO_V = { x: Math.cos((-5 * Math.PI) / 6), y: Math.sin((-5 * Math.P
 
 const key2D = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
 const VERTICAL_EPS = 0.5;
-
-// Height of every node above the lowest one, in DRAWN pixels. Only vertical
-// segments change height; the other four iso directions are horizontal.
-export function drawnHeights(lines) {
-  const heights = new Map();
-  for (const line of lines) {
-    const startKey = key2D(line.start);
-    const endKey = key2D(line.end);
-    if (!heights.has(startKey)) heights.set(startKey, 0);
-    const rise = Math.abs(line.end.x - line.start.x) < VERTICAL_EPS
-      ? line.start.y - line.end.y
-      : 0;
-    if (!heights.has(endKey)) heights.set(endKey, heights.get(startKey) + rise);
-  }
-  let min = Infinity;
-  for (const value of heights.values()) min = Math.min(min, value);
-  if (!Number.isFinite(min)) return heights;
-  for (const [key, value] of heights) heights.set(key, value - min);
-  return heights;
-}
 
 // Iso-axis coordinates of a point relative to a centre: p - c = a*u + b*v.
 export function isoCoords(point, cx, cy) {
@@ -51,9 +33,7 @@ export function glPlaneGeometry(lines, mmPerPoint, options = {}) {
   if (!lines.length) return null;
 
   const pxPerMm = pointStep / mmPerPoint;
-  const heights = drawnHeights(lines);
   const elevations = nodeElevations(lines, mmPerPoint);
-  const shift = offsetMm * pxPerMm;
 
   const nodes = [];
   const seen = new Set();
@@ -62,12 +42,12 @@ export function glPlaneGeometry(lines, mmPerPoint, options = {}) {
       const key = key2D(point);
       if (seen.has(key)) continue;
       seen.add(key);
-      const height = heights.get(key) ?? 0;
+      const elevation = (elevations.get(key) ?? 0) + offsetMm;
       nodes.push({
         point,
-        // where this node lands on the datum, in drawn pixels
-        ground: { x: point.x, y: point.y + height + shift },
-        elevation: (elevations.get(key) ?? 0) + offsetMm,
+        // the drop equals the elevation, so leader length reads as height
+        ground: { x: point.x, y: point.y + (elevation * pxPerMm) },
+        elevation,
       });
     }
   }
