@@ -604,6 +604,12 @@ export default function Workspace() {
               setDatums([...datums, next]);
               setDatumIndex(datums.length);
             }}
+            onMakePrimary={() => {
+              // the primary datum is the one EL is measured from
+              const chosen = datums[datumIndex];
+              setDatums([chosen, ...datums.filter((_, i) => i !== datumIndex)]);
+              setDatumIndex(0);
+            }}
             onRemove={() => {
               if (datums.length < 2) return;
               setDatums(datums.filter((_, i) => i !== datumIndex));

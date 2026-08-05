@@ -19,6 +19,7 @@ const TEXT = {
     cont: "Continuous",
     reset: "Refit size to drawing",
     add: "Add datum",
+    makePrimary: "Measure EL from this datum",
     remove: "Delete this datum",
     done: "Done",
     note: (name) => `Pipe elevations are measured from ${name}.`,
@@ -37,6 +38,7 @@ const TEXT = {
     cont: "連続",
     reset: "図面に合わせ直す",
     add: "基準面を追加",
+    makePrimary: "この基準面から EL を測る",
     remove: "この基準面を削除",
     done: "完了",
     note: (name) => `配管の EL は ${name} からの高さです。`,
@@ -45,9 +47,10 @@ const TEXT = {
 };
 
 // Numbers keep local text so an empty field stays empty while you retype.
-function NumberRow({ label, value, step, min, placeholder, onCommit, suffix = "mm" }) {
-  const [text, setText] = useState(String(value ?? ""));
-  useEffect(() => { setText(value ? String(value) : ""); }, [value]);
+function NumberRow({ label, value, step, min, placeholder, onCommit, suffix = "mm", zeroIsValue = false }) {
+  const show = (v) => (zeroIsValue || v ? String(v ?? "") : "");
+  const [text, setText] = useState(show(value));
+  useEffect(() => { setText(show(value)); }, [value, zeroIsValue]);
   return (
     <div className="sheet-row">
       <span>{label}</span>
@@ -70,7 +73,7 @@ function NumberRow({ label, value, step, min, placeholder, onCommit, suffix = "m
 }
 
 export default function GlSheet({
-  datums, index, lang, onChange, onSelect, onAdd, onRemove, onRefit, onClose,
+  datums, index, lang, onChange, onSelect, onAdd, onRemove, onRefit, onMakePrimary, onClose,
 }) {
   const t = TEXT[lang === "jp" ? "jp" : "en"];
   const plane = datums[index] ?? datums[0];
@@ -117,6 +120,7 @@ export default function GlSheet({
             label={t.height(plane.name)}
             value={plane.offsetMm}
             step="100"
+            zeroIsValue
             onCommit={(v) => onChange({ offsetMm: v })}
           />
           <div className="sheet-hint">
@@ -163,6 +167,9 @@ export default function GlSheet({
             </>
           )}
 
+          {!isPrimary && (
+            <button className="sheet-btn" onClick={onMakePrimary}>{t.makePrimary}</button>
+          )}
           {datums.length > 1 && (
             <button className="sheet-btn danger" onClick={onRemove}>{t.remove}</button>
           )}

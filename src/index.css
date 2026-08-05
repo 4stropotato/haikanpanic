@@ -731,3 +731,28 @@ html, body, #root {
 .datum-tab.on { border-color: var(--accent-2); color: var(--accent-2); }
 .datum-tab.add { justify-content: center; align-items: center; min-width: 46px; font-size: 1rem; }
 .datum-el { font-size: 0.66rem; font-weight: 600; opacity: 0.8; }
+
+/* ===== v2.21 On a phone a sheet becomes a full-screen panel with its
+   actions in a header at the TOP. Bottom-anchored buttons kept ending up
+   behind the on-screen keyboard or under another fixed layer, and the
+   sheet read as frozen. A header cannot be reached by the keyboard. ===== */
+@media (max-width: 640px) {
+  .sheet {
+    position: fixed;
+    inset: 0;
+    bottom: 0;
+    max-height: none;
+    border-radius: 0;
+    padding: calc(8px + env(safe-area-inset-top, 0px)) 14px 0;
+  }
+  .sheet-handle { display: none; }
+  .sheet-actions {
+    order: -1;
+    padding: 4px 0 12px;
+    border-top: none;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-2) 55%, transparent);
+  }
+  .sheet-scroll {
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px) + var(--kb, 0px));
+  }
+}
