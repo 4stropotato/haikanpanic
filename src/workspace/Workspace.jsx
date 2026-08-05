@@ -20,8 +20,13 @@ import EditSheet from "../ui/EditSheet";                                    // v
 import CutList from "../ui/CutList";                                        // v2.07 材料表
 import Workshop from "./workshop/Workshop";                                 // v2.02 3D pipes view
 import { WorkspaceContext } from "./WorkspaceContext";                      // [v1.10] shared state context
-import { snapToAllowedAngle, snapToNearestGrid } from "./utils/geometry";   // [v1.10] math utilities
-import { findSegmentAt, setSegmentLength } from "./utils/editLength";       // v1.19+ tap-to-edit lengths
+import {
+  snapToAllowedAngle, snapToNearestGrid, snapWorkspaceToGrid,
+} from "./utils/geometry";                                                  // [v1.10] math utilities
+import { nodeElevations } from "./workshop/pipe3d";                         // v2.16 freeze height on move
+import {
+  findSegmentAt, setSegmentLength, connectedIndices,
+} from "./utils/editLength";                                                // v1.19+ tap-to-edit lengths
 import { segmentLengthMm } from "./utils/lengths";                          // v1.19+ current mm for prompt
 import { viewport, observeViewport } from "./utils/viewport";               // v1.19+ tap coord conversion
 import {
@@ -81,6 +86,8 @@ export default function Workspace() {
     return seed === null ? null : Number(seed);
   });
   const [eraseMode, setEraseMode] = useState(false);                        // v2.08 tap a line to delete it
+  const [moveMode, setMoveMode] = useState(false);                          // v2.16 drag runs across the ground
+  const pipeDrag = useRef(null);
   const [jointTypes, setJointTypes] = useState(() => {                      // v2.10 corner fittings
     const demoJoint = new URLSearchParams(window.location.search).get("joint");
     if (demoJoint) {                                                        // seed for screenshots
@@ -200,6 +207,58 @@ export default function Workspace() {
     sizeMm: glSizeMm, sizeVMm: glSizeVMm, offsetMm: glOffsetMm, center: glCenter,
   });
 
+  // v2.16 Move tool. A drag translates the whole welded run across the
+  // ground plane. Screen movement is read as horizontal motion only, so the
+  // run keeps its elevation — height is a number you type, not something a
+  // sideways drag should change. The elevation is frozen on the anchor line
+  // at grab time, because an unfrozen piece takes its height from where it
+  // sits on screen.
+  const pipeGrab = (clientX, clientY) => {
+    if (!moveMode || !lines.length) return false;
+    const point = toWorkspace(clientX, clientY);
+    const index = findSegmentAt(point, lines, 26 / zoom);
+    if (index < 0) return false;
+    const members = connectedIndices(lines, index);
+    const anchorIndex = Math.min(...members);
+    const elevations = nodeElevations(lines, mmPerPoint);
+    const anchor = lines[anchorIndex];
+    const anchorKey = `${anchor.start.x.toFixed(3)},${anchor.start.y.toFixed(3)}`;
+    pipeDrag.current = {
+      members,
+      anchorIndex,
+      elevationMm: anchor.elevationMm ?? (elevations.get(anchorKey) ?? 0),
+      origin: point,
+      base: lines.map((line) => ({ start: { ...line.start }, end: { ...line.end } })),
+    };
+    return true;
+  };
+
+  const pipeMove = (clientX, clientY) => {
+    const drag = pipeDrag.current;
+    if (!drag) return false;
+    const point = toWorkspace(clientX, clientY);
+    const anchorBase = drag.base[drag.anchorIndex].start;
+    const wanted = {
+      x: anchorBase.x + (point.x - drag.origin.x),
+      y: anchorBase.y + (point.y - drag.origin.y),
+    };
+    const snapped = snapWorkspaceToGrid(wanted);                            // stay on the lattice
+    const dx = snapped.x - anchorBase.x;
+    const dy = snapped.y - anchorBase.y;
+    setLines(lines.map((line, i) => {
+      if (!drag.members.has(i)) return line;
+      const base = drag.base[i];
+      const moved = {
+        ...line,
+        start: { x: base.start.x + dx, y: base.start.y + dy },
+        end: { x: base.end.x + dx, y: base.end.y + dy },
+      };
+      if (i === drag.anchorIndex) moved.elevationMm = drag.elevationMm;
+      return moved;
+    }));
+    return true;
+  };
+
   // v2.09 Plane editing: grab a corner or a side to resize, the face to move.
   const planeGrab = (clientX, clientY) => {
     if (!glEditPlane || glContinuous || !lines.length) return false;
@@ -242,6 +301,11 @@ export default function Workspace() {
   };
 
   const handleTouchMove = (e) => {
+    if (pipeDrag.current && e.touches.length === 1) {
+      e.preventDefault();
+      pipeMove(e.touches[0].clientX, e.touches[0].clientY);
+      return;
+    }
     if (planeDrag.current && e.touches.length === 1) {
       e.preventDefault();
       planeMove(e.touches[0].clientX, e.touches[0].clientY);
@@ -277,6 +341,9 @@ export default function Workspace() {
   };
 
   const handleTouchStart = (e) => {
+    if (e.touches.length === 1 && pipeGrab(e.touches[0].clientX, e.touches[0].clientY)) {
+      return;                                                              // v2.16 dragging a run
+    }
     if (e.touches.length === 1 && planeGrab(e.touches[0].clientX, e.touches[0].clientY)) {
       return;                                                              // v2.09 dragging the datum
     }
@@ -288,6 +355,7 @@ export default function Workspace() {
   };
 
   const handleTouchEnd = () => {
+    if (pipeDrag.current) { pipeDrag.current = null; return; }
     if (planeDrag.current) { planeDrag.current = null; return; }
     lastTouch.current = null;
     clearTimeout(holdTimeout.current);
@@ -304,6 +372,7 @@ export default function Workspace() {
   };
 
   const handleClick = (e) => {
+    if (moveMode) return;                                                  // v2.16 drags, not taps
     // v2.08 Erase mode: a tap removes the nearest segment. The GL plane and
     // every derived number recompute from what is left.
     if (eraseMode) {
@@ -397,6 +466,8 @@ export default function Workspace() {
     setEditMode,
     eraseMode,                                                             // v2.08 erase mode
     setEraseMode,
+    moveMode,                                                              // v2.16 move mode
+    setMoveMode,
     setShowWorkshop,                                                       // v2.02 open 3D view
     setShowCutList,                                                        // v2.07 材料表
     showGL,
@@ -420,9 +491,12 @@ export default function Workspace() {
         <div
           className="workspace"
           ref={workspaceRef}
-          onMouseDown={(e) => planeGrab(e.clientX, e.clientY)}
-          onMouseMove={(e) => { if (planeDrag.current) planeMove(e.clientX, e.clientY); }}
-          onMouseUp={() => { planeDrag.current = null; }}
+          onMouseDown={(e) => pipeGrab(e.clientX, e.clientY) || planeGrab(e.clientX, e.clientY)}
+          onMouseMove={(e) => {
+            if (pipeDrag.current) pipeMove(e.clientX, e.clientY);
+            else if (planeDrag.current) planeMove(e.clientX, e.clientY);
+          }}
+          onMouseUp={() => { pipeDrag.current = null; planeDrag.current = null; }}
           onClick={handleClick}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}

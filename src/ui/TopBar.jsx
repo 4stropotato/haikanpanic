@@ -8,7 +8,7 @@
 
 import { useContext, useState, useEffect } from "react";
 import { WorkspaceContext } from "../workspace/WorkspaceContext";
-import { SunIcon, MoonIcon, GridIcon, CrosshairIcon, MagnifierIcon, RotateIcon, GlobeIcon, CheckIcon, SendToStudioIcon, PencilIcon, MoreIcon, CubeIcon, ListIcon, EraserIcon } from "./Icons";
+import { SunIcon, MoonIcon, GridIcon, CrosshairIcon, MagnifierIcon, RotateIcon, GlobeIcon, CheckIcon, SendToStudioIcon, PencilIcon, MoreIcon, CubeIcon, ListIcon, EraserIcon, MoveIcon } from "./Icons";
 import { buildStudioHandoff, encodeHandoff } from "../workspace/utils/handoff";
 
 const translations = {
@@ -23,6 +23,7 @@ const translations = {
     noJoint: "Draw two connected lines first",
     edit: "Edit",
     erase: "Erase",
+    move: "Move",
     undo: "Undo",
     studio: "Studio",
     workshop: "Workshop",
@@ -52,6 +53,7 @@ const translations = {
     noJoint: "接続された2本の線を描いてください",
     edit: "編集",
     erase: "消去",
+    move: "移動",
     undo: "戻す",
     studio: "スタジオ",
     workshop: "作業場",
@@ -99,6 +101,8 @@ export default function TopBar() {
     setEditMode,
     eraseMode,
     setEraseMode,
+    moveMode,
+    setMoveMode,
     setShowWorkshop,
     setShowCutList,
     showGL,
@@ -165,7 +169,7 @@ export default function TopBar() {
         </button>
         <button
           className={"dock-btn" + (editMode ? " glow" : "")}
-          onClick={() => { setEditMode(!editMode); setEraseMode(false); }}
+          onClick={() => { setEditMode(!editMode); setEraseMode(false); setMoveMode(false); }}
           disabled={!lines.length}
         >
           <PencilIcon />
@@ -173,11 +177,19 @@ export default function TopBar() {
         </button>
         <button
           className={"dock-btn" + (eraseMode ? " danger-glow" : "")}
-          onClick={() => { setEraseMode(!eraseMode); setEditMode(false); }}
+          onClick={() => { setEraseMode(!eraseMode); setEditMode(false); setMoveMode(false); }}
           disabled={!lines.length}
         >
           <EraserIcon />
           <span>{t.erase}</span>
+        </button>
+        <button
+          className={"dock-btn" + (moveMode ? " glow" : "")}
+          onClick={() => { setMoveMode(!moveMode); setEditMode(false); setEraseMode(false); }}
+          disabled={!lines.length}
+        >
+          <MoveIcon />
+          <span>{t.move}</span>
         </button>
         <button
           className="dock-btn primary"

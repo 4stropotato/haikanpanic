@@ -70,8 +70,14 @@ function placeNodes(lines, mmPerPoint, defaultOd) {
     const startKey = key2D(line.start);
     const endKey = key2D(line.end);
     if (!pos.has(startKey)) {
-      // disconnected piece: anchor from its sketch position, not the origin
-      pos.set(startKey, { x: line.start.x * scale, y: -line.start.y * scale, z: 0 });
+      // A disconnected piece is anchored by its sketch position, unless the
+      // move tool froze an explicit elevation for it — dragging a run across
+      // the ground must not change how high it sits.
+      pos.set(startKey, {
+        x: line.start.x * scale,
+        y: line.elevationMm != null ? line.elevationMm : -line.start.y * scale,
+        z: 0,
+      });
     }
     const p1 = pos.get(startKey);
     // sketch Z (screen vertical) becomes world Y (up)

@@ -87,3 +87,25 @@ export function setSegmentLength(lines, index, newMm, mmPerPoint) {
     return current;
   });
 }
+
+// v2.16 All line indices rigidly connected to `index`, including itself.
+// Moving a pipe has to move whatever is welded to it.
+export function connectedIndices(lines, index) {
+  const found = new Set([index]);
+  const queue = [lines[index].start, lines[index].end];
+  const visited = [];
+  while (queue.length) {
+    const point = queue.pop();
+    if (visited.some((seen) => samePoint(seen, point))) continue;
+    visited.push(point);
+    for (let i = 0; i < lines.length; i += 1) {
+      if (found.has(i)) continue;
+      const line = lines[i];
+      if (samePoint(line.start, point) || samePoint(line.end, point)) {
+        found.add(i);
+        queue.push(line.start, line.end);
+      }
+    }
+  }
+  return found;
+}

@@ -5,8 +5,16 @@ import { viewport } from "./viewport"; // v1.18+ shared workspace size (matches 
 export function snapToNearestGrid(point, zoom, offset) {
   const centerX = viewport.w / 2 + offset.x;                        // v1.18+ shared center X
   const centerY = viewport.h / 2 + offset.y;
-  const px = (point.x - centerX) / zoom;                            // v1.10+ convert to workspace X
-  const py = (point.y - centerY) / zoom;                            // v1.10+ convert to workspace Y
+  return snapWorkspaceToGrid({
+    x: (point.x - centerX) / zoom,                                  // v1.10+ convert to workspace X
+    y: (point.y - centerY) / zoom,
+  });
+}
+
+// v2.16 Nearest lattice point to a point already in workspace coordinates.
+export function snapWorkspaceToGrid(point) {
+  const px = point.x;
+  const py = point.y;
 
   // v2.02 unlimited snap: lattice points are x=(u+v)/2, y=tan30*(v-u)/2 with
   // u=i*dx, v=j*dx. Invert, round, and check the 4 surrounding candidates.

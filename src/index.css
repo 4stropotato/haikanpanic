@@ -654,3 +654,21 @@ canvas:nth-of-type(2) {
   background: var(--panel);
   padding-bottom: 10px;
 }
+
+/* v2.15 temporary input readout */
+.workshop-debug {
+  position: absolute;
+  left: 12px;
+  top: 56px;
+  font: 600 11px ui-monospace, monospace;
+  color: #7cc4ff;
+  background: rgba(10, 14, 20, 0.7);
+  border: 1px solid var(--border-2);
+  border-radius: 8px;
+  padding: 4px 8px;
+  pointer-events: none;
+}
+
+/* v2.16 six-slot dock */
+.dock { gap: 4px; padding: 7px 6px; }
+.dock-btn { min-width: 52px; padding: 9px 6px; font-size: 0.62rem; }

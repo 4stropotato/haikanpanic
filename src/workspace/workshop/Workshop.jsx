@@ -12,6 +12,11 @@ import { buildPipeModel } from "./pipe3d";
 
 const V = (p) => new THREE.Vector3(p.x, p.y, p.z);
 
+// How many times the 3D scene has been built this page load. A camera that
+// snaps back to the same angle no matter what you do is the signature of a
+// scene being rebuilt under you, so this number is the first thing to read.
+let sceneBuilds = 0;
+
 // Text label as a canvas sprite. `tone` picks the accent colour.
 function makeLabel(text, tone = "size") {
   const palette = {
@@ -47,12 +52,14 @@ export default function Workshop({
 }) {
   const hostRef = useRef(null);
   const apiRef = useRef(null);
+  const debugRef = useRef(null);
   const [warnings, setWarnings] = useState([]);
   const [showDims, setShowDims] = useState(true);
 
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return undefined;
+    sceneBuilds += 1;
 
     // A geometry fault must never blank the view: report it and carry on
     // with whatever could be built.
@@ -249,14 +256,17 @@ export default function Workshop({
     };
     applyCamera();
 
-    // --- input: one unified Pointer Events path ---
-    // Mouse, finger and pen all arrive as pointer events, so there is a
-    // single code path and no chance of the touch and mouse handlers
-    // disagreeing. Pointer capture keeps a drag alive outside the canvas.
+    // --- input ---
+    // Pointer events drive the camera. Move/up are bound to the WINDOW
+    // rather than using setPointerCapture: capture on a touch pointer is
+    // unreliable on iOS and can stop pointermove being delivered at all.
+    // Touch events act as a fallback for any engine that skips pointers.
     const el = renderer.domElement;
     const raycaster = new THREE.Raycaster();
     const pointers = new Map();
     let gesture = null;
+    let sawPointer = false;
+    const stats = { down: 0, move: 0, touch: 0, tmove: 0, cam: 0 };
 
     const pickAt = (clientX, clientY) => {
       if (!onEditSegment) return;
@@ -283,79 +293,105 @@ export default function Workshop({
       state.phi -= dy * 0.007;
     };
 
-    const twoPointers = () => {
-      const [a, b] = [...pointers.values()];
-      return {
-        dist: Math.hypot(a.x - b.x, a.y - b.y),
-        mx: (a.x + b.x) / 2,
-        my: (a.y + b.y) / 2,
-      };
-    };
-
-    const onPointerDown = (event) => {
-      try { el.setPointerCapture(event.pointerId); } catch { /* not capturable */ }
-      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
-      if (pointers.size === 1) {
+    // shared gesture core, fed by either event family
+    const beginGesture = (points, button = 0) => {
+      if (points.length === 1) {
+        gesture = { mode: button === 2 ? "pan" : "rotate", moved: 0, x: points[0].x, y: points[0].y };
+      } else if (points.length >= 2) {
+        const [a, b] = points;
         gesture = {
-          mode: event.button === 2 ? "pan" : "rotate",
-          moved: 0, x: event.clientX, y: event.clientY,
+          mode: "pinch", moved: 999,
+          dist: Math.hypot(a.x - b.x, a.y - b.y),
+          x: (a.x + b.x) / 2, y: (a.y + b.y) / 2,
         };
-      } else if (pointers.size === 2) {
-        const info = twoPointers();
-        gesture = { mode: "pinch", moved: 999, dist: info.dist, x: info.mx, y: info.my };
       }
     };
 
-    const onPointerMove = (event) => {
-      if (!pointers.has(event.pointerId) || !gesture) return;
-      event.preventDefault();
-      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
-
-      if (gesture.mode === "pinch" && pointers.size >= 2) {
-        const info = twoPointers();
-        if (gesture.dist > 0) state.radius *= gesture.dist / Math.max(info.dist, 1);
-        panBy(info.mx - gesture.x, info.my - gesture.y);
-        gesture.dist = info.dist;
-        gesture.x = info.mx;
-        gesture.y = info.my;
-      } else if (pointers.size === 1) {
-        const dx = event.clientX - gesture.x;
-        const dy = event.clientY - gesture.y;
-        gesture.x = event.clientX;
-        gesture.y = event.clientY;
+    const moveGesture = (points) => {
+      if (!gesture) return;
+      if (gesture.mode === "pinch" && points.length >= 2) {
+        const [a, b] = points;
+        const dist = Math.hypot(a.x - b.x, a.y - b.y);
+        const mx = (a.x + b.x) / 2;
+        const my = (a.y + b.y) / 2;
+        if (gesture.dist > 0) state.radius *= gesture.dist / Math.max(dist, 1);
+        panBy(mx - gesture.x, my - gesture.y);
+        gesture.dist = dist;
+        gesture.x = mx;
+        gesture.y = my;
+      } else if (points.length === 1) {
+        const dx = points[0].x - gesture.x;
+        const dy = points[0].y - gesture.y;
+        gesture.x = points[0].x;
+        gesture.y = points[0].y;
         gesture.moved += Math.abs(dx) + Math.abs(dy);
         if (gesture.mode === "pan") panBy(dx, dy); else rotateBy(dx, dy);
       }
+      stats.cam += 1;
       applyCamera();
     };
 
+    const onPointerDown = (event) => {
+      sawPointer = true;
+      stats.down += 1;
+      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      beginGesture([...pointers.values()], event.button);
+    };
+    const onPointerMove = (event) => {
+      if (!pointers.has(event.pointerId) || !gesture) return;
+      stats.move += 1;
+      if (event.cancelable) event.preventDefault();
+      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      moveGesture([...pointers.values()]);
+    };
     const onPointerUp = (event) => {
+      if (!pointers.has(event.pointerId)) return;
       const finished = gesture;
       pointers.delete(event.pointerId);
-      try { el.releasePointerCapture(event.pointerId); } catch { /* already gone */ }
       if (pointers.size === 0) {
-        // a tap that barely moved is a pick, not a rotation
         if (finished?.mode === "rotate" && finished.moved < 8) {
           pickAt(event.clientX, event.clientY);
         }
         gesture = null;
-      } else if (pointers.size === 1) {
-        const [remaining] = [...pointers.values()];
-        gesture = { mode: "rotate", moved: 999, x: remaining.x, y: remaining.y };
+      } else {
+        beginGesture([...pointers.values()]);
       }
+    };
+
+    const touchPoints = (event) => [...event.touches].map((t) => ({ x: t.clientX, y: t.clientY }));
+    const onTouchStart = (event) => {
+      stats.touch += 1;
+      if (sawPointer) return;
+      if (event.cancelable) event.preventDefault();
+      beginGesture(touchPoints(event));
+    };
+    const onTouchMove = (event) => {
+      stats.tmove += 1;
+      if (sawPointer) return;
+      if (event.cancelable) event.preventDefault();
+      moveGesture(touchPoints(event));
+    };
+    const onTouchEnd = (event) => {
+      if (sawPointer) return;
+      if (event.touches.length === 0) gesture = null;
+      else beginGesture(touchPoints(event));
     };
 
     const onWheel = (event) => {
       event.preventDefault();
       state.radius *= event.deltaY > 0 ? 1.12 : 0.89;
+      stats.cam += 1;
       applyCamera();
     };
     const onContextMenu = (event) => event.preventDefault();
 
     el.addEventListener("pointerdown", onPointerDown);
-    el.addEventListener("pointermove", onPointerMove, { passive: false });
-    el.addEventListener("pointerup", onPointerUp);
-    el.addEventListener("pointercancel", onPointerUp);
+    window.addEventListener("pointermove", onPointerMove, { passive: false });
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerUp);
+    el.addEventListener("touchstart", onTouchStart, { passive: false });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd);
     el.addEventListener("wheel", onWheel, { passive: false });
     el.addEventListener("contextmenu", onContextMenu);
 
@@ -378,6 +414,10 @@ export default function Workshop({
         sprite.scale.set(height * (sprite.userData.aspect || 4), height, 1);
       }
       renderer.render(scene, camera);
+      if (debugRef.current) {
+        debugRef.current.textContent =
+          `build${sceneBuilds} pd${stats.down} pm${stats.move} ts${stats.touch} tm${stats.tmove} cam${stats.cam}`;
+      }
       requestAnimationFrame(tick);
     };
     tick();
@@ -397,9 +437,12 @@ export default function Workshop({
       observer.disconnect();
       apiRef.current = null;
       el.removeEventListener("pointerdown", onPointerDown);
-      el.removeEventListener("pointermove", onPointerMove);
-      el.removeEventListener("pointerup", onPointerUp);
-      el.removeEventListener("pointercancel", onPointerUp);
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
       el.removeEventListener("wheel", onWheel);
       el.removeEventListener("contextmenu", onContextMenu);
       scene.traverse((obj) => {
@@ -422,6 +465,7 @@ export default function Workshop({
         <span className="workshop-title">WORKSHOP</span>
         <button className="workshop-close" onClick={onClose}>✕</button>
       </div>
+      <div className="workshop-debug" ref={debugRef} />
       <div className="workshop-tools">
         <button onClick={() => apiRef.current?.dolly(0.75)} aria-label="zoom in">＋</button>
         <button onClick={() => apiRef.current?.dolly(1.33)} aria-label="zoom out">－</button>
