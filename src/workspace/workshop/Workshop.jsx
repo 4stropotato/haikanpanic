@@ -7,6 +7,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { isoDirectionTo3D } from "../utils/handoff";
 import { segmentLengthMm } from "../draw/DrawLayer";
 import { pipeSpec } from "../data/jis";
+import { pointStep } from "../utils/constants";
 
 const key2D = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
 
@@ -15,20 +16,31 @@ const key2D = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
 function buildSegments3D(lines, mmPerPoint) {
   const pos = new Map();
   const segments = [];
+  const scale = mmPerPoint / pointStep;
+
+  // v2.04 adaptive default: unspecified lines get an OD proportional to the
+  // sketch (12% of median run) so short sketches still read as pipes; a real
+  // JIS spec always wins.
+  const lens = lines.map((l) => l.lengthMm ?? segmentLengthMm(l, mmPerPoint)).sort((a, b) => a - b);
+  const median = lens.length ? lens[Math.floor(lens.length / 2)] : 500;
+  const defaultOd = Math.min(Math.max(median * 0.12, 4), 114.3);
+
   for (const line of lines) {
     const dir = isoDirectionTo3D(line.end.x - line.start.x, line.end.y - line.start.y);
     const lenMm = line.lengthMm ?? segmentLengthMm(line, mmPerPoint);
     const startKey = key2D(line.start);
     const endKey = key2D(line.end);
     if (!pos.has(startKey)) {
-      pos.set(startKey, pos.size === 0 ? new THREE.Vector3(0, 0, 0) : new THREE.Vector3(0, 0, 0));
+      // v2.04 disconnected piece: anchor from its sketch position (mm-scaled)
+      // instead of piling everything onto the origin.
+      pos.set(startKey, new THREE.Vector3(line.start.x * scale, -line.start.y * scale, 0));
     }
     const p1 = pos.get(startKey);
     const p2 = pos.has(endKey)
       ? pos.get(endKey)
       : p1.clone().add(new THREE.Vector3(dir[0], dir[2], -dir[1]).multiplyScalar(lenMm));
     pos.set(endKey, p2);
-    const od = pipeSpec(line.spec?.a ?? 100)?.od ?? 114.3;
+    const od = line.spec ? (pipeSpec(line.spec.a)?.od ?? defaultOd) : defaultOd;
     segments.push({ p1, p2, od, spec: line.spec });
   }
   return segments;
