@@ -2,8 +2,8 @@
 // bottom sheet. This data is what makes the Workshop 3D view possible —
 // without diameter/schedule/connection the isometric cannot become pipes.
 import { useState } from "react";
-import { SGP } from "../workspace/data/jis";
-import { segmentLengthMm } from "../workspace/draw/DrawLayer";
+import { SGP, pipeSpec } from "../workspace/data/jis";
+import { segmentLengthMm } from "../workspace/utils/lengths";
 
 const CONN_TYPES = ["BW", "SW", "ねじ"];
 
@@ -13,8 +13,21 @@ export default function EditSheet({ line, mmPerPoint, lang, onApply, onClose }) 
   const [conn, setConn] = useState(line.spec?.conn ?? "BW");
 
   const t = lang === "jp"
-    ? { title: "配管の編集", length: "長さ", size: "サイズ", conn: "接続", apply: "適用", cancel: "キャンセル" }
-    : { title: "Edit pipe", length: "Length", size: "Size", conn: "Joint", apply: "Apply", cancel: "Cancel" };
+    ? {
+      title: "配管の編集", length: "長さ", size: "サイズ", conn: "接続",
+      apply: "適用", cancel: "キャンセル",
+      tooShort: (od) => `外径 ${od}mm より短いので3Dでは管に見えません`,
+    }
+    : {
+      title: "Edit pipe", length: "Length", size: "Size", conn: "Joint",
+      apply: "Apply", cancel: "Cancel",
+      tooShort: (od) => `Shorter than the ${od}mm outside diameter — it will not read as pipe in 3D`,
+    };
+
+  // A run shorter than its own diameter is the #1 cause of blobby 3D, so
+  // say it here, where the number is being typed.
+  const od = pipeSpec(nominalA)?.od ?? 0;
+  const tooShort = Number(mm) > 0 && Number(mm) < od;
 
   const apply = () => {
     const value = Number(mm);
@@ -34,10 +47,12 @@ export default function EditSheet({ line, mmPerPoint, lang, onApply, onClose }) 
             min="1"
             autoFocus
             value={mm}
+            onFocus={(e) => e.target.select()}
             onChange={(e) => setMm(e.target.value)}
           />
           <span>mm</span>
         </div>
+        {tooShort && <div className="sheet-hint warn">⚠ {t.tooShort(od)}</div>}
         <div className="sheet-row">
           <span>{t.size}</span>
           <select value={nominalA} onChange={(e) => setNominalA(Number(e.target.value))}>
@@ -48,6 +63,7 @@ export default function EditSheet({ line, mmPerPoint, lang, onApply, onClose }) 
             ))}
           </select>
         </div>
+        <div className="sheet-hint">OD {od}mm · t {pipeSpec(nominalA)?.t ?? "-"}mm · {pipeSpec(nominalA)?.kgm ?? "-"} kg/m</div>
         <div className="sheet-row">
           <span>{t.conn}</span>
           <div className="seg-group">

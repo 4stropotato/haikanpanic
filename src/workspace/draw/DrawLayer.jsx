@@ -8,12 +8,9 @@
 import { useEffect, useRef } from "react";                      // v1.10+ React hook for canvas updates
 import { pointStep } from "../utils/constants";                 // v1.17+ dot-step distance for real lengths
 import { useViewport } from "../utils/viewport";                // v1.18+ live workspace size
+import { segmentLengthMm } from "../utils/lengths";             // v2.05 pure length math
 
-// v1.17+ Segment length in mm: drawn px -> grid points -> configured scale.
-export function segmentLengthMm(line, mmPerPoint) {
-  const px = Math.hypot(line.end.x - line.start.x, line.end.y - line.start.y);
-  return Math.round(px / pointStep) * mmPerPoint;
-}
+export { segmentLengthMm } from "../utils/lengths";   // v2.05 moved to pure module
 
 // v1.17+ Label text honors an override: schematic mode can claim any true
 // length regardless of drawn length (label is authoritative, per DRAW2 spec).

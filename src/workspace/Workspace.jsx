@@ -21,7 +21,7 @@ import Workshop from "./workshop/Workshop";                                 // v
 import { WorkspaceContext } from "./WorkspaceContext";                      // [v1.10] shared state context
 import { snapToAllowedAngle, snapToNearestGrid } from "./utils/geometry";   // [v1.10] math utilities
 import { findSegmentAt, setSegmentLength } from "./utils/editLength";       // v1.19+ tap-to-edit lengths
-import { segmentLengthMm } from "./draw/DrawLayer";                         // v1.19+ current mm for prompt
+import { segmentLengthMm } from "./utils/lengths";                          // v1.19+ current mm for prompt
 import { viewport } from "./utils/viewport";                                // v1.19+ tap coord conversion
 import { zoomMin, zoomMax } from "./utils/constants";                       // [v1.10] zoom range constants
 import "./Workspace.css";                                                   // [v1.10] workspace layout styles
@@ -43,15 +43,16 @@ export default function Workspace() {
     if (new URLSearchParams(window.location.search).has("demo")) {
       // v1.17+ deterministic sample sketch for tests/screenshots
       const s = 11.547;
-      const top = { x: 0, y: -12 * s };
+      const c30 = Math.cos(-Math.PI / 6);
+      const s30 = Math.sin(-Math.PI / 6);
+      const a = { x: 0, y: 0 };
+      const b = { x: 0, y: -10 * s };
+      const c = { x: 20 * c30 * s, y: b.y + 20 * s30 * s };
+      const d = { x: c.x + 12 * c30 * s, y: c.y + 12 * s30 * s };
       return [
-        { start: { x: 0, y: 0 }, end: top, lengthMm: 620, spec: { a: 100, conn: "BW" } },
-        {
-          start: top,
-          end: { x: top.x + 20 * Math.cos(-Math.PI / 6) * s, y: top.y + 20 * Math.sin(-Math.PI / 6) * s },
-          lengthMm: 1000,
-          spec: { a: 100, conn: "BW" },
-        },
+        { start: a, end: b, lengthMm: 620, spec: { a: 100, conn: "BW" } },
+        { start: b, end: c, lengthMm: 1500, spec: { a: 100, conn: "BW" } },
+        { start: c, end: d, lengthMm: 800, spec: { a: 50, conn: "BW" } },
       ];
     }
     try {
@@ -62,7 +63,7 @@ export default function Workspace() {
   });
   const [mmPerPoint, setMmPerPoint] = useState(() => {                      // [v1.17] scale: 1 dot step = X mm
     const stored = Number(localStorage.getItem("haikan-scale-mmpp"));
-    return Number.isFinite(stored) && stored > 0 ? stored : 10;
+    return Number.isFinite(stored) && stored > 0 ? stored : 100;
   });
   const [previewLine, setPreviewLine] = useState(null);                     // [v1.02] live preview line
   const [readyToDraw, setReadyToDraw] = useState(false);                    // [v1.02] whether in draw mode

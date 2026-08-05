@@ -36,10 +36,20 @@ export function pipeSpec(nominalA) {
 // v1.20+ Long-radius butt-weld 90° elbow center-to-face (JIS B2311):
 // A = 1.5 x nominal(inch) x 25.4. For 45°, the standard C-to-F is shorter;
 // approximated per table practice as A45 = A90 x tan(22.5°) for LR.
+const NOMINAL_INCH = {
+  15: 0.5, 20: 0.75, 25: 1, 32: 1.25, 40: 1.5, 50: 2, 65: 2.5, 80: 3,
+  90: 3.5, 100: 4, 125: 5, 150: 6, 200: 8, 250: 10, 300: 12, 350: 14,
+  400: 16, 450: 18, 500: 20,
+};
+
+export function nominalInch(nominalA) {
+  return NOMINAL_INCH[nominalA] ?? null;
+}
+
 export function elbowCenterToFace(nominalA, angleDeg = 90) {
   const row = pipeSpec(nominalA);
   if (!row) return null;
-  const inches = { 15: 0.5, 20: 0.75, 25: 1, 32: 1.25, 40: 1.5, 50: 2, 65: 2.5, 80: 3, 90: 3.5, 100: 4, 125: 5, 150: 6, 200: 8, 250: 10, 300: 12, 350: 14, 400: 16, 450: 18, 500: 20 }[nominalA];
+  const inches = NOMINAL_INCH[nominalA];
   const a90 = 1.5 * inches * 25.4;
   if (angleDeg === 90) return Math.round(a90 * 10) / 10;
   return Math.round(a90 * Math.tan(((angleDeg / 2) * Math.PI) / 180) * 10) / 10;

@@ -509,3 +509,44 @@ canvas:nth-of-type(2) {
   border: none;
   color: #0d1520;
 }
+
+/* v2.05 workshop tools + warnings */
+.workshop-canvas { pointer-events: auto; touch-action: none; }
+.workshop-tools {
+  position: absolute;
+  right: 12px;
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.workshop-tools button {
+  width: 46px; height: 46px;
+  border-radius: 14px;
+  border: 1px solid var(--border-2);
+  background: color-mix(in srgb, var(--panel) 85%, transparent);
+  backdrop-filter: blur(10px);
+  color: var(--text);
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+.workshop-tools button:active { transform: scale(0.94); }
+.workshop-warn {
+  position: absolute;
+  left: 12px; right: 70px;
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(245, 158, 66, 0.14);
+  border: 1px solid rgba(245, 158, 66, 0.4);
+  color: #f5ba66;
+  font-size: 0.74rem;
+  line-height: 1.5;
+}
+
+.sheet-hint {
+  padding: 6px 6px 10px;
+  font-size: 0.74rem;
+  color: var(--muted, #97a4b6);
+}
+.sheet-hint.warn { color: #f5ba66; }
