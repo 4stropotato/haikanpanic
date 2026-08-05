@@ -6,7 +6,7 @@
 
 import { useContext, useState, useEffect } from "react";    // v1.14+ added useEffect for lang detection
 import { WorkspaceContext } from "../workspace/WorkspaceContext"; // v1.10+ shared state context
-import { SunIcon, MoonIcon, SettingsIcon, GridIcon, CrosshairIcon, MagnifierIcon, RotateIcon, GlobeIcon, CheckIcon, SendToStudioIcon } from "./Icons"; // v1.14+ SVG icons
+import { SunIcon, MoonIcon, SettingsIcon, GridIcon, CrosshairIcon, MagnifierIcon, RotateIcon, GlobeIcon, CheckIcon, SendToStudioIcon, PencilIcon } from "./Icons"; // v1.14+ SVG icons
 import { buildStudioHandoff, encodeHandoff } from "../workspace/utils/handoff"; // v1.16+ Studio handoff
 
 // v1.14+ Translations
@@ -21,6 +21,7 @@ const translations = {
     language: "Language",
     toStudio: "Send joint to Studio",
     noJoint: "Draw two connected lines first",
+    edit: "Edit",
     scale: "1 pt =",
     undo: "Undo line",
     clear: "Clear all",
@@ -36,6 +37,7 @@ const translations = {
     language: "言語",
     toStudio: "スタジオへ送る",
     noJoint: "接続された2本の線を描いてください",
+    edit: "編集",
     scale: "1 pt =",
     undo: "1本戻す",
     clear: "全消去",
@@ -66,7 +68,9 @@ export default function TopBar() {
     lines,                                                   // v1.16+ drawn segments for handoff
     setLines,                                                // v1.17+ undo/clear
     mmPerPoint,                                              // v1.17+ scale setting
-    setMmPerPoint
+    setMmPerPoint,
+    editMode,                                                // v1.19+ edit-length mode
+    setEditMode
   } = useContext(WorkspaceContext);                         // v1.10+ destructure values from context
 
   const [showSettings, setShowSettings] = useState(false);   // v1.13+ settings dropdown state
@@ -184,6 +188,13 @@ export default function TopBar() {
           disabled={!lines.length}
         >
           <CrosshairIcon /> <span>{t.clear}</span>
+        </button>
+        <button
+          className={"action-btn" + (editMode ? " active" : "")}
+          onClick={() => setEditMode(!editMode)}
+          disabled={!lines.length}
+        >
+          <PencilIcon /> <span>{t.edit}</span>
         </button>
         <button className="action-btn scale-chip" onClick={() => setShowSettings(true)}>
           1pt = {mmPerPoint}mm

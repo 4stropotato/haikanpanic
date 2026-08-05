@@ -18,6 +18,9 @@ import Magnify from "./magnify/Magnify";                                    // [
 import TopBar from "../ui/TopBar";                                          // [v1.10] top control bar
 import { WorkspaceContext } from "./WorkspaceContext";                      // [v1.10] shared state context
 import { snapToAllowedAngle, snapToNearestGrid } from "./utils/geometry";   // [v1.10] math utilities
+import { findSegmentAt, setSegmentLength } from "./utils/editLength";       // v1.19+ tap-to-edit lengths
+import { segmentLengthMm } from "./draw/DrawLayer";                         // v1.19+ current mm for prompt
+import { viewport } from "./utils/viewport";                                // v1.19+ tap coord conversion
 import { zoomMin, zoomMax } from "./utils/constants";                       // [v1.10] zoom range constants
 import "./Workspace.css";                                                   // [v1.10] workspace layout styles
 
@@ -56,6 +59,7 @@ export default function Workspace() {
   const [previewLine, setPreviewLine] = useState(null);                     // [v1.02] live preview line
   const [readyToDraw, setReadyToDraw] = useState(false);                    // [v1.02] whether in draw mode
   const [isHolding, setIsHolding] = useState(false);                        // [v1.11] track touch hold state for magnifier
+  const [editMode, setEditMode] = useState(false);                          // v1.19+ tap segments to edit lengths
   const [snappedEndpoint, setSnappedEndpoint] = useState(null);             // [v1.15] currently snapped endpoint
 
   const holdTimeout = useRef(null);                                         // [v1.04] long press timer
@@ -139,7 +143,25 @@ export default function Workspace() {
     }
   };
 
-  const handleClick = () => {
+  const handleClick = (e) => {
+    // v1.19+ Edit mode: a tap selects the nearest segment and asks for its
+    // true length in mm; the chain moves to match. Draw taps are suspended.
+    if (editMode) {
+      const point = {
+        x: (e.clientX - (viewport.w / 2 + offset.x)) / zoom,
+        y: (e.clientY - (viewport.h / 2 + offset.y)) / zoom,
+      };
+      const index = findSegmentAt(point, lines, 24 / zoom);
+      if (index >= 0) {
+        const currentMm = lines[index].lengthMm ?? segmentLengthMm(lines[index], mmPerPoint);
+        const raw = window.prompt("Length (mm):", String(currentMm));
+        const value = Number(raw);
+        if (raw !== null && Number.isFinite(value) && value > 0) {
+          setLines(setSegmentLength(lines, index, value, mmPerPoint));
+        }
+      }
+      return;
+    }
     if (!("ontouchstart" in window || navigator.maxTouchPoints > 0)) return;
 
     if (!readyToDraw && pendingStart.current) {
@@ -198,6 +220,8 @@ export default function Workspace() {
     setLines,                                                              // [v1.17] clear/undo from TopBar
     mmPerPoint,                                                            // [v1.17] scale setting
     setMmPerPoint,
+    editMode,                                                              // v1.19+ edit-length mode
+    setEditMode,
   };
 
   return (
