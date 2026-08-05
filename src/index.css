@@ -149,3 +149,25 @@ canvas:nth-of-type(2) {
   pointer-events: auto;           /* v1.10+ enable input */
 }
 
+
+/* v1.17+ scale row inside settings dropdown */
+.dropdown-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+.dropdown-row input {
+  width: 64px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color, #3a4556);
+  background: var(--bg-color, #1a2233);
+  color: inherit;
+  font-size: 0.9rem;
+}
+.dropdown-menu button:disabled {
+  opacity: 0.4;
+}

@@ -6,22 +6,8 @@
 // [v1.10] Apply zoom + offset transform to sync with workspace grid and assume workspace-space coordinates
 
 import { useEffect, useRef } from "react";                      // v1.10+ React hook for canvas updates
-import { pointStep } from "../utils/constants";                 // v1.17+ dot-step distance for real lengths
 
-// v1.17+ Segment length in mm: drawn px -> grid points -> configured scale.
-export function segmentLengthMm(line, mmPerPoint) {
-  const px = Math.hypot(line.end.x - line.start.x, line.end.y - line.start.y);
-  return Math.round(px / pointStep) * mmPerPoint;
-}
-
-// v1.17+ Label text honors an override: schematic mode can claim any true
-// length regardless of drawn length (label is authoritative, per DRAW2 spec).
-function labelFor(line, mmPerPoint) {
-  const mm = line.lengthMm ?? segmentLengthMm(line, mmPerPoint);
-  return `${mm}mm`;
-}
-
-const DrawLayer = ({ lines, preview, isDark, zoom, offset, mmPerPoint = 10 }) => { // [v1.09] Accept zoom and offset for scaling
+const DrawLayer = ({ lines, preview, isDark, zoom, offset }) => { // [v1.09] Accept zoom and offset for scaling
   const canvasRef = useRef(null);                                 // [v1.02] Canvas DOM reference
 
   useEffect(() => {
@@ -51,50 +37,24 @@ const DrawLayer = ({ lines, preview, isDark, zoom, offset, mmPerPoint = 10 }) =>
     ctx.lineCap = "round";                                        // [v1.08] Smooth end caps
     ctx.lineJoin = "round";                                       // [v1.08] Smooth joins
 
-    // v1.17+ Length label beside a segment's midpoint, offset perpendicular
-    // so it never sits on the line. Halo keeps it readable over the grid.
-    const drawLabel = (line) => {
-      const mx = (line.start.x + line.end.x) / 2;
-      const my = (line.start.y + line.end.y) / 2;
-      const len = Math.hypot(line.end.x - line.start.x, line.end.y - line.start.y);
-      if (len < pointStep * 0.5) return;
-      const nx = -(line.end.y - line.start.y) / len;
-      const ny = (line.end.x - line.start.x) / len;
-      const off = 11 / zoom;
-      ctx.font = `${12 / zoom}px system-ui, sans-serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.lineWidth = 3 / zoom;
-      ctx.strokeStyle = isDark ? "rgba(15,20,27,0.85)" : "rgba(255,255,255,0.85)";
-      ctx.fillStyle = isDark ? "#7cc4ff" : "#1d6fb8";
-      const text = labelFor(line, mmPerPoint);
-      ctx.strokeText(text, mx + nx * off, my + ny * off);
-      ctx.fillText(text, mx + nx * off, my + ny * off);
-    };
-
-    for (const line of lines) {
+    for (const { start, end } of lines) {
       ctx.beginPath();
-      ctx.moveTo(line.start.x, line.start.y);                     // [v1.09] Use workspace-space coordinates directly
-      ctx.lineTo(line.end.x, line.end.y);
+      ctx.moveTo(start.x, start.y);                               // [v1.09] Use workspace-space coordinates directly
+      ctx.lineTo(end.x, end.y);
       ctx.stroke();
     }
-    ctx.lineWidth = 2 / zoom;
-    for (const line of lines) drawLabel(line);                    // v1.17+ labels above lines
 
     if (preview) {
-      ctx.strokeStyle = isDark ? "white" : "black";
-      ctx.lineWidth = 2 / zoom;
       ctx.beginPath();
       ctx.moveTo(preview.start.x, preview.start.y);               // [v1.09] Preview in workspace coordinates
       ctx.lineTo(preview.end.x, preview.end.y);
       ctx.setLineDash([6 / zoom, 4 / zoom]);                      // [v1.10] Dash length adjusts with zoom
       ctx.stroke();
       ctx.setLineDash([]);                                        // [v1.02] Reset to solid line
-      drawLabel(preview);                                         // v1.17+ live length while drawing
     }
 
     ctx.restore();                                                // [v1.10] End transform block
-  }, [lines, preview, isDark, zoom, offset, mmPerPoint]);         // [v1.10] Redraw on zoom or pan
+  }, [lines, preview, isDark, zoom, offset]);                     // [v1.10] Redraw on zoom or pan
 
   return (
     <canvas

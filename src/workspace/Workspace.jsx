@@ -34,7 +34,25 @@ export default function Workspace() {
   const [lensPos, setLensPos] = useState({ x: 0, y: 0 });                    // [v1.08] magnifier lens position
   const [lastSnap, setLastSnap] = useState(null);                           // [v1.02] current snap point
   const [startPoint, setStartPoint] = useState(null);                       // [v1.02] starting point for drawing
-  const [lines, setLines] = useState([]);                                   // [v1.02] list of line segments
+  const [lines, setLines] = useState(() => {                                // [v1.17] persisted line segments
+    if (new URLSearchParams(window.location.search).has("demo")) {
+      // v1.17+ deterministic sample sketch for tests/screenshots
+      const s = 11.547;
+      return [
+        { start: { x: 0, y: 0 }, end: { x: 0, y: -6 * s } },
+        { start: { x: 0, y: -6 * s }, end: { x: 10 * Math.cos(-Math.PI / 6) * s, y: -6 * s + 10 * Math.sin(-Math.PI / 6) * s } },
+      ];
+    }
+    try {
+      return JSON.parse(localStorage.getItem("haikan-lines-v1")) ?? [];
+    } catch {
+      return [];
+    }
+  });
+  const [mmPerPoint, setMmPerPoint] = useState(() => {                      // [v1.17] scale: 1 dot step = X mm
+    const stored = Number(localStorage.getItem("haikan-scale-mmpp"));
+    return Number.isFinite(stored) && stored > 0 ? stored : 10;
+  });
   const [previewLine, setPreviewLine] = useState(null);                     // [v1.02] live preview line
   const [readyToDraw, setReadyToDraw] = useState(false);                    // [v1.02] whether in draw mode
   const [isHolding, setIsHolding] = useState(false);                        // [v1.11] track touch hold state for magnifier
@@ -55,6 +73,14 @@ export default function Workspace() {
   useEffect(() => {
     if (lastSnap) setLensPos(lastSnap);                                     // [v1.08] update magnifier position
   }, [lastSnap]);
+
+  useEffect(() => {
+    localStorage.setItem("haikan-lines-v1", JSON.stringify(lines));         // [v1.17] survive refresh/close
+  }, [lines]);
+
+  useEffect(() => {
+    localStorage.setItem("haikan-scale-mmpp", String(mmPerPoint));          // [v1.17] persist scale
+  }, [mmPerPoint]);
 
   useEffect(() => {
     const el = workspaceRef.current;
@@ -169,6 +195,9 @@ export default function Workspace() {
     setZoom,
     setOffset,
     lines,                                                                 // [v1.16] drawn segments for Studio handoff
+    setLines,                                                              // [v1.17] clear/undo from TopBar
+    mmPerPoint,                                                            // [v1.17] scale setting
+    setMmPerPoint,
   };
 
   return (
@@ -190,6 +219,7 @@ export default function Workspace() {
             isDark={darkMode}
             zoom={zoom}
             offset={offset}
+            mmPerPoint={mmPerPoint}
           />
           {!hideCrosshair && (
             <SnapOverlay

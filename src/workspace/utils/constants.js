@@ -10,3 +10,4 @@ export const magnifyZoom = 1;                     // v1.10+ magnification scale
 export const crosshairLength = 12;                // v1.10+ inner crosshair arm length
 export const endpointSnapThreshold = 15;          // v1.15+ pixel distance for endpoint snapping
 
+export const pointStep = dx * tan30;              // v1.17+ 1 "point" = dot-to-dot distance (px), same in all 6 directions

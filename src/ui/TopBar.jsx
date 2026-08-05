@@ -20,7 +20,11 @@ const translations = {
     center: "Center",
     language: "Language",
     toStudio: "Send joint to Studio",
-    noJoint: "Draw two connected lines first"
+    noJoint: "Draw two connected lines first",
+    scale: "1 pt =",
+    undo: "Undo line",
+    clear: "Clear all",
+    clearConfirm: "Delete all lines?"
   },
   jp: {
     grid: "グリッド",
@@ -31,7 +35,11 @@ const translations = {
     center: "中央",
     language: "言語",
     toStudio: "スタジオへ送る",
-    noJoint: "接続された2本の線を描いてください"
+    noJoint: "接続された2本の線を描いてください",
+    scale: "1 pt =",
+    undo: "1本戻す",
+    clear: "全消去",
+    clearConfirm: "全ての線を削除しますか？"
   }
 };
 
@@ -55,7 +63,10 @@ export default function TopBar() {
     setMagnifyMode,                                          // v1.11+ magnify mode setter
     setZoom,
     setOffset,
-    lines                                                    // v1.16+ drawn segments for handoff
+    lines,                                                   // v1.16+ drawn segments for handoff
+    setLines,                                                // v1.17+ undo/clear
+    mmPerPoint,                                              // v1.17+ scale setting
+    setMmPerPoint
   } = useContext(WorkspaceContext);                         // v1.10+ destructure values from context
 
   const [showSettings, setShowSettings] = useState(false);   // v1.13+ settings dropdown state
@@ -142,6 +153,30 @@ export default function TopBar() {
               )}
               <button onClick={toggleLanguage}>
                 <GlobeIcon /> <span>{t.language}: {lang === "en" ? "EN" : "JP"}</span>
+              </button>
+              {/* v1.17+ scale: 1 dot-step = X mm */}
+              <div className="dropdown-row">
+                <span>{t.scale}</span>
+                <input
+                  type="number"
+                  min="1"
+                  value={mmPerPoint}
+                  onChange={(e) => {
+                    const value = Number(e.target.value);
+                    if (Number.isFinite(value) && value > 0) setMmPerPoint(value);
+                  }}
+                />
+                <span>mm</span>
+              </div>
+              {/* v1.17+ undo last line / clear all */}
+              <button onClick={() => setLines(lines.slice(0, -1))} disabled={!lines.length}>
+                <RotateIcon /> <span>{t.undo}</span>
+              </button>
+              <button
+                onClick={() => { if (window.confirm(t.clearConfirm)) setLines([]); }}
+                disabled={!lines.length}
+              >
+                <CrosshairIcon /> <span>{t.clear}</span>
               </button>
             </div>
           )}
