@@ -95,7 +95,6 @@ export default function EditSheet({ line, mmPerPoint, lang, onApply, onClose }) 
           <input
             type="number"
             min="1"
-            autoFocus
             value={mm}
             onFocus={(e) => e.target.select()}
             onChange={(e) => setMm(e.target.value)}

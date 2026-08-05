@@ -34,8 +34,20 @@ export function drawnHeights(lines) {
   return heights;
 }
 
+// Iso-axis coordinates of a point relative to a centre: p - c = a*u + b*v.
+export function isoCoords(point, cx, cy) {
+  const dx = point.x - cx;
+  const dy = point.y - cy;
+  return {
+    a: (dx / (2 * ISO_U.x)) - dy,
+    b: (-dx / (2 * ISO_U.x)) - dy,
+  };
+}
+
 export function glPlaneGeometry(lines, mmPerPoint, options = {}) {
-  const { sizeMm = 0, offsetMm = 0, center = null } = options;
+  const {
+    sizeMm = 0, sizeVMm = 0, offsetMm = 0, center = null,
+  } = options;
   if (!lines.length) return null;
 
   const pxPerMm = pointStep / mmPerPoint;
@@ -67,34 +79,50 @@ export function glPlaneGeometry(lines, mmPerPoint, options = {}) {
   cy /= nodes.length;
   if (center) { cx = center.x; cy = center.y; }
 
-  let reach = 0;
+  let reachA = 0;
+  let reachB = 0;
   for (const node of nodes) {
-    const dx = node.ground.x - cx;
-    const dy = node.ground.y - cy;
-    reach = Math.max(
-      reach,
-      Math.abs((dx / (2 * ISO_U.x)) - dy),
-      Math.abs((-dx / (2 * ISO_U.x)) - dy),
-    );
+    const { a, b } = isoCoords(node.ground, cx, cy);
+    reachA = Math.max(reachA, Math.abs(a));
+    reachB = Math.max(reachB, Math.abs(b));
   }
-  const half = sizeMm > 0 ? (sizeMm / 2) * pxPerMm : (reach * 1.4) + (pointStep * 3);
+  // Auto-fit stays square: a run along one axis would otherwise give a
+  // ribbon instead of a floor. Explicit sizes are free to differ.
+  const autoHalf = (Math.max(reachA, reachB) * 1.4) + (pointStep * 3);
+  const halfU = sizeMm > 0 ? (sizeMm / 2) * pxPerMm : autoHalf;
+  const halfV = sizeVMm > 0 ? (sizeVMm / 2) * pxPerMm : autoHalf;
 
-  const corners = [
-    { x: cx + ((ISO_U.x + ISO_V.x) * half), y: cy + ((ISO_U.y + ISO_V.y) * half) },
-    { x: cx + ((ISO_U.x - ISO_V.x) * half), y: cy + ((ISO_U.y - ISO_V.y) * half) },
-    { x: cx - ((ISO_U.x + ISO_V.x) * half), y: cy - ((ISO_U.y + ISO_V.y) * half) },
-    { x: cx - ((ISO_U.x - ISO_V.x) * half), y: cy - ((ISO_U.y - ISO_V.y) * half) },
+  const at = (a, b) => ({
+    x: cx + (ISO_U.x * a) + (ISO_V.x * b),
+    y: cy + (ISO_U.y * a) + (ISO_V.y * b),
+  });
+
+  // corners, then the four side midpoints with the axis each one resizes
+  const corners = [at(halfU, halfV), at(halfU, -halfV), at(-halfU, -halfV), at(-halfU, halfV)];
+  const edges = [
+    { point: at(halfU, 0), axis: "u" },
+    { point: at(-halfU, 0), axis: "u" },
+    { point: at(0, halfV), axis: "v" },
+    { point: at(0, -halfV), axis: "v" },
   ];
 
-  return { cx, cy, half, corners, nodes, pxPerMm };
+  return { cx, cy, halfU, halfV, corners, edges, nodes, pxPerMm };
 }
 
-// Size in mm implied by dragging a corner to `point`.
-export function sizeFromCorner(point, cx, cy, mmPerPoint) {
-  const dx = point.x - cx;
-  const dy = point.y - cy;
-  const a = Math.abs((dx / (2 * ISO_U.x)) - dy);
-  const b = Math.abs((-dx / (2 * ISO_U.x)) - dy);
-  const half = Math.max(a, b, pointStep);
-  return Math.round(((half * 2) / (pointStep / mmPerPoint)) / 50) * 50;
+// Is a workspace point inside the rhombus?
+export function insidePlane(point, plane) {
+  const { a, b } = isoCoords(point, plane.cx, plane.cy);
+  return Math.abs(a) <= plane.halfU && Math.abs(b) <= plane.halfV;
+}
+
+// Sizes in mm implied by dragging a handle to `point`. `axis` limits the
+// change to one direction, which is what the side handles do.
+export function sizeFromHandle(point, cx, cy, mmPerPoint, axis = "both") {
+  const { a, b } = isoCoords(point, cx, cy);
+  const toMm = (half) => Math.round(((Math.max(Math.abs(half), pointStep) * 2)
+    / (pointStep / mmPerPoint)) / 50) * 50;
+  return {
+    u: axis === "v" ? null : toMm(a),
+    v: axis === "u" ? null : toMm(b),
+  };
 }

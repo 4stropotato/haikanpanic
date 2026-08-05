@@ -640,3 +640,17 @@ canvas:nth-of-type(2) {
    Dynamic viewport units keep this correct while iOS chrome shows/hides. */
 .app { height: 100vh; height: 100dvh; }
 .workspace { height: auto; min-height: 0; }
+
+/* v2.13 lift sheets clear of the on-screen keyboard */
+.sheet {
+  bottom: var(--kb, 0px);
+  max-height: calc(78vh - var(--kb, 0px));
+  max-height: calc(78dvh - var(--kb, 0px));
+}
+.sheet.cutlist { max-height: calc(84dvh - var(--kb, 0px)); }
+.sheet-actions {
+  position: sticky;
+  bottom: 0;
+  background: var(--panel);
+  padding-bottom: 10px;
+}

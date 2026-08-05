@@ -111,7 +111,8 @@ export default function TopBar() {
     setGlOffsetMm,
     glEditPlane,
     setGlEditPlane,
-    resetGlPlane
+    resetGlPlane,
+    setShowGlSheet
   } = useContext(WorkspaceContext);
 
   const [showSheet, setShowSheet] = useState(false);
@@ -252,17 +253,12 @@ export default function TopBar() {
                       />
                       <span>mm</span>
                     </div>
-                    <div className="sheet-row">
-                      <span>{t.glHeight}</span>
-                      <input
-                        type="number"
-                        step="100"
-                        value={glOffsetMm}
-                        onFocus={(e) => e.target.select()}
-                        onChange={(e) => setGlOffsetMm(Number(e.target.value) || 0)}
-                      />
-                      <span>mm</span>
-                    </div>
+                    <button
+                      className="sheet-btn"
+                      onClick={() => { setShowSheet(false); setShowGlSheet(true); }}
+                    >
+                      <PencilIcon /> <span>{t.glHeight}</span>
+                    </button>
                     <button
                       className="sheet-btn"
                       onClick={() => { setGlEditPlane(!glEditPlane); setShowSheet(false); }}

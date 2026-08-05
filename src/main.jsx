@@ -1,3 +1,4 @@
+import { trackKeyboardInset } from "./workspace/utils/keyboardInset";
 ﻿import { StrictMode } from "react";                         // v1.10+ React strict mode enabled
 import { createRoot } from "react-dom/client";              // v1.10+ createRoot API from React 18+
 import App from "./App";                                    // v1.10+ entry point app component
@@ -9,3 +10,4 @@ createRoot(document.getElementById("root")).render(         // v1.10+ mount app 
   </StrictMode>
 );
 
+trackKeyboardInset();

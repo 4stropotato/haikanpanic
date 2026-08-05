@@ -29,6 +29,7 @@ const DrawLayer = ({
   lines, preview, isDark, zoom, offset, mmPerPoint = 10,
   showGL = true, glContinuous = false, glSizeMm = 0,
   glOffsetMm = 0, glCenter = null, glEditPlane = false, jointTypes = {},
+  glSizeVMm = 0, glName = "GL",
 }) => { // [v1.09] Accept zoom and offset for scaling
   const canvasRef = useRef(null);                                 // [v1.02] Canvas DOM reference
   const { w: vpW, h: vpH } = useViewport();                       // v1.18+ re-render on resize
@@ -86,10 +87,10 @@ const DrawLayer = ({
     // follow the DRAWN geometry so they always land on the plane.
     if (showGL && lines.length) {
       const plane = glPlaneGeometry(lines, mmPerPoint, {
-        sizeMm: glSizeMm, offsetMm: glOffsetMm, center: glCenter,
+        sizeMm: glSizeMm, sizeVMm: glSizeVMm, offsetMm: glOffsetMm, center: glCenter,
       });
       if (plane) {
-        const { corners, nodes } = plane;
+        const { corners, edges, nodes } = plane;
         ctx.save();
         if (glContinuous) {
           const left = ((-width / 2) - offset.x) / zoom;
@@ -137,20 +138,28 @@ const DrawLayer = ({
         ctx.setLineDash([]);
         ctx.textAlign = "left";
         ctx.textBaseline = "top";
-        ctx.fillText("GL ±0", corners[2].x + (10 / zoom), corners[2].y + (6 / zoom));
+        ctx.fillText(`${glName} ±0`, corners[2].x + (10 / zoom), corners[2].y + (6 / zoom));
         ctx.restore();
 
         // drag handles while the plane is being edited
         if (glEditPlane && !glContinuous) {
           ctx.save();
-          const r = 9 / zoom;
+          ctx.strokeStyle = "rgba(10,14,20,0.9)";
+          ctx.lineWidth = 2 / zoom;
+          // round handles resize both axes, square ones resize a single side
           for (const corner of corners) {
             ctx.beginPath();
-            ctx.arc(corner.x, corner.y, r, 0, Math.PI * 2);
-            ctx.fillStyle = "rgba(245,186,102,0.9)";
+            ctx.arc(corner.x, corner.y, 9 / zoom, 0, Math.PI * 2);
+            ctx.fillStyle = "rgba(245,186,102,0.92)";
             ctx.fill();
-            ctx.strokeStyle = "rgba(10,14,20,0.9)";
-            ctx.lineWidth = 2 / zoom;
+            ctx.stroke();
+          }
+          const half = 7 / zoom;
+          for (const edge of edges) {
+            ctx.beginPath();
+            ctx.rect(edge.point.x - half, edge.point.y - half, half * 2, half * 2);
+            ctx.fillStyle = "rgba(245,186,102,0.72)";
+            ctx.fill();
             ctx.stroke();
           }
           ctx.restore();
@@ -200,7 +209,7 @@ const DrawLayer = ({
     }
 
     ctx.restore();                                                // [v1.10] End transform block
-  }, [lines, preview, isDark, zoom, offset, mmPerPoint, showGL, glContinuous, glSizeMm, glOffsetMm, glCenter, glEditPlane, jointTypes, vpW, vpH]);         // [v1.10] Redraw on zoom or pan
+  }, [lines, preview, isDark, zoom, offset, mmPerPoint, showGL, glContinuous, glSizeMm, glOffsetMm, glCenter, glEditPlane, jointTypes, glSizeVMm, glName, vpW, vpH]);         // [v1.10] Redraw on zoom or pan
 
   return (
     <canvas

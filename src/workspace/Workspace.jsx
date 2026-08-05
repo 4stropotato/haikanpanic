@@ -24,7 +24,10 @@ import { snapToAllowedAngle, snapToNearestGrid } from "./utils/geometry";   // [
 import { findSegmentAt, setSegmentLength } from "./utils/editLength";       // v1.19+ tap-to-edit lengths
 import { segmentLengthMm } from "./utils/lengths";                          // v1.19+ current mm for prompt
 import { viewport, observeViewport } from "./utils/viewport";               // v1.19+ tap coord conversion
-import { glPlaneGeometry, sizeFromCorner } from "./utils/glPlane";          // v2.09 datum plane
+import {
+  glPlaneGeometry, sizeFromHandle, insidePlane,
+} from "./utils/glPlane";                                                   // v2.09 datum plane
+import GlSheet from "../ui/GlSheet";
 import { findJointAt, jointTypeOf } from "./utils/joints";                  // v2.10 corner fittings
 import JointSheet from "../ui/JointSheet";
 import { zoomMin, zoomMax } from "./utils/constants";                       // [v1.10] zoom range constants
@@ -73,7 +76,10 @@ export default function Workspace() {
   const [readyToDraw, setReadyToDraw] = useState(false);                    // [v1.02] whether in draw mode
   const [isHolding, setIsHolding] = useState(false);                        // [v1.11] track touch hold state for magnifier
   const [editMode, setEditMode] = useState(false);                          // v1.19+ tap segments to edit lengths
-  const [editTarget, setEditTarget] = useState(null);                       // v2.02 segment being edited
+  const [editTarget, setEditTarget] = useState(() => {                      // v2.02 segment being edited
+    const seed = new URLSearchParams(window.location.search).get("edit");
+    return seed === null ? null : Number(seed);
+  });
   const [eraseMode, setEraseMode] = useState(false);                        // v2.08 tap a line to delete it
   const [jointTypes, setJointTypes] = useState(() => {                      // v2.10 corner fittings
     const demoJoint = new URLSearchParams(window.location.search).get("joint");
@@ -101,6 +107,12 @@ export default function Workspace() {
     const stored = Number(localStorage.getItem("haikan-gl-offset"));
     return Number.isFinite(stored) ? stored : 0;
   });
+  const [glSizeVMm, setGlSizeVMm] = useState(() => {                        // v2.13 depth, 0 = auto
+    const stored = Number(localStorage.getItem("haikan-gl-sizev"));
+    return Number.isFinite(stored) && stored >= 0 ? stored : 0;
+  });
+  const [glName, setGlName] = useState(() => localStorage.getItem("haikan-gl-name") || "GL");
+  const [showGlSheet, setShowGlSheet] = useState(false);                    // v2.13 datum editor
   const [glCenter, setGlCenter] = useState(null);                           // v2.09 dragged centre
   const [glEditPlane, setGlEditPlane] = useState(false);                    // v2.09 drag handles on
   const planeDrag = useRef(null);
@@ -144,13 +156,16 @@ export default function Workspace() {
     localStorage.setItem("haikan-gl-mode", glContinuous ? "continuous" : "area");
     localStorage.setItem("haikan-gl-size", String(glSizeMm));               // v2.08 persist datum
     localStorage.setItem("haikan-gl-offset", String(glOffsetMm));
-  }, [glContinuous, glSizeMm, glOffsetMm]);
+    localStorage.setItem("haikan-gl-sizev", String(glSizeVMm));
+    localStorage.setItem("haikan-gl-name", glName);
+  }, [glContinuous, glSizeMm, glOffsetMm, glSizeVMm, glName]);
 
   // v2.12 Zoom about a screen anchor. Without this the view always zoomed
   // toward the centre and whatever you were looking at slid away.
   const zoomAbout = (clientX, clientY, nextZoomRaw) => {
     const { zoom: z0, offset: o0 } = viewRef.current;
-    const nextZoom = Math.min(zoomMax, Math.max(zoomMin, nextZoomRaw));
+    const safeRaw = Number.isFinite(nextZoomRaw) ? nextZoomRaw : z0;
+    const nextZoom = Math.min(zoomMax, Math.max(zoomMin, safeRaw));
     const cx = viewport.w / 2;
     const cy = viewport.h / 2;
     const wx = (clientX - cx - o0.x) / z0;                                  // point under the anchor
@@ -181,18 +196,26 @@ export default function Workspace() {
     y: (clientY - (viewport.h / 2 + offset.y)) / zoom,
   });
 
-  // v2.09 Plane editing: grab a corner to resize, or the face to move it.
+  const currentPlane = () => glPlaneGeometry(lines, mmPerPoint, {
+    sizeMm: glSizeMm, sizeVMm: glSizeVMm, offsetMm: glOffsetMm, center: glCenter,
+  });
+
+  // v2.09 Plane editing: grab a corner or a side to resize, the face to move.
   const planeGrab = (clientX, clientY) => {
     if (!glEditPlane || glContinuous || !lines.length) return false;
-    const plane = glPlaneGeometry(lines, mmPerPoint, {
-      sizeMm: glSizeMm, offsetMm: glOffsetMm, center: glCenter,
-    });
+    const plane = currentPlane();
     if (!plane) return false;
     const point = toWorkspace(clientX, clientY);
     const grabRadius = 20 / zoom;
     for (const corner of plane.corners) {
       if (Math.hypot(point.x - corner.x, point.y - corner.y) < grabRadius) {
-        planeDrag.current = { mode: "resize", cx: plane.cx, cy: plane.cy };
+        planeDrag.current = { mode: "resize", axis: "both", cx: plane.cx, cy: plane.cy };
+        return true;
+      }
+    }
+    for (const edge of plane.edges) {
+      if (Math.hypot(point.x - edge.point.x, point.y - edge.point.y) < grabRadius) {
+        planeDrag.current = { mode: "resize", axis: edge.axis, cx: plane.cx, cy: plane.cy };
         return true;
       }
     }
@@ -209,7 +232,9 @@ export default function Workspace() {
     if (!drag) return false;
     const point = toWorkspace(clientX, clientY);
     if (drag.mode === "resize") {
-      setGlSizeMm(sizeFromCorner(point, drag.cx, drag.cy, mmPerPoint));
+      const size = sizeFromHandle(point, drag.cx, drag.cy, mmPerPoint, drag.axis);
+      if (size.u != null) setGlSizeMm(size.u);
+      if (size.v != null) setGlSizeVMm(size.v);
     } else {
       setGlCenter({ x: point.x + drag.dx, y: point.y + drag.dy });
     }
@@ -234,7 +259,9 @@ export default function Workspace() {
       // v2.12 keep the workspace point that was under the pinch centre
       // pinned to the pinch centre as it moves and scales
       const start = lastTouch.current;
-      const newZoom = Math.min(zoomMax, Math.max(zoomMin, start.zoom * (dist / start.dist)));
+      const ratio = start.dist > 0 ? dist / start.dist : 1;
+      const scaled = Number.isFinite(ratio) ? start.zoom * ratio : start.zoom;
+      const newZoom = Math.min(zoomMax, Math.max(zoomMin, scaled));
       const cx = viewport.w / 2;
       const cy = viewport.h / 2;
       const wx = (start.mid.x - cx - start.offset.x) / start.zoom;
@@ -300,7 +327,10 @@ export default function Workspace() {
       const joint = findJointAt(point, lines, 22 / zoom);
       if (joint) { setJointTarget(joint); return; }
       const index = findSegmentAt(point, lines, 24 / zoom);
-      if (index >= 0) setEditTarget(index);                                 // v2.02 open spec sheet
+      if (index >= 0) { setEditTarget(index); return; }                     // v2.02 open spec sheet
+      // nothing drawn under the tap: the datum owns the rest of the plane
+      const plane = showGL && !glContinuous ? currentPlane() : null;
+      if (plane && insidePlane(point, plane)) setShowGlSheet(true);
       return;
     }
     if (!("ontouchstart" in window || navigator.maxTouchPoints > 0)) return;
@@ -379,6 +409,7 @@ export default function Workspace() {
     setGlOffsetMm,
     glEditPlane,
     setGlEditPlane,
+    setShowGlSheet,
     resetGlPlane: () => { setGlCenter(null); setGlSizeMm(0); setGlOffsetMm(0); },
   };
 
@@ -412,6 +443,8 @@ export default function Workspace() {
             glCenter={glCenter}
             glEditPlane={glEditPlane}
             jointTypes={jointTypes}
+            glSizeVMm={glSizeVMm}
+            glName={glName}
           />
           {!hideCrosshair && (
             <SnapOverlay
@@ -438,6 +471,25 @@ export default function Workspace() {
               };
               setLines(next);
               setEditTarget(null);
+            }}
+          />
+        )}
+        {showGlSheet && (
+          <GlSheet
+            value={{
+              name: glName, offsetMm: glOffsetMm, sizeMm: glSizeMm,
+              sizeVMm: glSizeVMm, continuous: glContinuous,
+            }}
+            lang={localStorage.getItem("haikan-lang") === "jp" ? "jp" : "en"}
+            onClose={() => setShowGlSheet(false)}
+            onReset={() => { setGlSizeMm(0); setGlSizeVMm(0); setGlCenter(null); }}
+            onApply={(next) => {
+              setGlName(next.name);
+              setGlOffsetMm(next.offsetMm);
+              setGlSizeMm(next.sizeMm);
+              setGlSizeVMm(next.sizeVMm);
+              setGlContinuous(next.continuous);
+              setShowGlSheet(false);
             }}
           />
         )}
