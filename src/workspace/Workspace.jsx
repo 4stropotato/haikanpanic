@@ -16,6 +16,8 @@ import DrawLayer from "./draw/DrawLayer";                                   // [
 import SnapOverlay from "./snap/SnapOverlay";                               // [v1.01] snapping crosshair overlay
 import Magnify from "./magnify/Magnify";                                    // [v1.07] real-time magnifier lens
 import TopBar from "../ui/TopBar";                                          // [v1.10] top control bar
+import EditSheet from "../ui/EditSheet";                                    // v2.02 spec editor sheet
+import Workshop from "./workshop/Workshop";                                 // v2.02 3D pipes view
 import { WorkspaceContext } from "./WorkspaceContext";                      // [v1.10] shared state context
 import { snapToAllowedAngle, snapToNearestGrid } from "./utils/geometry";   // [v1.10] math utilities
 import { findSegmentAt, setSegmentLength } from "./utils/editLength";       // v1.19+ tap-to-edit lengths
@@ -41,9 +43,15 @@ export default function Workspace() {
     if (new URLSearchParams(window.location.search).has("demo")) {
       // v1.17+ deterministic sample sketch for tests/screenshots
       const s = 11.547;
+      const top = { x: 0, y: -12 * s };
       return [
-        { start: { x: 0, y: 0 }, end: { x: 0, y: -6 * s } },
-        { start: { x: 0, y: -6 * s }, end: { x: 10 * Math.cos(-Math.PI / 6) * s, y: -6 * s + 10 * Math.sin(-Math.PI / 6) * s } },
+        { start: { x: 0, y: 0 }, end: top, lengthMm: 620, spec: { a: 100, conn: "BW" } },
+        {
+          start: top,
+          end: { x: top.x + 20 * Math.cos(-Math.PI / 6) * s, y: top.y + 20 * Math.sin(-Math.PI / 6) * s },
+          lengthMm: 1000,
+          spec: { a: 100, conn: "BW" },
+        },
       ];
     }
     try {
@@ -60,6 +68,8 @@ export default function Workspace() {
   const [readyToDraw, setReadyToDraw] = useState(false);                    // [v1.02] whether in draw mode
   const [isHolding, setIsHolding] = useState(false);                        // [v1.11] track touch hold state for magnifier
   const [editMode, setEditMode] = useState(false);                          // v1.19+ tap segments to edit lengths
+  const [editTarget, setEditTarget] = useState(null);                       // v2.02 segment being edited
+  const [showWorkshop, setShowWorkshop] = useState(() => new URLSearchParams(window.location.search).has("workshop")); // v2.02 3D view toggle (?workshop=1 for tests)
   const [snappedEndpoint, setSnappedEndpoint] = useState(null);             // [v1.15] currently snapped endpoint
 
   const holdTimeout = useRef(null);                                         // [v1.04] long press timer
@@ -152,14 +162,7 @@ export default function Workspace() {
         y: (e.clientY - (viewport.h / 2 + offset.y)) / zoom,
       };
       const index = findSegmentAt(point, lines, 24 / zoom);
-      if (index >= 0) {
-        const currentMm = lines[index].lengthMm ?? segmentLengthMm(lines[index], mmPerPoint);
-        const raw = window.prompt("Length (mm):", String(currentMm));
-        const value = Number(raw);
-        if (raw !== null && Number.isFinite(value) && value > 0) {
-          setLines(setSegmentLength(lines, index, value, mmPerPoint));
-        }
-      }
+      if (index >= 0) setEditTarget(index);                                 // v2.02 open spec sheet
       return;
     }
     if (!("ontouchstart" in window || navigator.maxTouchPoints > 0)) return;
@@ -222,6 +225,7 @@ export default function Workspace() {
     setMmPerPoint,
     editMode,                                                              // v1.19+ edit-length mode
     setEditMode,
+    setShowWorkshop,                                                       // v2.02 open 3D view
   };
 
   return (
@@ -256,6 +260,23 @@ export default function Workspace() {
           )}
           {showMagnifier && <Magnify x={lensPos.x} y={lensPos.y} isHolding={isHolding} mode={magnifyMode} />}
         </div>
+        {editTarget != null && lines[editTarget] && (
+          <EditSheet
+            line={lines[editTarget]}
+            mmPerPoint={mmPerPoint}
+            lang={localStorage.getItem("haikan-lang") === "jp" ? "jp" : "en"}
+            onClose={() => setEditTarget(null)}
+            onApply={({ mm, a, conn }) => {
+              const next = setSegmentLength(lines, editTarget, mm, mmPerPoint);
+              next[editTarget] = { ...next[editTarget], spec: { a, conn } };
+              setLines(next);
+              setEditTarget(null);
+            }}
+          />
+        )}
+        {showWorkshop && (
+          <Workshop lines={lines} mmPerPoint={mmPerPoint} onClose={() => setShowWorkshop(false)} />
+        )}
       </div>
     </WorkspaceContext.Provider>
   );

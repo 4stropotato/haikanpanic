@@ -8,24 +8,24 @@ export function snapToNearestGrid(point, zoom, offset) {
   const px = (point.x - centerX) / zoom;                            // v1.10+ convert to workspace X
   const py = (point.y - centerY) / zoom;                            // v1.10+ convert to workspace Y
 
-  let nearest = null;                                               // v1.10+ best snapped point
-  let minDist = Infinity;                                           // v1.10+ shortest distance found
-
-  for (let i = -snapRange; i <= snapRange; i++) {                   // v1.10+ iterate grid column
-    const x1 = i * dx;                                              // v1.10+ first axis line (vertical)
-    for (let j = -snapRange; j <= snapRange; j++) {                 // v1.10+ iterate grid row
-      const x2 = j * dx;                                            // v1.10+ second axis line (angled)
-      const x = (x1 + x2) / 2;                                      // v1.10+ isometric midpoint X
-      const y = tan30 * (x - x1);                                   // v1.10+ isometric midpoint Y
-      const dist = (px - x) ** 2 + (py - y) ** 2;                   // v1.10+ squared distance to input
-      if (dist < minDist) {                                       
-        minDist = dist;                                             // v1.10+ update closest match
-        nearest = { x, y };                                         // v1.10+ store snapped point
+  // v2.02 unlimited snap: lattice points are x=(u+v)/2, y=tan30*(v-u)/2 with
+  // u=i*dx, v=j*dx. Invert, round, and check the 4 surrounding candidates.
+  const u = px - (py / tan30);
+  const v = px + (py / tan30);
+  let nearest = null;
+  let minDist = Infinity;
+  for (const iu of [Math.floor(u / dx), Math.ceil(u / dx)]) {
+    for (const jv of [Math.floor(v / dx), Math.ceil(v / dx)]) {
+      const x = ((iu * dx) + (jv * dx)) / 2;
+      const y = (tan30 * ((jv * dx) - (iu * dx))) / 2;
+      const dist = ((px - x) ** 2) + ((py - y) ** 2);
+      if (dist < minDist) {
+        minDist = dist;
+        nearest = { x, y };
       }
     }
   }
-
-  return nearest;                                                   // v1.10+ return nearest snapped coordinate
+  return nearest;
 }
 
 // v1.10+ Lock a freeform segment to the closest of 6 isometric angles

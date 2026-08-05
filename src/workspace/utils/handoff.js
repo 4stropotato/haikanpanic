@@ -11,7 +11,7 @@ const EPS = 1e-6;
 //   vertical        -> Z
 //   up-right (-30°) -> +X   down-left (150°) -> -X
 //   up-left (-150°) -> +Y   down-right (30°) -> -Y
-function isoDirectionTo3D(dxs, dys) {
+export function isoDirectionTo3D(dxs, dys) {
   const angle = Math.atan2(dys, dxs);
   const table = [
     { a: -Math.PI / 2, v: [0, 0, 1] },

@@ -19,7 +19,8 @@ export function segmentLengthMm(line, mmPerPoint) {
 // length regardless of drawn length (label is authoritative, per DRAW2 spec).
 function labelFor(line, mmPerPoint) {
   const mm = line.lengthMm ?? segmentLengthMm(line, mmPerPoint);
-  return `${mm}mm`;
+  const spec = line.spec ? `  ${line.spec.a}A ${line.spec.conn}` : "";
+  return `${mm}mm${spec}`;
 }
 
 const DrawLayer = ({ lines, preview, isDark, zoom, offset, mmPerPoint = 10 }) => { // [v1.09] Accept zoom and offset for scaling

@@ -423,3 +423,89 @@ canvas:nth-of-type(2) {
     radial-gradient(120% 90% at 50% 40%, transparent 55%, rgba(0, 0, 0, 0.34) 100%),
     radial-gradient(600px 300px at 85% -5%, rgba(124, 196, 255, 0.07), transparent 70%);
 }
+
+/* v2.02 workshop overlay + edit sheet extras */
+.workshop {
+  position: fixed;
+  inset: 0;
+  z-index: 10005;
+  background: #0a0e14;
+  animation: fade-in 0.2s ease;
+}
+.workshop-canvas { position: absolute; inset: 0; }
+.workshop-chrome {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.8rem 1rem;
+  pointer-events: none;
+}
+.workshop-title {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.28em;
+  color: var(--accent);
+  text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+.workshop-close {
+  pointer-events: auto;
+  width: 42px; height: 42px;
+  border-radius: 12px;
+  border: 1px solid var(--border-2);
+  background: color-mix(in srgb, var(--panel) 80%, transparent);
+  backdrop-filter: blur(10px);
+  color: var(--text);
+  font-size: 1rem;
+  cursor: pointer;
+}
+.sheet-title {
+  font-weight: 750;
+  font-size: 1rem;
+  padding: 0 6px 8px;
+}
+.sheet-row select {
+  flex: 1;
+  padding: 9px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border-2);
+  background: var(--bg);
+  color: inherit;
+  font-size: 0.9rem;
+}
+.seg-group { display: flex; gap: 6px; flex: 1; }
+.seg-btn {
+  flex: 1;
+  min-height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--border-2);
+  background: var(--bg);
+  color: var(--text);
+  font-weight: 650;
+  cursor: pointer;
+}
+.seg-btn.on {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.sheet-actions { display: flex; gap: 8px; padding: 14px 6px 4px; }
+.sheet-action {
+  flex: 1;
+  min-height: 46px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+.sheet-action.ghost {
+  background: transparent;
+  border: 1px solid var(--border-2);
+  color: var(--text);
+}
+.sheet-action.solid {
+  background: linear-gradient(150deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #3b6ef5));
+  border: none;
+  color: #0d1520;
+}

@@ -8,7 +8,7 @@
 
 import { useContext, useState, useEffect } from "react";
 import { WorkspaceContext } from "../workspace/WorkspaceContext";
-import { SunIcon, MoonIcon, GridIcon, CrosshairIcon, MagnifierIcon, RotateIcon, GlobeIcon, CheckIcon, SendToStudioIcon, PencilIcon, MoreIcon } from "./Icons";
+import { SunIcon, MoonIcon, GridIcon, CrosshairIcon, MagnifierIcon, RotateIcon, GlobeIcon, CheckIcon, SendToStudioIcon, PencilIcon, MoreIcon, CubeIcon } from "./Icons";
 import { buildStudioHandoff, encodeHandoff } from "../workspace/utils/handoff";
 
 const translations = {
@@ -24,6 +24,7 @@ const translations = {
     edit: "Edit",
     undo: "Undo",
     studio: "Studio",
+    workshop: "Workshop",
     more: "More",
     scale: "Scale: 1 pt =",
     clear: "Clear all",
@@ -42,6 +43,7 @@ const translations = {
     edit: "編集",
     undo: "戻す",
     studio: "スタジオ",
+    workshop: "作業場",
     more: "その他",
     scale: "縮尺: 1 pt =",
     clear: "全消去",
@@ -74,7 +76,8 @@ export default function TopBar() {
     mmPerPoint,
     setMmPerPoint,
     editMode,
-    setEditMode
+    setEditMode,
+    setShowWorkshop
   } = useContext(WorkspaceContext);
 
   const [showSheet, setShowSheet] = useState(false);
@@ -133,9 +136,13 @@ export default function TopBar() {
           <PencilIcon />
           <span>{t.edit}</span>
         </button>
-        <button className="dock-btn primary" onClick={sendToStudio}>
-          <SendToStudioIcon />
-          <span>{t.studio}</span>
+        <button
+          className="dock-btn primary"
+          onClick={() => setShowWorkshop(true)}
+          disabled={!lines.length}
+        >
+          <CubeIcon />
+          <span>{t.workshop}</span>
         </button>
         <button className="dock-btn" onClick={() => setShowSheet(true)}>
           <MoreIcon />
@@ -161,6 +168,9 @@ export default function TopBar() {
               />
               <span>mm</span>
             </div>
+            <button className="sheet-btn" onClick={sendToStudio}>
+              <SendToStudioIcon /> <span>{t.studio}</span>
+            </button>
             <button className="sheet-btn" onClick={() => setDarkMode((d) => !d)}>
               {darkMode ? <SunIcon /> : <MoonIcon />} <span>{t.theme}</span>
             </button>
