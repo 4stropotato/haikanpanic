@@ -241,6 +241,29 @@ const DrawLayer = ({
           ctx.fillStyle = `rgb(${tint})`;
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
+          // v2.92 The footprint. An elevated run tells you nothing about
+          // where it lands until you drop it onto the floor, so the whole
+          // path — bends and all — is cast onto the datum in pink. That is
+          // the line you set out from on site.
+          ctx.save();
+          ctx.strokeStyle = "rgba(255,94,168,0.85)";
+          ctx.lineWidth = 1.6 / zoom;
+          ctx.setLineDash([8 / zoom, 5 / zoom]);
+          const drop = (pt) => {
+            const el = elevationsForLabels?.get(`${pt.x.toFixed(3)},${pt.y.toFixed(3)}`) ?? 0;
+            return { x: pt.x, y: pt.y + ((el - datum.offsetMm) * plane.pxPerMm) };
+          };
+          for (const line of lines) {
+            const a = drop(line.start);
+            const b = drop(line.end);
+            if (Math.abs(a.x - b.x) < 0.01 && Math.abs(a.y - b.y) < 0.01) continue;
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+            ctx.stroke();
+          }
+          ctx.restore();
+
           for (const node of nodes) {
             // v2.91 A run standing level with this datum is the thing worth
             // pointing out — the height matches, so the two read as one
