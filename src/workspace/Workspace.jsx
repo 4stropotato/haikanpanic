@@ -145,6 +145,7 @@ export default function Workspace() {
   });
   const [showCutList, setShowCutList] = useState(() => new URLSearchParams(window.location.search).has("cutlist")); // v2.07 材料表 sheet
   const [showGL, setShowGL] = useState(true);                               // v2.07 GL/EL in 2D
+  const [view, setView] = useState({ yaw: 0, below: false });               // v2.46 look from elsewhere
   const [detail, setDetail] = useState(                                     // v2.33 full / normal / eco
     () => new URLSearchParams(window.location.search).get("detail")
       || localStorage.getItem("haikan-detail") || "normal",
@@ -303,9 +304,10 @@ export default function Workspace() {
   // the model. Once a run slopes, where it is drawn and where it can be
   // touched both have to come from the solved geometry, not the raw sketch.
   const projection = useMemo(
-    () => projectedNodes(lines, mmPerPoint),
-    [lines, mmPerPoint],
+    () => projectedNodes(lines, mmPerPoint, { view }),
+    [lines, mmPerPoint, view],
   );
+  const homeView = view.yaw === 0 && !view.below;
   const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
   const viewLines = useMemo(() => lines.map((line) => ({
     ...line,
@@ -448,12 +450,13 @@ export default function Workspace() {
     const bottom = Math.max(box.y0, box.y1);
     if (right - left < 6 / zoom && bottom - top < 6 / zoom) { setSelection([]); return; }
     const inside = (p) => p.x >= left && p.x <= right && p.y >= top && p.y <= bottom;
-    // a run belongs to the box when it sits inside it entirely, whatever its
-    // level or distance from the rest
-    setSelection(lines.reduce((acc, line, i) => {
+    // v2.46 A box adds to what is already picked, so a selection can be
+    // built up in as many passes as the job needs.
+    const caught = viewLines.reduce((acc, line, i) => {
       if (inside(line.start) && inside(line.end)) acc.push(i);
       return acc;
-    }, []));
+    }, []);
+    setSelection((current) => [...new Set([...current, ...caught])]);
   };
 
   const pipeMove = (clientX, clientY) => {
@@ -637,6 +640,7 @@ export default function Workspace() {
   };
 
   const handleClick = (e) => {
+    if (!homeView) return;                                                 // v2.46 other views are for looking
     if (moveMode) return;                                                  // v2.16 drags, not taps
     // v2.37 Select mode: a tap adds or removes one run from the selection.
     if (selectMode) {
@@ -798,6 +802,9 @@ export default function Workspace() {
     setShowCutList,                                                        // v2.07 材料表
     showGL,
     setShowGL,
+    view,                                                                  // v2.46 viewpoint
+    setView,
+    homeView,
     showJointMarks,                                                        // v2.26 fitting circles
     setShowJointMarks,
     detail,                                                                // v2.33 display detail

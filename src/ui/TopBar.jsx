@@ -8,7 +8,7 @@
 
 import { useContext, useState, useEffect } from "react";
 import { WorkspaceContext } from "../workspace/WorkspaceContext";
-import { SunIcon, MoonIcon, GridIcon, CrosshairIcon, MagnifierIcon, RotateIcon, GlobeIcon, CheckIcon, SendToStudioIcon, PencilIcon, MoreIcon, CubeIcon, ListIcon, EraserIcon, MoveIcon, RedoIcon, PencilDrawIcon, SelectIcon } from "./Icons";
+import { SunIcon, MoonIcon, GridIcon, CrosshairIcon, MagnifierIcon, RotateIcon, GlobeIcon, CheckIcon, SendToStudioIcon, PencilIcon, MoreIcon, CubeIcon, ListIcon, EraserIcon, MoveIcon, RedoIcon, PencilDrawIcon, SelectIcon, TurnIcon } from "./Icons";
 import { buildStudioHandoff, encodeHandoff } from "../workspace/utils/handoff";
 
 const translations = {
@@ -26,6 +26,10 @@ const translations = {
     edit: "Edit",
     erase: "Erase",
     select: "Select",
+    viewTurn: "Turn view",
+    viewBelow: "From below",
+    viewHome: "Home view",
+    viewing: "Viewing — tap to return",
     move: "Move",
     undo: "Undo",
     redo: "Redo",
@@ -63,6 +67,10 @@ const translations = {
     edit: "編集",
     erase: "消去",
     select: "選択",
+    viewTurn: "視点を回す",
+    viewBelow: "下から見る",
+    viewHome: "標準視点",
+    viewing: "閲覧中 — タップで戻る",
     move: "移動",
     undo: "戻す",
     redo: "やり直し",
@@ -131,6 +139,9 @@ export default function TopBar() {
     setShowGL,
     showJointMarks,
     setShowJointMarks,
+    view,
+    setView,
+    homeView,
     detail,
     setDetail,
     glEditPlane,
@@ -181,6 +192,13 @@ export default function TopBar() {
             <RedoIcon />
           </button>
           <button
+            className={"top-btn" + (homeView ? "" : " on")}
+            onClick={() => setView((v) => ({ ...v, yaw: (v.yaw + 1) % 4 }))}
+            aria-label={t.viewTurn}
+          >
+            <TurnIcon />
+          </button>
+          <button
             className={"top-btn" + (showGrid ? " on" : "")}
             onClick={() => setShowGrid((g) => !g)}
             aria-label={t.grid}
@@ -206,6 +224,12 @@ export default function TopBar() {
         <CubeIcon />
         <span>{t.workshop}</span>
       </button>
+
+      {!homeView && (
+        <button className="view-badge" onClick={() => setView({ yaw: 0, below: false })}>
+          {t.viewing}
+        </button>
+      )}
 
       {drawing && (
         <button className="draw-cancel" onClick={cancelDraw}>
@@ -320,6 +344,19 @@ export default function TopBar() {
               </div>
             </div>
             <div className="sheet-hint">{t.detailNote}</div>
+            <button
+              className="sheet-btn"
+              onClick={() => setView((v) => ({ ...v, below: !v.below }))}
+            >
+              <CubeIcon /> <span>{t.viewBelow}</span> {view.below && <CheckIcon />}
+            </button>
+            <button
+              className="sheet-btn"
+              onClick={() => setView({ yaw: 0, below: false })}
+              disabled={homeView}
+            >
+              <CrosshairIcon /> <span>{t.viewHome}</span>
+            </button>
             <button className="sheet-btn" onClick={() => setShowJointMarks(!showJointMarks)}>
               <PencilIcon /> <span>{t.jointMarks}</span> {showJointMarks && <CheckIcon />}
             </button>

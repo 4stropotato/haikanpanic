@@ -518,12 +518,29 @@ export function projectedNodes(lines, mmPerPoint, options = {}) {
   const out = new Map();
   if (!lines.length) return out;
   const segments = placeNodes(lines, mmPerPoint, 60);
+  // v2.46 The viewpoint turns the world before it is projected, so the same
+  // model can be read from the far side, or from above or below.
+  const yaw = ((options.view?.yaw ?? 0) % 4 + 4) % 4;
+  const below = Boolean(options.view?.below);
+  const turn = (p) => {
+    const { x, z } = p;
+    const spun = [
+      { x, z },
+      { x: -z, z: x },
+      { x: -x, z: -z },
+      { x: z, z: -x },
+    ][yaw];
+    return { x: spun.x, y: below ? -p.y : p.y, z: spun.z };
+  };
 
   const pxPerMm = pointStep / mmPerPoint;
-  const project = (p) => ({
-    x: ISO_UX * (p.x + p.z) * pxPerMm,
-    y: ((0.5 * (p.z - p.x)) - p.y) * pxPerMm,
-  });
+  const project = (raw) => {
+    const p = turn(raw);
+    return {
+      x: ISO_UX * (p.x + p.z) * pxPerMm,
+      y: ((0.5 * (p.z - p.x)) - p.y) * pxPerMm,
+    };
+  };
 
   const raw = new Map();
   for (const seg of segments) {

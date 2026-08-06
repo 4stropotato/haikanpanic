@@ -933,3 +933,22 @@ html, body, #root { max-width: 100vw; overflow-x: hidden; }
   pointer-events: none;
   white-space: nowrap;
 }
+
+/* v2.46 a turned view is for reading, not drawing */
+.view-badge {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  top: calc(112px + env(safe-area-inset-top, 0px));
+  z-index: 10002;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--accent-border, rgba(124,196,255,0.45));
+  background: color-mix(in srgb, var(--panel) 90%, transparent);
+  backdrop-filter: blur(12px);
+  color: var(--accent);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
