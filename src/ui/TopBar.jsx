@@ -27,6 +27,7 @@ const translations = {
     undo: "Undo",
     redo: "Redo",
     cancelDraw: "Cancel line",
+    done: "Done",
     studio: "Studio",
     workshop: "Workshop",
     cutList: "Cut list",
@@ -54,6 +55,7 @@ const translations = {
     undo: "戻す",
     redo: "やり直し",
     cancelDraw: "作図を中止",
+    done: "完了",
     studio: "スタジオ",
     workshop: "作業場",
     cutList: "材料表",
@@ -112,7 +114,7 @@ export default function TopBar() {
     setShowGlSheet
   } = useContext(WorkspaceContext);
 
-  const [showSheet, setShowSheet] = useState(false);
+  const [showSheet, setShowSheet] = useState(() => new URLSearchParams(window.location.search).has("more"));
   const [lang, setLang] = useState(detectLanguage);
 
   useEffect(() => {
@@ -274,6 +276,12 @@ export default function TopBar() {
             >
               <CrosshairIcon /> <span>{t.clear}</span>
             </button>
+            </div>
+
+            <div className="sheet-actions">
+              <button className="sheet-action solid" onClick={() => setShowSheet(false)}>
+                {t.done}
+              </button>
             </div>
           </div>
         </div>
