@@ -11,7 +11,7 @@ import { useViewport } from "../utils/viewport";                // v1.18+ live w
 import { segmentLengthMm } from "../utils/lengths";             // v2.05 pure length math
 import { overlappingRuns } from "../utils/editLength";          // v2.41 two pipes, one line
 import { glPlaneGeometry } from "../utils/glPlane";              // v2.09 GL/FL datum plane
-import { nodeElevations } from "../workshop/pipe3d";            // v2.24 slope from elevations
+import { nodeElevations, runMetrics } from "../workshop/pipe3d"; // v2.24 slope from elevations
 import { sketchJoints, jointTypeOf, JOINT_MARK } from "../utils/joints"; // v2.10 corner fittings
 import { datumFor } from "../utils/datums";                      // v2.38 which level a height is read from
 
@@ -19,8 +19,11 @@ export { segmentLengthMm } from "../utils/lengths";   // v2.05 moved to pure mod
 
 // v1.17+ Label text honors an override: schematic mode can claim any true
 // length regardless of drawn length (label is authoritative, per DRAW2 spec).
-function labelFor(line, mmPerPoint, elevations) {
-  const mm = line.lengthMm ?? segmentLengthMm(line, mmPerPoint);
+function labelFor(line, mmPerPoint, elevations, metric) {
+  // a sloped run is longer than the horizontal it was typed as, and that
+  // extra is rarely a round number — which is exactly what has to be cut
+  const sloped = metric && Math.abs(metric.slopeDeg) > 0.4 && Math.abs(metric.slopeDeg) < 89.6;
+  const mm = sloped ? metric.trueLengthMm : (line.lengthMm ?? segmentLengthMm(line, mmPerPoint));
   let text = `${mm}mm`;
   if (line.spec) {
     const { a, conn, material, schedule } = line.spec;
@@ -30,13 +33,8 @@ function labelFor(line, mmPerPoint, elevations) {
   }
   // v2.24 A run whose ends sit at different levels is sloped; the angle is
   // what a fitter needs, and it is invisible in a 6-direction sketch.
-  if (elevations && mm > 0) {
-    const key = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
-    const rise = (elevations.get(key(line.end)) ?? 0) - (elevations.get(key(line.start)) ?? 0);
-    if (Math.abs(rise) > 1 && Math.abs(rise) < mm - 1) {
-      const deg = Math.round(Math.asin(Math.max(-1, Math.min(1, rise / mm))) * (180 / Math.PI) * 10) / 10;
-      text += `  ∠${Math.abs(deg)}°${rise > 0 ? "↑" : "↓"}${Math.abs(Math.round(rise))}`;
-    }
+  if (sloped) {
+    text += `  ∠${Math.abs(metric.slopeDeg)}°${metric.riseMm > 0 ? "↑" : "↓"}${Math.abs(metric.riseMm)}`;
   }
   return text;
 }
@@ -78,6 +76,7 @@ const DrawLayer = ({
     ctx.lineJoin = "round";                                       // [v1.08] Smooth joins
 
     const elevationsForLabels = lines.length ? nodeElevations(lines, mmPerPoint) : null;
+    const metrics = lines.length ? runMetrics(lines, mmPerPoint) : null;
     // v1.17+ Length label beside a segment's midpoint, offset perpendicular
     // so it never sits on the line. Halo keeps it readable over the grid.
     const drawLabel = (line) => {
@@ -94,7 +93,7 @@ const DrawLayer = ({
       ctx.lineWidth = 3 / zoom;
       ctx.strokeStyle = isDark ? "rgba(15,20,27,0.85)" : "rgba(255,255,255,0.85)";
       ctx.fillStyle = isDark ? "#7cc4ff" : "#1d6fb8";
-      const text = labelFor(line, mmPerPoint, elevationsForLabels);
+      const text = labelFor(line, mmPerPoint, elevationsForLabels, metrics?.get(lines.indexOf(line)));
       ctx.strokeText(text, mx + nx * off, my + ny * off);
       ctx.fillText(text, mx + nx * off, my + ny * off);
     };

@@ -113,6 +113,22 @@ function placeNodes(lines, mmPerPoint, defaultOd) {
       trim1: 0, trim2: 0, weld1: false, weld2: false,
     });
   }
+  // v2.42 An endpoint given its own level overrides what the walk derived.
+  // This has to happen here, inside the single placement, or the elevations
+  // and the drawing disagree — which quietly slid the datum plane whenever
+  // a level was edited.
+  const overrides = new Map();
+  for (const line of lines) {
+    if (Number.isFinite(line.elev1Mm)) overrides.set(key2D(line.start), line.elev1Mm);
+    if (Number.isFinite(line.elev2Mm)) overrides.set(key2D(line.end), line.elev2Mm);
+  }
+  if (overrides.size) {
+    for (const seg of segments) {
+      if (overrides.has(seg.key1)) seg.p1.y = overrides.get(seg.key1);
+      if (overrides.has(seg.key2)) seg.p2.y = overrides.get(seg.key2);
+    }
+  }
+
   return segments;
 }
 
@@ -151,20 +167,6 @@ export function buildPipeModel(lines, mmPerPoint, options = {}) {
   // ground line, making every elevation readable as height above GL.
   let minY = Infinity;
   for (const seg of segments) minY = Math.min(minY, seg.p1.y, seg.p2.y);
-  // v2.38 An endpoint dragged to a level of its own overrides what the walk
-  // derived, which is how a run is made to slope between two known levels.
-  const overrides = new Map();
-  for (const line of lines) {
-    if (Number.isFinite(line.elev1Mm)) overrides.set(key2D(line.start), line.elev1Mm);
-    if (Number.isFinite(line.elev2Mm)) overrides.set(key2D(line.end), line.elev2Mm);
-  }
-  if (overrides.size) {
-    for (const seg of segments) {
-      if (overrides.has(seg.key1)) seg.p1.y = overrides.get(seg.key1);
-      if (overrides.has(seg.key2)) seg.p2.y = overrides.get(seg.key2);
-    }
-  }
-
   // v2.40 A lifted endpoint makes the run slope, so every direction has to
   // come from the actual geometry. Keeping the sketch's iso axis here left
   // elbows reading 90 degrees and flanges standing plumb on a sloping pipe.
@@ -431,6 +433,9 @@ export function buildPipeModel(lines, mmPerPoint, options = {}) {
       cutLengthMm,
       riseMm: Math.round(rise),
       slopeDeg,
+      // the real centre-to-centre length once the run slopes; the typed
+      // value only ever described the horizontal
+      trueLengthMm: Math.round(Math.hypot(seg.lengthMm, rise) * 10) / 10,
       conn: seg.conn,
       materialId: seg.materialId,
       schedule: seg.schedule,
@@ -514,16 +519,6 @@ export function projectedNodes(lines, mmPerPoint, options = {}) {
   if (!lines.length) return out;
   const segments = placeNodes(lines, mmPerPoint, 60);
 
-  const overrides = new Map();
-  for (const line of lines) {
-    if (Number.isFinite(line.elev1Mm)) overrides.set(key2D(line.start), line.elev1Mm);
-    if (Number.isFinite(line.elev2Mm)) overrides.set(key2D(line.end), line.elev2Mm);
-  }
-  for (const seg of segments) {
-    if (overrides.has(seg.key1)) seg.p1.y = overrides.get(seg.key1);
-    if (overrides.has(seg.key2)) seg.p2.y = overrides.get(seg.key2);
-  }
-
   const pxPerMm = pointStep / mmPerPoint;
   const project = (p) => ({
     x: ISO_UX * (p.x + p.z) * pxPerMm,
@@ -544,6 +539,21 @@ export function projectedNodes(lines, mmPerPoint, options = {}) {
   const dy = lines[0].start.y - anchor.y;
   for (const [key, point] of raw) {
     out.set(key, { x: point.x + dx, y: point.y + dy });
+  }
+  return out;
+}
+
+// v2.43 What each drawn run actually measures once the model is solved.
+export function runMetrics(lines, mmPerPoint, options = {}) {
+  const model = buildPipeModel(lines, mmPerPoint, options);
+  const out = new Map();
+  for (const run of model.runs) {
+    out.set(run.lineIndex, {
+      trueLengthMm: run.trueLengthMm,
+      riseMm: run.riseMm,
+      slopeDeg: run.slopeDeg,
+      cutLengthMm: run.cutLengthMm,
+    });
   }
   return out;
 }

@@ -23,7 +23,9 @@ import { WorkspaceContext } from "./WorkspaceContext";                      // [
 import {
   snapToAllowedAngle, snapToNearestGrid, snapWorkspaceToGrid,
 } from "./utils/geometry";                                                  // [v1.10] math utilities
-import { nodeElevations, jointAngles, projectedNodes } from "./workshop/pipe3d"; // v2.16 freeze height on move
+import {
+  nodeElevations, jointAngles, projectedNodes, runMetrics,
+} from "./workshop/pipe3d";                                                // v2.16 freeze height on move
 import {
   findSegmentAt, setSegmentLength, connectedIndices, overlappingRuns,
 } from "./utils/editLength";                                                // v1.19+ tap-to-edit lengths
@@ -34,6 +36,7 @@ import {
 } from "./utils/glPlane";                                                   // v2.09 datum plane
 import GlSheet from "../ui/GlSheet";
 import LevelSheet from "../ui/LevelSheet";
+import AngleSheet from "../ui/AngleSheet";
 import { loadDatums, saveDatums, makeDatum, datumFor } from "./utils/datums";
 import { findJointAt, jointSettingOf } from "./utils/joints";               // v2.10 corner fittings
 import JointSheet from "../ui/JointSheet";
@@ -117,6 +120,7 @@ export default function Workspace() {
   const pipeDrag = useRef(null);
   const levelDrag = useRef(null);
   const [levelTarget, setLevelTarget] = useState(null);                     // v2.39 EL being typed
+  const [angleTarget, setAngleTarget] = useState(null);                     // v2.43 slope being typed
   const [jointTypes, setJointTypes] = useState(() => {                      // v2.10 corner fittings
     const demoJoint = new URLSearchParams(window.location.search).get("joint");
     if (demoJoint) {                                                        // seed for screenshots
@@ -657,6 +661,23 @@ export default function Workspace() {
         x: (e.clientX - (viewport.w / 2 + offset.x)) / zoom,
         y: (e.clientY - (viewport.h / 2 + offset.y)) / zoom,
       };
+      // v2.43 a sloped run's own label carries its angle; tapping there
+      // opens the slope rather than the pipe spec
+      const metrics = runMetrics(lines, mmPerPoint, { jointTypes });
+      const near = findSegmentAt(point, viewLines, 24 / zoom);
+      if (near >= 0) {
+        const metric = metrics.get(near);
+        const mid = {
+          x: (viewLines[near].start.x + viewLines[near].end.x) / 2,
+          y: (viewLines[near].start.y + viewLines[near].end.y) / 2,
+        };
+        const onLabel = Math.hypot(point.x - mid.x, point.y - mid.y) < 34 / zoom;
+        if (onLabel && metric && Math.abs(metric.slopeDeg) > 0.4 && Math.abs(metric.slopeDeg) < 89.6) {
+          setAngleTarget({ index: near, metric });
+          return;
+        }
+      }
+
       // v2.39 the height callout is editable where it is written
       const level = levelLabelAt(point);
       if (level) { setLevelTarget(level); return; }
@@ -881,6 +902,23 @@ export default function Workspace() {
             {moveReadout.rel == null && <span> {moveReadout.datum}</span>}
             {moveReadout.count > 1 && <span> · {moveReadout.count} runs</span>}
           </div>
+        )}
+        {angleTarget && (
+          <AngleSheet
+            horizontalMm={lines[angleTarget.index]?.lengthMm ?? 0}
+            trueLengthMm={angleTarget.metric.trueLengthMm}
+            slopeDeg={angleTarget.metric.slopeDeg}
+            lang={localStorage.getItem("haikan-lang") === "jp" ? "jp" : "en"}
+            onClose={() => setAngleTarget(null)}
+            onApply={({ horizontalMm, riseMm }) => {
+              const els = nodeElevations(lines, mmPerPoint);
+              const startEl = els.get(nodeKey(lines[angleTarget.index].start)) ?? 0;
+              commitLines(lines.map((line, i) => (i === angleTarget.index
+                ? { ...line, lengthMm: horizontalMm, elev2Mm: startEl + riseMm }
+                : line)));
+              setAngleTarget(null);
+            }}
+          />
         )}
         {levelTarget && (
           <LevelSheet
