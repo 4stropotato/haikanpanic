@@ -17,6 +17,11 @@ const TEXT = {
     reset: "Back to default",
     done: "Done",
     note: "Take-out is what comes off each pipe at this corner.",
+    angle: "Angle needed",
+    roll: "Roll",
+    rollNote: "Rotate the fitting about the incoming pipe by this much.",
+    rollFlat: "in the vertical plane — no roll",
+    gapNote: (gap) => `A ${gap}mm root gap is allowed at each weld, including fitting to fitting.`,
   },
   jp: {
     title: "コーナーの継手",
@@ -27,19 +32,40 @@ const TEXT = {
     reset: "既定に戻す",
     done: "完了",
     note: "取り代はこの角で各配管から差し引く長さです。",
+    angle: "必要角度",
+    roll: "ころ（回転）",
+    rollNote: "手前の配管を軸にこの角度だけ継手を回します。",
+    rollFlat: "垂直面内 — ころ無し",
+    gapNote: (gap) => `各溶接に ${gap}mm のルートギャップ（継手同士も含む）。`,
   },
 };
 
-// Standard take-out for a type, used as the placeholder when not overridden.
-export function standardTakeout(type, nominalA) {
+// Take-out for a type at the angle the corner actually turns:
+// R x tan(theta/2), which reduces to R for the usual 90 degrees.
+export function standardTakeout(type, nominalA, deflectionDeg = 90) {
   if (type === "weld") return 0;
   if (type === "tee") return Math.round(teeCentreToEnd(nominalA));
   if (type === "wye") return Math.round(wyeCentreToEnd(nominalA));
-  const lr = elbowRadius(nominalA, type === "elbowSR" ? "elbowSR" : "elbowLR");
-  return Math.round(type === "elbowCut" ? lr / 2 : lr);
+  const radius = elbowRadius(nominalA, type === "elbowSR" ? "elbowSR" : "elbowLR");
+  const half = (Math.max(1, Math.min(179, deflectionDeg)) / 2) * (Math.PI / 180);
+  const takeout = radius * Math.tan(half);
+  return Math.round(type === "elbowCut" ? takeout / 2 : takeout);
 }
 
-export default function JointSheet({ nominalA, setting, lang, onChange, onReset, onClose }) {
+// Which stock fitting this angle comes from, and whether it must be cut.
+export function fittingFor(deflectionDeg, lang) {
+  const stock = [90, 45, 22.5, 11.25];
+  const near = stock.find((angle) => Math.abs(angle - deflectionDeg) < 0.6);
+  if (near) return lang === "jp" ? `${near}° 定尺` : `stock ${near}°`;
+  const from = deflectionDeg > 45 ? 90 : 45;
+  return lang === "jp"
+    ? `${from}° を ${deflectionDeg}° に切詰`
+    : `cut from ${from}° to ${deflectionDeg}°`;
+}
+
+export default function JointSheet({
+  nominalA, setting, deflectionDeg = 90, rollDeg = 0, gapMm = 2, lang, onChange, onReset, onClose,
+}) {
   const t = TEXT[lang === "jp" ? "jp" : "en"];
   const labels = JOINT_LABEL[lang === "jp" ? "jp" : "en"];
   const type = setting?.type ?? "elbowLR";
@@ -54,6 +80,17 @@ export default function JointSheet({ nominalA, setting, lang, onChange, onReset,
         <div className="sheet-scroll">
           <div className="sheet-handle" />
           <div className="sheet-title">{t.title} · {nominalA}A</div>
+          <div className="sheet-row">
+            <span>{t.angle}</span>
+            <strong className="joint-angle">{deflectionDeg}°</strong>
+            <span className="joint-stock">{fittingFor(deflectionDeg, lang)}</span>
+          </div>
+          <div className="sheet-row">
+            <span>{t.roll}</span>
+            <strong className="joint-angle">{rollDeg}°</strong>
+            <span className="joint-stock">{rollDeg < 0.6 ? t.rollFlat : ""}</span>
+          </div>
+          {rollDeg >= 0.6 && <div className="sheet-hint">{t.rollNote}</div>}
 
           {JOINT_TYPES.map((item) => (
             <button
@@ -64,7 +101,9 @@ export default function JointSheet({ nominalA, setting, lang, onChange, onReset,
               <span className="joint-mark">{JOINT_MARK[item]}</span>
               <span className="joint-name">{labels[item]}</span>
               <span className="joint-take">
-                {item === "weld" ? t.none : `${t.takeout} ${standardTakeout(item, nominalA)}mm`}
+                {item === "weld"
+                  ? t.none
+                  : `${t.takeout} ${standardTakeout(item, nominalA, deflectionDeg)}mm`}
               </span>
             </button>
           ))}
@@ -77,7 +116,7 @@ export default function JointSheet({ nominalA, setting, lang, onChange, onReset,
                   type="number"
                   min="0"
                   step="5"
-                  placeholder={`${standardTakeout(type, nominalA)} (${t.standard})`}
+                  placeholder={`${standardTakeout(type, nominalA, deflectionDeg)} (${t.standard})`}
                   value={text}
                   onFocus={(e) => e.target.select()}
                   onChange={(e) => {
@@ -92,6 +131,7 @@ export default function JointSheet({ nominalA, setting, lang, onChange, onReset,
                 <span>mm</span>
               </div>
               <div className="sheet-hint">{t.note}</div>
+              <div className="sheet-hint">{t.gapNote(gapMm)}</div>
             </>
           )}
 

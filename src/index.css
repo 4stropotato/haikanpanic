@@ -826,3 +826,6 @@ html, body, #root {
 
 /* six slots again now that Workshop has left the dock */
 .dock-btn { min-width: 54px; padding: 9px 6px; font-size: 0.62rem; }
+
+.joint-angle { color: var(--accent); font-size: 1.05rem; }
+.joint-stock { font-size: 0.74rem; color: var(--muted, #8fa0b5); }

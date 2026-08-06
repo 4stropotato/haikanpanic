@@ -234,6 +234,8 @@ export function buildPipeModel(lines, mmPerPoint, options = {}) {
         p,
         od,
         kind: jointType,
+        sketchKey,
+        deflectionDeg: Math.round((Math.PI - between) * (180 / Math.PI) * 10) / 10,
         nominalA: bigA || null,
         arms: [mul(u, c2e), mul(v, c2e), mul(u, -c2e)],
       });
@@ -268,10 +270,24 @@ export function buildPipeModel(lines, mmPerPoint, options = {}) {
     for (let i = 0; i <= steps; i += 1) {
       path.push(add(center, rotate(ra, axis, (sweep * i) / steps)));
     }
+    // v2.27 Roll. A sloped tie-in usually keeps a stock 90 degree elbow and
+    // simply rolls it so the outlet points along the sloping run. The roll is
+    // the angle between the bend plane and the vertical plane through the
+    // incoming leg: 0 means the bend is plumb, 90 means it lies flat.
+    const bendNormal = norm(cross(u, v));
+    const worldUp = { x: 0, y: 1, z: 0 };
+    let refNormal = cross(u, worldUp);
+    if (len(refNormal) < 1e-6) refNormal = cross(u, { x: 1, y: 0, z: 0 });
+    refNormal = norm(refNormal);
+    const rollDeg = Math.round(
+      Math.acos(Math.min(1, Math.abs(dot(bendNormal, refNormal)))) * (180 / Math.PI) * 10,
+    ) / 10;
+
     // elbow takes the larger size; a reducer follows on the smaller leg
     const elbowOd = Math.max(segA.od, segB.od);
     elbows.push({
       path, od: elbowOd, kind: jointType, nominalA: bigA || null, takeout: tangent,
+      sketchKey, rollDeg,
       deflectionDeg: Math.round((Math.PI - between) * (180 / Math.PI)),
     });
 
@@ -332,7 +348,10 @@ export function buildPipeModel(lines, mmPerPoint, options = {}) {
       warnings.push(`${label}: shorter than its ${seg.od}mm diameter`);
     }
     if (total >= seg.lengthMm - 1) {
-      warnings.push(`${label}: too short for its fittings`);
+      const over = Math.round(total - seg.lengthMm);
+      warnings.push(
+        `${label}: fittings meet directly — ${over}mm over, allow ${seg.gap}mm root gap`,
+      );
       continue;
     }
     // v2.24 A run between two different elevations is a sloped line — a
@@ -398,4 +417,31 @@ function buildTee(segments, refs, p, tees) {
     nominalA: bigA || null,
     arms: legs.map((leg) => mul(leg.u, c2e)),
   });
+}
+
+// v2.27 The angle a corner actually needs, keyed by its sketch point. A run
+// that slopes makes its corner something other than 90 degrees, and the
+// fitter has to know whether that is a stock fitting or a cut one.
+export function jointAngles(lines, mmPerPoint, options = {}) {
+  const model = buildPipeModel(lines, mmPerPoint, options);
+  const out = new Map();
+  for (const elbow of model.elbows) {
+    if (elbow.sketchKey) {
+      out.set(elbow.sketchKey, {
+        deflectionDeg: elbow.deflectionDeg,
+        rollDeg: elbow.rollDeg,
+        takeoutMm: Math.round(elbow.takeout),
+        nominalA: elbow.nominalA,
+      });
+    }
+  }
+  for (const tee of model.tees) {
+    if (tee.sketchKey) {
+      out.set(tee.sketchKey, {
+        deflectionDeg: tee.deflectionDeg ?? 90,
+        nominalA: tee.nominalA,
+      });
+    }
+  }
+  return out;
 }

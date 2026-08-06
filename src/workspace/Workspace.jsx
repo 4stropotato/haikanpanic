@@ -23,7 +23,7 @@ import { WorkspaceContext } from "./WorkspaceContext";                      // [
 import {
   snapToAllowedAngle, snapToNearestGrid, snapWorkspaceToGrid,
 } from "./utils/geometry";                                                  // [v1.10] math utilities
-import { nodeElevations } from "./workshop/pipe3d";                         // v2.16 freeze height on move
+import { nodeElevations, jointAngles } from "./workshop/pipe3d";            // v2.16 freeze height on move
 import {
   findSegmentAt, setSegmentLength, connectedIndices,
 } from "./utils/editLength";                                                // v1.19+ tap-to-edit lengths
@@ -256,6 +256,8 @@ export default function Workspace() {
     x: (clientX - (viewport.w / 2 + offset.x)) / zoom,
     y: (clientY - (viewport.h / 2 + offset.y)) / zoom,
   });
+
+  const jointInfo = (key) => jointAngles(lines, mmPerPoint, { jointTypes }).get(key);
 
   const primary = datums[0];
   const patchDatum = (i, patch) => setDatums(
@@ -648,6 +650,9 @@ export default function Workspace() {
           <JointSheet
             nominalA={lines[jointTarget.legs[0].index]?.spec?.a ?? 100}
             setting={jointSettingOf(jointTarget, lines, jointTypes)}
+            deflectionDeg={jointInfo(jointTarget.key)?.deflectionDeg ?? 90}
+            rollDeg={jointInfo(jointTarget.key)?.rollDeg ?? 0}
+            gapMm={lines[jointTarget.legs[0].index]?.spec?.gap ?? 2}
             lang={localStorage.getItem("haikan-lang") === "jp" ? "jp" : "en"}
             onClose={() => setJointTarget(null)}
             onChange={(next) => setJointTypes({ ...jointTypes, [jointTarget.key]: next })}

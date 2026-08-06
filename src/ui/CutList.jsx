@@ -12,6 +12,8 @@ const TEXT = {
     totals: "Totals by size", fittings: "Fittings", weight: "Total weight",
     elbow: "elbow", reducer: "reducer", flange: "flange", tee: "tee", wye: "wye",
     note: "Cut = centre length − fitting take-out − root gaps",
+    cutNote: "cut to angle",
+    roll: "roll",
     close: "Close", copy: "Copy",
   },
   jp: {
@@ -21,6 +23,8 @@ const TEXT = {
     totals: "呼び径別 合計", fittings: "継手", weight: "総重量",
     elbow: "エルボ", reducer: "レジューサ", flange: "フランジ", tee: "チーズ", wye: "ワイ",
     note: "切断長 = 芯々 − 継手の取り代 − ルートギャップ",
+    cutNote: "角度切詰",
+    roll: "ころ",
     close: "閉じる", copy: "コピー",
   },
 };
@@ -47,12 +51,18 @@ export default function CutList({ lines, mmPerPoint, jointTypes = {}, lang, onCl
   const elbowsBySize = new Map();
   for (const elbow of model.elbows) {
     const kind = { elbowSR: "SR", elbowCut: "cut" }[elbow.kind] ?? "LR";
-    const key = `${elbow.od}|${kind}`;
+    // a sloped corner is not 90 degrees, so the angle belongs in the list
+    const key = `${elbow.od}|${kind}|${elbow.deflectionDeg}|${elbow.rollDeg ?? 0}`;
     elbowsBySize.set(key, (elbowsBySize.get(key) ?? 0) + 1);
   }
   for (const [key, count] of elbowsBySize) {
-    const [odKey, kind] = key.split("|");
-    fittings.push(`${count} × ${t.elbow} ${kind} ${elbow90Label(Number(odKey))}`);
+    const [odKey, kind, angle, roll] = key.split("|");
+    const stock = Math.abs(Number(angle) - 90) < 0.6 || Math.abs(Number(angle) - 45) < 0.6;
+    fittings.push(
+      `${count} × ${t.elbow} ${kind} ${elbow90Label(Number(odKey))} @ ${angle}°`
+      + (stock ? "" : ` (${t.cutNote})`)
+      + (Number(roll) >= 0.6 ? ` · ${t.roll} ${roll}°` : ""),
+    );
   }
   for (const [size, count] of countBy(model.tees.filter((x) => x.kind === "wye"), (x) => x.nominalA)) {
     fittings.push(`${count} × ${t.wye} ${size}A`);
