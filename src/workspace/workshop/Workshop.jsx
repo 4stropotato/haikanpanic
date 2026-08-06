@@ -70,13 +70,12 @@ function makeAxisLabel(text, tone, axis) {
 
 export default function Workshop({
   lines, mmPerPoint, glOffsetMm = 0, jointTypes = {}, detail = "normal",
-  labelFlat = false, onEditSegment, onClose,
+  labelFlat = false, showDims = true, onEditSegment, onClose,
 }) {
   const hostRef = useRef(null);
   const apiRef = useRef(null);
   const debugRef = useRef(null);
   const [warnings, setWarnings] = useState([]);
-  const [showDims, setShowDims] = useState(true);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -577,37 +576,18 @@ export default function Workshop({
     };
   }, [lines, mmPerPoint, glOffsetMm, jointTypes, detail, onEditSegment]);
 
+  // v2.64 Dimensions are a display setting like any other, so they live in
+  // the same sheet as the rest and are handed down rather than owned here.
+  useEffect(() => {
+    apiRef.current?.setDims(showDims);
+  }, [showDims]);
+
   return (
     <div className="workshop">
       <div className="workshop-canvas" ref={hostRef} />
-      <div className="workshop-chrome">
-        {/* v2.63 The brand leads, the mode follows underneath — Workshop is
-            a room inside Haikanpanic, not a separate app. */}
-        <span className="workshop-brand">
-          <span className="workshop-mark">ハイカンパニック!</span>
-          <span className="workshop-title">WORKSHOP</span>
-        </span>
-        <button className="workshop-close" onClick={onClose}>✕</button>
-      </div>
       {new URLSearchParams(window.location.search).has("debug") && (
         <div className="workshop-debug" ref={debugRef} />
       )}
-      <div className="workshop-tools">
-        <button onClick={() => apiRef.current?.dolly(0.75)} aria-label="zoom in">＋</button>
-        <button onClick={() => apiRef.current?.dolly(1.33)} aria-label="zoom out">－</button>
-        <button onClick={() => apiRef.current?.home()} aria-label="reset view">⌂</button>
-        <button
-          className={showDims ? "on" : ""}
-          onClick={() => {
-            const next = !showDims;
-            setShowDims(next);
-            apiRef.current?.setDims(next);
-          }}
-          aria-label="toggle dimensions"
-        >
-          寸
-        </button>
-      </div>
       {warnings.length > 0 && (
         <div className="workshop-warn">
           {warnings.slice(0, 3).map((warning) => <div key={warning}>⚠ {warning}</div>)}

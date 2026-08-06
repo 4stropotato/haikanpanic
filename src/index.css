@@ -443,7 +443,14 @@ html, body, #root {
 .workshop {
   position: fixed;
   inset: 0;
-  z-index: 10005;
+  /* v2.64 3D is a mode of the same app, so it keeps the shared chrome
+     instead of hiding it behind a full-screen overlay.
+     v2.67 It must clear EVERY sketch layer, not just the canvases. At 900 it
+     sat under the snap overlay, which drew the red crosshair over the model
+     and swallowed every drag before the camera saw it — the same failure as
+     the v2.17 pointer-events bug. Sketch layers top out in the low
+     thousands; the bars start at 10000, so 9000 sits between them. */
+  z-index: 9000;
   background: #0a0e14;
   animation: fade-in 0.2s ease;
 }
@@ -457,7 +464,22 @@ html, body, #root {
   padding: 0.8rem 1rem;
   pointer-events: none;
 }
-.workshop-brand { display: flex; flex-direction: column; gap: 2px; }
+.brand-mode {                                      /* v2.64 which room you are in */
+  display: block; font-size: 0.62rem; font-weight: 800;
+  letter-spacing: 0.26em; color: var(--accent);
+  margin-top: 1px;
+}
+.workshop-actions {                                /* v2.66 3D corner controls */
+  position: fixed; right: 12px; top: calc(58px + env(safe-area-inset-top, 0px));
+  display: flex; gap: 8px; z-index: 10002;
+}
+.immersive-exit {
+  position: fixed; right: 12px; top: calc(12px + env(safe-area-inset-top, 0px));
+  width: 42px; height: 42px; border-radius: 12px; z-index: 10002;
+  display: grid; place-items: center; color: inherit;
+  border: 1px solid var(--edge, rgba(255,255,255,0.14));
+  background: var(--panel, rgba(18,24,32,0.7)); backdrop-filter: blur(8px);
+}
 .workshop-mark {
   font-size: 1rem; font-weight: 700; letter-spacing: 0.01em;
   color: var(--ink, #eaf0f7);

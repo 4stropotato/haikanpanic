@@ -187,6 +187,8 @@ export default function Workspace() {
   const [datumIndex, setDatumIndex] = useState(0);                          // which one the sheet edits
   const [glEditPlane, setGlEditPlane] = useState(false);                    // v2.09 drag handles on
   const planeDrag = useRef(null);
+  const [immersive, setImmersive] = useState(false);                        // v2.66 3D with no chrome
+  const [showDims, setShowDims] = useState(true);                           // v2.64 3D dimension labels
   const [showWorkshop, setShowWorkshop] = useState(() => new URLSearchParams(window.location.search).has("workshop")); // v2.02 3D view toggle (?workshop=1 for tests)
   const [snappedEndpoint, setSnappedEndpoint] = useState(null);             // [v1.15] currently snapped endpoint
 
@@ -781,6 +783,16 @@ export default function Workspace() {
       if (size.u != null) patch.sizeMm = size.u;
       if (size.v != null) patch.sizeVMm = size.v;
       patchDatum(datumIndex, patch);
+      // v2.65 A datum is a floor, and a floor is quoted by its span and its
+      // area — the number the job actually needs while you drag.
+      const w = patch.sizeMm ?? datums[datumIndex]?.sizeMm ?? 0;
+      const d = patch.sizeVMm ?? datums[datumIndex]?.sizeVMm ?? 0;
+      setMoveReadout({
+        plane: datums[datumIndex]?.name ?? "GL",
+        w: Math.round(w),
+        d: Math.round(d),
+        area: (w / 1000) * (d / 1000),
+      });
     } else {
       patchDatum(datumIndex, { center: { x: point.x + drag.dx, y: point.y + drag.dy } });
     }
@@ -892,7 +904,7 @@ export default function Workspace() {
     if (labelDrag.current) { labelDrag.current = null; return; }
     if (levelDrag.current) { levelDrag.current = null; setMoveReadout(null); return; }
     if (pipeDrag.current) { pipeDrag.current = null; setMoveReadout(null); return; }
-    if (planeDrag.current) { planeDrag.current = null; return; }
+    if (planeDrag.current) { planeDrag.current = null; setMoveReadout(null); return; }
     if (marqueeRef.current) { marqueeEnd(); return; }
     lastTouch.current = null;
     clearTimeout(holdTimeout.current);
@@ -1069,7 +1081,12 @@ export default function Workspace() {
     redo,
     canUndo: past.length > 0,
     canRedo: future.length > 0,
-    setShowWorkshop,                                                       // v2.02 open 3D view
+    showWorkshop,                                                          // v2.02 open 3D view
+    setShowWorkshop,
+    immersive,                                                             // v2.66 chrome-free 3D
+    setImmersive,
+    showDims,                                                              // v2.64 3D dimension labels
+    setShowDims,
     setShowCutList,                                                        // v2.07 材料表
     showGL,
     setShowGL,
@@ -1211,7 +1228,15 @@ export default function Workspace() {
             ⚠ {stackedCount} runs share a grid line — move one across
           </div>
         )}
-        {moveReadout && (
+        {moveReadout?.plane && (
+          <div className="move-readout">
+            <strong>{moveReadout.plane}</strong> {moveReadout.w} × {moveReadout.d} mm
+            <span> · {moveReadout.area >= 1
+              ? `${moveReadout.area.toFixed(2)} m²`
+              : `${Math.round(moveReadout.area * 1e6).toLocaleString()} mm²`}</span>
+          </div>
+        )}
+        {moveReadout && !moveReadout.plane && (
           <div className="move-readout">
             {moveReadout.x != null && `X ${moveReadout.x} · Y ${moveReadout.y} · `}
             {moveReadout.rel != null
@@ -1392,8 +1417,9 @@ export default function Workspace() {
             jointTypes={jointTypes}
             detail={detail}
             labelFlat={labelFlat}
+            showDims={showDims}
             onEditSegment={setEditTarget}
-            onClose={() => setShowWorkshop(false)}
+            onClose={() => { setShowWorkshop(false); setImmersive(false); }}
           />
         )}
       </div>

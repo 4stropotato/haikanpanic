@@ -8,7 +8,7 @@
 
 import { useContext, useState, useEffect } from "react";
 import { WorkspaceContext } from "../workspace/WorkspaceContext";
-import { HandIcon, ZoomIcon } from "./Icons";                              // v2.58 one-handed drafting
+import { HandIcon, ZoomIcon, ExpandIcon, ShrinkIcon } from "./Icons";                              // v2.58 one-handed drafting
 import { LABEL_FIELDS, LABEL_TEXT } from "../workspace/utils/labelFields"; // v2.51
 import { ISO_YAW, ISO_PITCH } from "../workspace/workshop/pipe3d";        // v2.55 the home tilt
 import { SunIcon, MoonIcon, GridIcon, CrosshairIcon, MagnifierIcon, RotateIcon, GlobeIcon, CheckIcon, SendToStudioIcon, PencilIcon, MoreIcon, CubeIcon, ListIcon, EraserIcon, MoveIcon, RedoIcon, PencilDrawIcon, SelectIcon, TurnLeftIcon, TurnRightIcon, OrbitIcon } from "./Icons";
@@ -42,6 +42,10 @@ const translations = {
     done: "Done",
     studio: "Studio",
     workshop: "Workshop",
+    dims: "3D dimensions",
+    full: "Full screen",
+    exitFull: "Show controls",
+    exitWorkshop: "Close 3D",
     cutList: "Cut list",
     glRef: "GL plane",
     glEdit: "Datums (GL / FL)",
@@ -159,7 +163,9 @@ export default function TopBar() {
     redo,
     canUndo,
     canRedo,
-    setShowWorkshop,
+    showWorkshop, setShowWorkshop,
+    showDims, setShowDims,
+    immersive, setImmersive,
     setShowCutList,
     showGL,
     setShowGL,
@@ -209,10 +215,23 @@ export default function TopBar() {
     window.open(`/studio/?handoff=${encodeHandoff(envelope)}`, "_blank");
   };
 
+  // v2.66 Full screen hands the model the whole glass. One button brings the
+  // chrome back, or nothing on screen would say how to return.
+  if (immersive) {
+    return (
+      <button className="immersive-exit" onClick={() => setImmersive(false)} aria-label={t.exitFull}>
+        <ShrinkIcon />
+      </button>
+    );
+  }
+
   return (
     <>
       <div className="top-bar">
-        <span className="brand">ハイカンパニック!</span>
+        <span className="brand">
+          ハイカンパニック!
+          {showWorkshop && <span className="brand-mode">WORKSHOP</span>}
+        </span>
         <div className="top-actions">
           <button className="top-btn" onClick={undo} disabled={!canUndo} aria-label={t.undo}>
             <RotateIcon />
@@ -238,7 +257,11 @@ export default function TopBar() {
       </div>
 
       {/* v2.47 View controls sit with Workshop, under the top bar, the way
-          a CAD viewport keeps its orbit buttons together. */}
+          a CAD viewport keeps its orbit buttons together.
+          v2.66 They are for the sketch only: in 3D the model turns under
+          your finger, so buttons for it would be a second way to do one
+          thing. */}
+      {!showWorkshop && (
       <div className="view-tools">
         <button
           className={"view-btn" + (orbitMode ? " on" : "")}
@@ -266,16 +289,34 @@ export default function TopBar() {
             viewpoint of this one — straight down it collapses a standpipe to
             a dot. Turning the model is the whole of what this needs. */}
       </div>
+      )}
 
-      {/* v2.25 Workshop lives on its own, off the crowded dock */}
-      <button
-        className="workshop-fab"
-        onClick={() => setShowWorkshop(true)}
-        disabled={!lines.length}
-      >
-        <CubeIcon />
-        <span>{t.workshop}</span>
-      </button>
+      {/* v2.25 Workshop lives on its own, off the crowded dock.
+          v2.66 Once you are inside it, the same corner offers the two things
+          that still make sense there: all the glass, or the way out. */}
+      {showWorkshop ? (
+        <div className="workshop-actions">
+          <button className="view-btn" onClick={() => setImmersive(true)} aria-label={t.full}>
+            <ExpandIcon />
+          </button>
+          <button
+            className="view-btn"
+            onClick={() => setShowWorkshop(false)}
+            aria-label={t.exitWorkshop}
+          >
+            ✕
+          </button>
+        </div>
+      ) : (
+        <button
+          className="workshop-fab"
+          onClick={() => setShowWorkshop(true)}
+          disabled={!lines.length}
+        >
+          <CubeIcon />
+          <span>{t.workshop}</span>
+        </button>
+      )}
 
       {!homeView && (
         <button className="view-badge" onClick={() => { setView({ yawDeg: 45, pitchDeg: 35.264 }); setOrbitMode(false); }}>
@@ -451,6 +492,9 @@ export default function TopBar() {
             <div className="sheet-hint">{t.labelNote}</div>
             <button className="sheet-btn" onClick={() => setLabelAvoid(!labelAvoid)}>
               <PencilIcon /> <span>{t.labelAvoid}</span> {labelAvoid && <CheckIcon />}
+            </button>
+            <button className="sheet-btn" onClick={() => setShowDims(!showDims)}>
+              <CubeIcon /> <span>{t.dims}</span> {showDims && <CheckIcon />}
             </button>
             <button className="sheet-btn" onClick={() => setShowJointMarks(!showJointMarks)}>
               <PencilIcon /> <span>{t.jointMarks}</span> {showJointMarks && <CheckIcon />}
