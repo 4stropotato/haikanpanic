@@ -61,7 +61,7 @@ const DrawLayer = ({
   lines, preview, isDark, zoom, offset, mmPerPoint = 10,
   showGL = true, glEditPlane = false,
   jointTypes = {}, datums = [], activeDatum = -1, showJointMarks = true,
-  selection = [], marquee = null, moveMode = false, projection = null,
+  selection = [], datumSel = [], marquee = null, moveMode = false, projection = null,
   labelFields = LABEL_DEFAULT, labelAvoid = true, onLabelLayout = null,
   elOffsets = {}, labelFlat = false, gripAll = false, view = null,
 }) => { // [v1.09] Accept zoom and offset for scaling
@@ -189,6 +189,8 @@ const DrawLayer = ({
         const { corners, edges, nodes } = plane;
         const active = datumIdx === activeDatum;
         const tint = datumIdx === 0 ? "245,186,102" : "124,196,255";
+        // v2.81 A picked datum says so, the way a picked run does
+        const picked = datumSel.includes(datumIdx);
 
         ctx.save();
         if (datum.continuous) {
@@ -201,7 +203,7 @@ const DrawLayer = ({
           ctx.moveTo(corners[0].x, corners[0].y);
           for (const corner of corners.slice(1)) ctx.lineTo(corner.x, corner.y);
           ctx.closePath();
-          ctx.fillStyle = `rgba(${tint},${active ? 0.09 : 0.055})`;
+          ctx.fillStyle = `rgba(${tint},${picked ? 0.18 : (active ? 0.09 : 0.055)})`;
           ctx.fill();
           ctx.strokeStyle = `rgba(${tint},${active || glEditPlane ? 0.85 : 0.38})`;
           ctx.lineWidth = (active || glEditPlane ? 1.8 : 1.2) / zoom;

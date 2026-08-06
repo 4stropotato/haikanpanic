@@ -115,6 +115,7 @@ export default function Workspace() {
   });
   const [eraseMode, setEraseMode] = useState(false);                        // v2.08 tap a line to delete it
   const [moveMode, setMoveMode] = useState(() => new URLSearchParams(window.location.search).has("move")); // v2.16 drag runs across the ground
+  const [datumSel, setDatumSel] = useState([]);                             // v2.81 picked datums
   const [selectMode, setSelectMode] = useState(false);                      // v2.37 its own tool
   // v2.59 One dock slot holds both view gestures: a phone has no room for
   // eight tools, and pan and zoom are the same job — moving the paper.
@@ -687,6 +688,11 @@ export default function Workspace() {
       elevationMm: anchor.elevationMm ?? (elevations.get(anchorKey) ?? 0),
       origin: point,
       base: lines.map((line) => ({ start: { ...line.start }, end: { ...line.end } })),
+      datums: datumSel,
+      datumBase: Object.fromEntries(datumSel.map((i) => {
+        const plane = planeAt(i);
+        return [i, plane ? { x: plane.cx, y: plane.cy } : null];
+      })),
     };
     return true;
   };
@@ -782,6 +788,10 @@ export default function Workspace() {
       count: drag.members.size,
     });
 
+    for (const i of drag.datums ?? []) {
+      const base = drag.datumBase[i];
+      if (base) patchDatum(i, { center: { x: base.x + dx, y: base.y + dy } });
+    }
     setLines(lines.map((line, i) => {
       if (!drag.members.has(i)) return line;
       const base = drag.base[i];
@@ -1023,6 +1033,18 @@ export default function Workspace() {
         setSelection((current) => (current.includes(index)
           ? current.filter((i) => i !== index)
           : [...current, index]));
+        return;
+      }
+      // v2.81 A floor is part of the job too: tapping inside a datum picks
+      // it, so GL and FL travel with the runs when the drawing is moved.
+      for (let i = datums.length - 1; i >= 0; i -= 1) {
+        if (datums[i].continuous) continue;
+        const plane = planeAt(i);
+        if (!plane || !insidePlane(point, plane)) continue;
+        setDatumSel((current) => (current.includes(i)
+          ? current.filter((k) => k !== i)
+          : [...current, i]));
+        return;
       }
       return;
     }
@@ -1162,7 +1184,7 @@ export default function Workspace() {
     currentSpec,                                                           // v2.31 spec for new pipes
     setShowSpecSheet,
     selection,                                                             // v2.29 marquee selection
-    clearSelection: () => setSelection([]),
+    clearSelection: () => { setSelection([]); setDatumSel([]); },
     drawing: Boolean(startPoint && readyToDraw),                            // v2.22 line in progress
     cancelDraw,
     undo,                                                                  // v2.17 history
@@ -1272,6 +1294,7 @@ export default function Workspace() {
             elOffsets={elOffsets}
             onLabelLayout={(list) => { labelAnchors.current = list; }}
             selection={selection}
+            datumSel={datumSel}
             marquee={marquee}
           />
           {/* v2.68 The sketch's crosshair and lens have no business over the
