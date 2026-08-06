@@ -145,7 +145,14 @@ export default function Workshop({
       let perp = new THREE.Vector3().crossVectors(dir, up);
       if (perp.lengthSq() < 1e-6) perp = new THREE.Vector3(1, 0, 0);
       perp.normalize().multiplyScalar((run.od * 0.75) + 90);
-      const label = makeLabel(`${run.nominalA ? `${run.nominalA}A` : "pipe"} · ${run.lengthMm}`);
+      // a slope is worth reading off the model, a plumb or level run is not
+      const sloped = Math.abs(run.slopeDeg) > 0.4 && Math.abs(run.slopeDeg) < 89.6;
+      const slopeText = sloped
+        ? ` · ∠${Math.abs(run.slopeDeg)}° ${run.riseMm > 0 ? "↑" : "↓"}${Math.abs(run.riseMm)}`
+        : "";
+      const label = makeLabel(
+        `${run.nominalA ? `${run.nominalA}A` : "pipe"} · ${run.lengthMm}${slopeText}`,
+      );
       addSprite(label, mid.clone().add(perp));
       dimObjects.push(label);
     }

@@ -335,6 +335,12 @@ export function buildPipeModel(lines, mmPerPoint, options = {}) {
       warnings.push(`${label}: too short for its fittings`);
       continue;
     }
+    // v2.24 A run between two different elevations is a sloped line — a
+    // real case (drains, tie-ins after a move), so report its angle.
+    const rise = seg.p2.y - seg.p1.y;
+    const horizontal = Math.hypot(seg.p2.x - seg.p1.x, seg.p2.z - seg.p1.z);
+    const slopeDeg = Math.round((Math.atan2(rise, horizontal) * (180 / Math.PI)) * 10) / 10;
+
     const gapTotal = (seg.weld1 ? seg.gap : 0) + (seg.weld2 ? seg.gap : 0);
     const cutLengthMm = Math.round((seg.lengthMm - total - gapTotal) * 10) / 10;
     runs.push({
@@ -344,6 +350,8 @@ export function buildPipeModel(lines, mmPerPoint, options = {}) {
       nominalA: seg.nominalA,
       lengthMm: seg.lengthMm,
       cutLengthMm,
+      riseMm: Math.round(rise),
+      slopeDeg,
       conn: seg.conn,
       materialId: seg.materialId,
       schedule: seg.schedule,

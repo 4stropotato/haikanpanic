@@ -10,25 +10,39 @@ import { pointStep } from "../utils/constants";                 // v1.17+ dot-st
 import { useViewport } from "../utils/viewport";                // v1.18+ live workspace size
 import { segmentLengthMm } from "../utils/lengths";             // v2.05 pure length math
 import { glPlaneGeometry } from "../utils/glPlane";              // v2.09 GL/FL datum plane
+import { nodeElevations } from "../workshop/pipe3d";            // v2.24 slope from elevations
 import { sketchJoints, jointTypeOf, JOINT_MARK } from "../utils/joints"; // v2.10 corner fittings
 
 export { segmentLengthMm } from "../utils/lengths";   // v2.05 moved to pure module
 
 // v1.17+ Label text honors an override: schematic mode can claim any true
 // length regardless of drawn length (label is authoritative, per DRAW2 spec).
-function labelFor(line, mmPerPoint) {
+function labelFor(line, mmPerPoint, elevations) {
   const mm = line.lengthMm ?? segmentLengthMm(line, mmPerPoint);
-  if (!line.spec) return `${mm}mm`;
-  const { a, conn, material, schedule } = line.spec;
-  const grade = material && material !== "SGP" ? ` ${material.replace("TP", "")}` : "";
-  const sch = schedule && schedule !== "SGP" ? ` ${schedule}` : "";
-  return `${mm}mm  ${a}A${grade}${sch} ${conn}`;
+  let text = `${mm}mm`;
+  if (line.spec) {
+    const { a, conn, material, schedule } = line.spec;
+    const grade = material && material !== "SGP" ? ` ${material.replace("TP", "")}` : "";
+    const sch = schedule && schedule !== "SGP" ? ` ${schedule}` : "";
+    text += `  ${a}A${grade}${sch} ${conn}`;
+  }
+  // v2.24 A run whose ends sit at different levels is sloped; the angle is
+  // what a fitter needs, and it is invisible in a 6-direction sketch.
+  if (elevations && mm > 0) {
+    const key = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
+    const rise = (elevations.get(key(line.end)) ?? 0) - (elevations.get(key(line.start)) ?? 0);
+    if (Math.abs(rise) > 1 && Math.abs(rise) < mm - 1) {
+      const deg = Math.round(Math.asin(Math.max(-1, Math.min(1, rise / mm))) * (180 / Math.PI) * 10) / 10;
+      text += `  ∠${Math.abs(deg)}°${rise > 0 ? "↑" : "↓"}${Math.abs(Math.round(rise))}`;
+    }
+  }
+  return text;
 }
 
 const DrawLayer = ({
   lines, preview, isDark, zoom, offset, mmPerPoint = 10,
   showGL = true, glEditPlane = false,
-  jointTypes = {}, datums = [], activeDatum = -1,
+  jointTypes = {}, datums = [], activeDatum = -1, showJointMarks = true,
 }) => { // [v1.09] Accept zoom and offset for scaling
   const canvasRef = useRef(null);                                 // [v1.02] Canvas DOM reference
   const { w: vpW, h: vpH } = useViewport();                       // v1.18+ re-render on resize
@@ -60,6 +74,7 @@ const DrawLayer = ({
     ctx.lineCap = "round";                                        // [v1.08] Smooth end caps
     ctx.lineJoin = "round";                                       // [v1.08] Smooth joins
 
+    const elevationsForLabels = lines.length ? nodeElevations(lines, mmPerPoint) : null;
     // v1.17+ Length label beside a segment's midpoint, offset perpendicular
     // so it never sits on the line. Halo keeps it readable over the grid.
     const drawLabel = (line) => {
@@ -76,7 +91,7 @@ const DrawLayer = ({
       ctx.lineWidth = 3 / zoom;
       ctx.strokeStyle = isDark ? "rgba(15,20,27,0.85)" : "rgba(255,255,255,0.85)";
       ctx.fillStyle = isDark ? "#7cc4ff" : "#1d6fb8";
-      const text = labelFor(line, mmPerPoint);
+      const text = labelFor(line, mmPerPoint, elevationsForLabels);
       ctx.strokeText(text, mx + nx * off, my + ny * off);
       ctx.fillText(text, mx + nx * off, my + ny * off);
     };
@@ -180,7 +195,7 @@ const DrawLayer = ({
 
     // v2.10 corner fittings: L / S / T / W so the choice is visible on the
     // drawing, the way a fitter marks up an isometric by hand.
-    for (const joint of sketchJoints(lines)) {
+    for (const joint of showJointMarks ? sketchJoints(lines) : []) {
       const type = jointTypeOf(joint, lines, jointTypes);
       const r = 9 / zoom;
       ctx.beginPath();
@@ -212,7 +227,7 @@ const DrawLayer = ({
 
     ctx.restore();                                                // [v1.10] End transform block
   }, [lines, preview, isDark, zoom, offset, mmPerPoint, showGL, glEditPlane,
-      jointTypes, datums, activeDatum, vpW, vpH]);   // [v1.10] Redraw on zoom or pan
+      jointTypes, datums, activeDatum, showJointMarks, vpW, vpH]);   // [v1.10] Redraw on zoom or pan
 
   return (
     <canvas

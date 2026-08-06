@@ -782,3 +782,47 @@ html, body, #root {
 }
 .draw-cancel:active { transform: translateX(-50%) scale(0.96); }
 @keyframes rise-in { from { opacity: 0; transform: translate(-50%, 6px); } }
+
+/* ===== v2.25 Top bar carries the view switches; Workshop floats below it,
+   off the drawing dock which was getting crowded. Scale moved to More. ===== */
+.top-actions { display: flex; gap: 8px; }
+.top-btn {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  border: 1px solid var(--border-2);
+  background: color-mix(in srgb, var(--panel) 70%, transparent);
+  color: var(--text);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.top-btn.on { color: var(--accent); border-color: var(--accent); }
+.top-btn:active { transform: scale(0.94); }
+
+.workshop-fab {
+  position: fixed;
+  right: 12px;
+  top: calc(62px + env(safe-area-inset-top, 0px));
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(150deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #3b6ef5));
+  color: #0d1520;
+  font-size: 0.8rem;
+  font-weight: 700;
+  box-shadow: 0 6px 22px color-mix(in srgb, var(--accent) 40%, transparent);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.workshop-fab:disabled { opacity: 0.35; box-shadow: none; }
+.workshop-fab:active:not(:disabled) { transform: scale(0.96); }
+
+/* six slots again now that Workshop has left the dock */
+.dock-btn { min-width: 54px; padding: 9px 6px; font-size: 0.62rem; }

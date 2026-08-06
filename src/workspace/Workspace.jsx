@@ -36,7 +36,7 @@ import GlSheet from "../ui/GlSheet";
 import { loadDatums, saveDatums, makeDatum } from "./utils/datums";
 import { findJointAt, jointSettingOf } from "./utils/joints";               // v2.10 corner fittings
 import JointSheet from "../ui/JointSheet";
-import { zoomMin, zoomMax } from "./utils/constants";                       // [v1.10] zoom range constants
+import { zoomMin, zoomMax, pointStep } from "./utils/constants";                       // [v1.10] zoom range constants
 import "./Workspace.css";                                                   // [v1.10] workspace layout styles
 
 export default function Workspace() {
@@ -119,6 +119,9 @@ export default function Workspace() {
   });
   const [showCutList, setShowCutList] = useState(() => new URLSearchParams(window.location.search).has("cutlist")); // v2.07 材料表 sheet
   const [showGL, setShowGL] = useState(true);                               // v2.07 GL/EL in 2D
+  const [showJointMarks, setShowJointMarks] = useState(                     // v2.26 L/T circles
+    () => localStorage.getItem("haikan-joint-marks") !== "off",
+  );
   const [showGlSheet, setShowGlSheet] = useState(() => new URLSearchParams(window.location.search).has("gl"));
   const [datums, setDatums] = useState(loadDatums);                         // v2.19 GL / FL / TOS list
   const [datumIndex, setDatumIndex] = useState(0);                          // which one the sheet edits
@@ -491,6 +494,8 @@ export default function Workspace() {
     // v1.15+ Use snapped endpoint if available, otherwise snap to grid
     const snappedStart = snapToNearestGrid(angleSnapped.start, zoom, offset);
     const snappedEnd = snappedEndpoint || snapToNearestGrid(angleSnapped.end, zoom, offset);
+    const drawnPx = Math.hypot(snappedEnd.x - snappedStart.x, snappedEnd.y - snappedStart.y);
+    if (drawnPx < pointStep * 0.5) { cancelDraw(); return; }                // v2.24 no 0mm pipes
     commitLines([...lines, { start: snappedStart, end: snappedEnd }]);
     setStartPoint(null);
     setPreviewLine(null);
@@ -540,6 +545,8 @@ export default function Workspace() {
     setShowCutList,                                                        // v2.07 材料表
     showGL,
     setShowGL,
+    showJointMarks,                                                        // v2.26 fitting circles
+    setShowJointMarks,
     datums,
     glEditPlane,
     setGlEditPlane,
@@ -580,6 +587,7 @@ export default function Workspace() {
             activeDatum={showGlSheet ? datumIndex : -1}
             glEditPlane={glEditPlane || moveMode}
             jointTypes={jointTypes}
+            showJointMarks={showJointMarks}
           />
           {!hideCrosshair && (
             <SnapOverlay

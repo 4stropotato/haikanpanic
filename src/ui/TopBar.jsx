@@ -34,6 +34,7 @@ const translations = {
     glRef: "GL plane",
     glEdit: "Datums (GL / FL)",
     glDrag: "Drag handles",
+    jointMarks: "Fitting marks (L / T)",
     more: "More",
     scale: "Scale: 1 pt =",
     clear: "Clear all",
@@ -62,6 +63,7 @@ const translations = {
     glRef: "GL 面",
     glEdit: "基準面 (GL / FL)",
     glDrag: "ハンドルで調整",
+    jointMarks: "継手記号 (L / T)",
     more: "その他",
     scale: "縮尺: 1 pt =",
     clear: "全消去",
@@ -109,6 +111,8 @@ export default function TopBar() {
     setShowCutList,
     showGL,
     setShowGL,
+    showJointMarks,
+    setShowJointMarks,
     glEditPlane,
     setGlEditPlane,
     setShowGlSheet
@@ -147,10 +151,33 @@ export default function TopBar() {
     <>
       <div className="top-bar">
         <span className="brand">ハイカンパニック!</span>
-        <span className="scale-badge" onClick={() => setShowSheet(true)}>
-          1pt={mmPerPoint}mm
-        </span>
+        <div className="top-actions">
+          <button
+            className={"top-btn" + (showGrid ? " on" : "")}
+            onClick={() => setShowGrid((g) => !g)}
+            aria-label={t.grid}
+          >
+            <GridIcon />
+          </button>
+          <button
+            className="top-btn"
+            onClick={() => setDarkMode((d) => !d)}
+            aria-label={t.theme}
+          >
+            {darkMode ? <SunIcon /> : <MoonIcon />}
+          </button>
+        </div>
       </div>
+
+      {/* v2.25 Workshop lives on its own, off the crowded dock */}
+      <button
+        className="workshop-fab"
+        onClick={() => setShowWorkshop(true)}
+        disabled={!lines.length}
+      >
+        <CubeIcon />
+        <span>{t.workshop}</span>
+      </button>
 
       {drawing && (
         <button className="draw-cancel" onClick={cancelDraw}>
@@ -192,14 +219,6 @@ export default function TopBar() {
           <MoveIcon />
           <span>{t.move}</span>
         </button>
-        <button
-          className="dock-btn primary"
-          onClick={() => setShowWorkshop(true)}
-          disabled={!lines.length}
-        >
-          <CubeIcon />
-          <span>{t.workshop}</span>
-        </button>
         <button className="dock-btn" onClick={() => setShowSheet(true)}>
           <MoreIcon />
           <span>{t.more}</span>
@@ -232,6 +251,9 @@ export default function TopBar() {
             >
               <ListIcon /> <span>{t.cutList}</span>
             </button>
+            <button className="sheet-btn" onClick={() => setShowJointMarks(!showJointMarks)}>
+              <PencilIcon /> <span>{t.jointMarks}</span> {showJointMarks && <CheckIcon />}
+            </button>
             <button className="sheet-btn" onClick={() => setShowGL(!showGL)}>
               <GridIcon /> <span>{t.glRef}</span> {showGL && <CheckIcon />}
             </button>
@@ -243,12 +265,6 @@ export default function TopBar() {
             </button>
             <button className="sheet-btn" onClick={sendToStudio}>
               <SendToStudioIcon /> <span>{t.studio}</span>
-            </button>
-            <button className="sheet-btn" onClick={() => setDarkMode((d) => !d)}>
-              {darkMode ? <SunIcon /> : <MoonIcon />} <span>{t.theme}</span>
-            </button>
-            <button className="sheet-btn" onClick={() => setShowGrid((g) => !g)}>
-              <GridIcon /> <span>{t.grid}</span> {showGrid && <CheckIcon />}
             </button>
             <button className="sheet-btn" onClick={resetView}>
               <CrosshairIcon /> <span>{t.centerView}</span>
