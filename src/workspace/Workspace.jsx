@@ -448,6 +448,27 @@ export default function Workspace() {
 
   // v2.59 Drag up to come closer, down to pull back, and the spot under the
   // finger stays put — you zoom into what you were already looking at.
+  // v2.74 Fit the whole drawing on screen, centred so the origin marker and
+  // the view turn about the same point the drawing is set out from.
+  const fitToView = () => {
+    if (!viewLines.length) { setZoom(1); setOffset({ x: 0, y: 0 }); return; }
+    let x1 = Infinity; let y1 = Infinity; let x2 = -Infinity; let y2 = -Infinity;
+    for (const line of viewLines) {
+      for (const pt of [line.start, line.end]) {
+        x1 = Math.min(x1, pt.x); y1 = Math.min(y1, pt.y);
+        x2 = Math.max(x2, pt.x); y2 = Math.max(y2, pt.y);
+      }
+    }
+    const w = Math.max(x2 - x1, 1);
+    const h = Math.max(y2 - y1, 1);
+    const next = Math.max(0.25, Math.min(3, Math.min(
+      (viewport.w * 0.78) / w,
+      (viewport.h * 0.55) / h,
+    )));
+    setZoom(next);
+    setOffset({ x: -((x1 + x2) / 2) * next, y: -((y1 + y2) / 2) * next });
+  };
+
   const zoomGrab = (clientX, clientY) => {
     if (viewTool !== "zoom") return false;
     zoomDrag.current = { y: clientY, anchorX: clientX, anchorY: clientY, zoom, offset };
@@ -1090,6 +1111,8 @@ export default function Workspace() {
     setMoveMode,
     viewTool,                                                              // v2.59 pan / zoom
     setViewTool,
+    fitToView,                                                             // v2.74 double-tap Move
+    selectAll: () => setSelection(lines.map((_, i) => i)),
     selectMode,                                                            // v2.37 selection tool
     setSelectMode: (on) => { setSelectMode(on); if (!on) setSelection([]); },
     currentSpec,                                                           // v2.31 spec for new pipes

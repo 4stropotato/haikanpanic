@@ -6,7 +6,7 @@
 // [v2.00] Full UI redesign: glass top bar, floating dock, bottom sheet.
 //         Nothing removed — advanced controls are HIDDEN in the sheet.
 
-import { useContext, useState, useEffect } from "react";
+import { useContext, useState, useEffect, useRef } from "react";
 import { WorkspaceContext } from "../workspace/WorkspaceContext";
 import { HandIcon, ZoomIcon, ExpandIcon, ShrinkIcon } from "./Icons";                              // v2.58 one-handed drafting
 import { LABEL_FIELDS, LABEL_TEXT } from "../workspace/utils/labelFields"; // v2.51
@@ -164,7 +164,7 @@ export default function TopBar() {
     setEraseMode,
     moveMode,
     setMoveMode,
-    viewTool, setViewTool,
+    viewTool, setViewTool, fitToView, selectAll,
     selectMode,
     setSelectMode,
     drawing,
@@ -198,6 +198,19 @@ export default function TopBar() {
 
   const [showSheet, setShowSheet] = useState(() => new URLSearchParams(window.location.search).has("more"));
   const [lang, setLang] = useState(detectLanguage);
+  // v2.74 A second tap on a tool asks it to do its whole job at once:
+  // Select takes everything, Move brings the drawing back to the middle.
+  const lastDock = useRef({ name: "", at: 0 });
+  const doubleTap = (name, action) => {
+    const now = Date.now();
+    if (lastDock.current.name === name && now - lastDock.current.at < 400) {
+      lastDock.current = { name: "", at: 0 };
+      action();
+      return true;
+    }
+    lastDock.current = { name, at: now };
+    return false;
+  };
 
   useEffect(() => {
     localStorage.setItem("haikan-lang", lang);
@@ -340,6 +353,7 @@ export default function TopBar() {
         <button
           className={"dock-btn" + (selectMode ? " glow" : "")}
           onClick={() => {
+            if (doubleTap("select", selectAll)) return;
             setSelectMode(!selectMode); setViewTool(null);
             setEditMode(false);
             setEraseMode(false);
@@ -352,7 +366,11 @@ export default function TopBar() {
         </button>
         <button
           className={"dock-btn" + (moveMode ? " glow" : "")}
-          onClick={() => { setMoveMode(!moveMode); setViewTool(null); setEditMode(false); setEraseMode(false); setSelectMode(false); }}
+          onClick={() => {
+            if (doubleTap("move", fitToView)) return;
+            setMoveMode(!moveMode); setViewTool(null);
+            setEditMode(false); setEraseMode(false); setSelectMode(false);
+          }}
           disabled={!lines.length}
         >
           <MoveIcon />

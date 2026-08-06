@@ -350,6 +350,17 @@ const DrawLayer = ({
     });
     ctx.strokeStyle = isDark ? "white" : "black";
     ctx.lineWidth = 2 / zoom;
+    // v2.74 The origin. Everything is set out from it and the view turns
+    // about it, so it has to be visible — losing it left nothing to read the
+    // drawing's position against.
+    ctx.beginPath();
+    ctx.arc(0, 0, 4 / zoom, 0, Math.PI * 2);
+    ctx.fillStyle = "#ff5a5a";
+    ctx.fill();
+    ctx.strokeStyle = isDark ? "rgba(15,20,27,0.9)" : "rgba(255,255,255,0.9)";
+    ctx.lineWidth = 1.5 / zoom;
+    ctx.stroke();
+
     lines.forEach(placeLabel);                                    // v2.52 lay out, then keep apart
     for (const entry of layout) drawLabel(entry);                 // v1.17+ labels ride the runs
     onLabelLayout?.([
