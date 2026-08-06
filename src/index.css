@@ -877,3 +877,38 @@ html, body, #root {
   white-space: nowrap;
 }
 .move-readout span { color: var(--accent-2); }
+
+/* ===== v2.36 iOS Safari zooms the whole page in when a focused field has
+   a font smaller than 16px, and it never zooms back out — which is what
+   pushed the chrome off screen and clipped the top bar. Every field the
+   user can focus is 16px, so the page can never be scaled by focus. ===== */
+input, select, textarea, button {
+  font-size: 16px;
+  font-family: inherit;
+}
+.sheet-row input, .sheet-row select { font-size: 16px; }
+.seg-btn, .sheet-btn, .sheet-action, .dock-btn, .top-btn,
+.datum-tab, .joint-option, .spec-chip, .draw-cancel, .workshop-fab,
+.cut-table, .scale-badge {
+  font-size: inherit;   /* these are not focusable text fields */
+}
+.dock-btn { font-size: 0.64rem; }
+.top-btn { font-size: 1rem; }
+.spec-chip { font-size: 0.76rem; }
+.draw-cancel { font-size: 0.82rem; }
+.workshop-fab { font-size: 0.8rem; }
+.seg-btn { font-size: 0.86rem; }
+.sheet-btn { font-size: 0.9rem; }
+.sheet-action { font-size: 0.92rem; }
+.datum-tab { font-size: 0.82rem; }
+.joint-name { font-size: 0.92rem; }
+
+/* the interface belongs to the screen, whatever the content does */
+html, body, #root { max-width: 100vw; overflow-x: hidden; }
+.top-bar, .dock, .workshop-fab, .spec-chip, .draw-cancel {
+  max-width: calc(100vw - 16px);
+}
+.dock { overflow-x: auto; scrollbar-width: none; }
+.dock::-webkit-scrollbar { display: none; }
+
+.sheet-value { color: var(--accent); font-weight: 700; flex: 0 0 auto; }

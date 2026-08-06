@@ -22,7 +22,7 @@ const translations = {
     language: "Language",
     noJoint: "Draw two connected lines first",
     draw: "Draw",
-    specFor: "New pipe:",
+    specFor: "Spec for new pipes",
     edit: "Edit",
     erase: "Erase",
     move: "Move",
@@ -58,7 +58,7 @@ const translations = {
     language: "言語",
     noJoint: "接続された2本の線を描いてください",
     draw: "作図",
-    specFor: "次の配管:",
+    specFor: "次の配管の仕様",
     edit: "編集",
     erase: "消去",
     move: "移動",
@@ -203,14 +203,6 @@ export default function TopBar() {
         <span>{t.workshop}</span>
       </button>
 
-      {/* v2.31 the spec new pipes inherit, changed when it changes */}
-      <button className="spec-chip" onClick={() => setShowSpecSheet(true)}>
-        <span className="spec-chip-label">{t.specFor}</span>
-        {currentSpec
-          ? `${currentSpec.a}A ${currentSpec.material === "SGP" ? "SGP" : currentSpec.material} ${currentSpec.conn}`
-          : "100A SGP BW"}
-      </button>
-
       {drawing && (
         <button className="draw-cancel" onClick={cancelDraw}>
           ✕ {t.cancelDraw}
@@ -275,6 +267,18 @@ export default function TopBar() {
               />
               <span>mm</span>
             </div>
+            <button
+              className="sheet-btn"
+              onClick={() => { setShowSheet(false); setShowSpecSheet(true); }}
+            >
+              <PencilIcon />
+              <span>{t.specFor}</span>
+              <span className="sheet-value">
+                {currentSpec
+                  ? `${currentSpec.a}A ${currentSpec.material === "SGP" ? "SGP" : currentSpec.material} ${currentSpec.conn}`
+                  : "100A SGP BW"}
+              </span>
+            </button>
             <button
               className="sheet-btn"
               onClick={() => { setShowSheet(false); setShowCutList(true); }}
