@@ -356,12 +356,20 @@ const DrawLayer = ({
       const right = ((width / 2) - offset.x) / zoom;
       const top = ((-height / 2) - offset.y) / zoom;
       const bottom = ((height / 2) - offset.y) / zoom;
-      const reach = (Math.hypot(width, height) / zoom);
       for (const guide of guides) {
         ctx.beginPath();
-        ctx.moveTo(guide.at.x - (guide.dir.x * reach), guide.at.y - (guide.dir.y * reach));
-        ctx.lineTo(guide.at.x + (guide.dir.x * reach), guide.at.y + (guide.dir.y * reach));
+        ctx.moveTo(guide.from.x, guide.from.y);
+        ctx.lineTo(guide.to.x, guide.to.y);
         ctx.stroke();
+        // a tick at each end, so it is clear what met what
+        ctx.setLineDash([]);
+        for (const end of [guide.from, guide.to]) {
+          ctx.beginPath();
+          ctx.arc(end.x, end.y, 3.5 / zoom, 0, Math.PI * 2);
+          ctx.fillStyle = "#ff5ea8";
+          ctx.fill();
+        }
+        ctx.setLineDash([7 / zoom, 5 / zoom]);
       }
       ctx.restore();
     }

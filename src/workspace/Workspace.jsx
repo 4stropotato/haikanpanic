@@ -453,8 +453,11 @@ export default function Workspace() {
             const len = Math.hypot(d.x, d.y) || 1;
             const off = Math.abs((dx * d.y) - (dy * d.x)) / len;
             if (off < tol) {
-              // draw it where the node actually is, so it reads on the sketch
-              found.push({ at: raw, dir: { x: d.x / len, y: d.y / len } });
+              // v2.89 A guide joins the two things that line up — the plane's
+              // side to the run — instead of ruling an endless line across the
+              // sheet. An infinite line says nothing about what matched, and
+              // on an isometric it does not even read as one of its axes.
+              found.push({ from: points[from.indexOf(p)] ?? points[0], to: raw });
             }
           }
         }
@@ -462,7 +465,7 @@ export default function Workspace() {
     }
     const seen = new Set();
     return found.filter((g) => {
-      const key = `${g.at.x.toFixed(1)},${g.at.y.toFixed(1)},${g.dir.x.toFixed(2)}`;
+      const key = `${g.to.x.toFixed(1)},${g.to.y.toFixed(1)},${g.from.x.toFixed(1)}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
