@@ -914,3 +914,22 @@ html, body, #root { max-width: 100vw; overflow-x: hidden; }
 .sheet-value { color: var(--accent); font-weight: 700; flex: 0 0 auto; }
 /* v2.37 six tools again */
 .dock-btn { min-width: 52px; padding: 9px 5px; font-size: 0.6rem; }
+
+/* v2.41 two pipes sharing one grid line */
+.stack-warn {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  top: calc(112px + env(safe-area-inset-top, 0px));
+  z-index: 10002;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(245, 186, 102, 0.5);
+  background: color-mix(in srgb, var(--panel) 90%, transparent);
+  backdrop-filter: blur(12px);
+  color: #f5ba66;
+  font-size: 0.74rem;
+  font-weight: 700;
+  pointer-events: none;
+  white-space: nowrap;
+}

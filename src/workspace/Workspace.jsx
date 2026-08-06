@@ -25,7 +25,7 @@ import {
 } from "./utils/geometry";                                                  // [v1.10] math utilities
 import { nodeElevations, jointAngles, projectedNodes } from "./workshop/pipe3d"; // v2.16 freeze height on move
 import {
-  findSegmentAt, setSegmentLength, connectedIndices,
+  findSegmentAt, setSegmentLength, connectedIndices, overlappingRuns,
 } from "./utils/editLength";                                                // v1.19+ tap-to-edit lengths
 import { segmentLengthMm, dropDegenerate } from "./utils/lengths";          // v1.19+ current mm for prompt
 import { viewport, observeViewport } from "./utils/viewport";               // v1.19+ tap coord conversion
@@ -300,6 +300,8 @@ export default function Workspace() {
     start: projection.get(nodeKey(line.start)) ?? line.start,
     end: projection.get(nodeKey(line.end)) ?? line.end,
   })), [lines, projection]);
+
+  const stackedCount = useMemo(() => overlappingRuns(viewLines).size, [viewLines]);
 
   const jointInfo = (key) => jointAngles(lines, mmPerPoint, { jointTypes }).get(key);
 
@@ -864,6 +866,11 @@ export default function Workspace() {
               setEditTarget(null);
             }}
           />
+        )}
+        {stackedCount > 0 && (
+          <div className="stack-warn">
+            ⚠ {stackedCount} runs share a grid line — move one across
+          </div>
         )}
         {moveReadout && (
           <div className="move-readout">

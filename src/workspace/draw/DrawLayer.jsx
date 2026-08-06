@@ -9,6 +9,7 @@ import { useEffect, useRef } from "react";                      // v1.10+ React 
 import { pointStep } from "../utils/constants";                 // v1.17+ dot-step distance for real lengths
 import { useViewport } from "../utils/viewport";                // v1.18+ live workspace size
 import { segmentLengthMm } from "../utils/lengths";             // v2.05 pure length math
+import { overlappingRuns } from "../utils/editLength";          // v2.41 two pipes, one line
 import { glPlaneGeometry } from "../utils/glPlane";              // v2.09 GL/FL datum plane
 import { nodeElevations } from "../workshop/pipe3d";            // v2.24 slope from elevations
 import { sketchJoints, jointTypeOf, JOINT_MARK } from "../utils/joints"; // v2.10 corner fittings
@@ -203,14 +204,19 @@ const DrawLayer = ({
     }
 
     const selected = new Set(selection);
+    const stacked = overlappingRuns(lines);
     lines.forEach((line, index) => {
       const on = selected.has(index);
-      ctx.strokeStyle = on ? "#7cc4ff" : (isDark ? "white" : "black");
-      ctx.lineWidth = (on ? 4 : 2) / zoom;
+      // two runs sharing a grid line read as one pipe, so they are called out
+      const clash = stacked.has(index);
+      ctx.strokeStyle = on ? "#7cc4ff" : (clash ? "#f5ba66" : (isDark ? "white" : "black"));
+      ctx.lineWidth = (on || clash ? 4 : 2) / zoom;
+      ctx.setLineDash(clash && !on ? [9 / zoom, 5 / zoom] : []);
       ctx.beginPath();
       ctx.moveTo(line.start.x, line.start.y);                     // [v1.09] Use workspace-space coordinates directly
       ctx.lineTo(line.end.x, line.end.y);
       ctx.stroke();
+      ctx.setLineDash([]);
     });
     ctx.strokeStyle = isDark ? "white" : "black";
     ctx.lineWidth = 2 / zoom;

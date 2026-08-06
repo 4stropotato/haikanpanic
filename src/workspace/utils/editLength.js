@@ -66,7 +66,11 @@ export function setSegmentLength(lines, index, newMm, mmPerPoint) {
   const line = lines[index];
   const len = Math.hypot(line.end.x - line.start.x, line.end.y - line.start.y);
   if (len < EPS || !(newMm > 0)) return lines;
-  const newLen = (newMm / mmPerPoint) * pointStep;
+  // v2.41 An odd measurement still has to be drawn on the grid: the length
+  // is rounded to whole dot steps for the drawing, while the typed value
+  // stays as the label. Off-lattice ends could not be joined to.
+  const exact = (newMm / mmPerPoint) * pointStep;
+  const newLen = Math.max(1, Math.round(exact / pointStep)) * pointStep;
   const ux = (line.end.x - line.start.x) / len;
   const uy = (line.end.y - line.start.y) / len;
   const newEnd = { x: line.start.x + (ux * newLen), y: line.start.y + (uy * newLen) };
@@ -108,4 +112,40 @@ export function connectedIndices(lines, index) {
     }
   }
   return found;
+}
+
+// v2.41 Runs that lie on top of each other. Two pipes a hand's width apart
+// in the field are still two pipes: drawn on the same grid line they read
+// as one, so they are flagged for the fitter to pull apart.
+export function overlappingRuns(lines) {
+  const flagged = new Set();
+  const dirOf = (line) => {
+    const dx = line.end.x - line.start.x;
+    const dy = line.end.y - line.start.y;
+    const len = Math.hypot(dx, dy) || 1;
+    return { x: dx / len, y: dy / len };
+  };
+  for (let i = 0; i < lines.length; i += 1) {
+    for (let j = i + 1; j < lines.length; j += 1) {
+      const a = lines[i];
+      const b = lines[j];
+      const u = dirOf(a);
+      const v = dirOf(b);
+      const parallel = Math.abs((u.x * v.y) - (u.y * v.x)) < 0.02;
+      if (!parallel) continue;
+      // same infinite line? the offset of b's start from a's line is ~0
+      const ox = b.start.x - a.start.x;
+      const oy = b.start.y - a.start.y;
+      const across = Math.abs((ox * u.y) - (oy * u.x));
+      if (across > 1.5) continue;
+      // and do their extents actually meet
+      const along = (p) => ((p.x - a.start.x) * u.x) + ((p.y - a.start.y) * u.y);
+      const aRange = [0, along(a.end)].sort((m, n) => m - n);
+      const bRange = [along(b.start), along(b.end)].sort((m, n) => m - n);
+      if (bRange[0] > aRange[1] - 1 || bRange[1] < aRange[0] + 1) continue;
+      flagged.add(i);
+      flagged.add(j);
+    }
+  }
+  return flagged;
 }
