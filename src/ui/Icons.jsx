@@ -160,3 +160,10 @@ export const PencilDrawIcon = () => (
     <circle cx="20" cy="4" r="2.4" fill="currentColor" stroke="none"/>
   </svg>
 );
+
+// v2.37 marquee select icon
+export const SelectIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeDasharray="4 3">
+    <rect x="3" y="3" width="18" height="18" rx="2"/>
+  </svg>
+);

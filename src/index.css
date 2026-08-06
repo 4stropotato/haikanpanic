@@ -912,3 +912,5 @@ html, body, #root { max-width: 100vw; overflow-x: hidden; }
 .dock::-webkit-scrollbar { display: none; }
 
 .sheet-value { color: var(--accent); font-weight: 700; flex: 0 0 auto; }
+/* v2.37 six tools again */
+.dock-btn { min-width: 52px; padding: 9px 5px; font-size: 0.6rem; }

@@ -8,7 +8,7 @@
 
 import { useContext, useState, useEffect } from "react";
 import { WorkspaceContext } from "../workspace/WorkspaceContext";
-import { SunIcon, MoonIcon, GridIcon, CrosshairIcon, MagnifierIcon, RotateIcon, GlobeIcon, CheckIcon, SendToStudioIcon, PencilIcon, MoreIcon, CubeIcon, ListIcon, EraserIcon, MoveIcon, RedoIcon, PencilDrawIcon } from "./Icons";
+import { SunIcon, MoonIcon, GridIcon, CrosshairIcon, MagnifierIcon, RotateIcon, GlobeIcon, CheckIcon, SendToStudioIcon, PencilIcon, MoreIcon, CubeIcon, ListIcon, EraserIcon, MoveIcon, RedoIcon, PencilDrawIcon, SelectIcon } from "./Icons";
 import { buildStudioHandoff, encodeHandoff } from "../workspace/utils/handoff";
 
 const translations = {
@@ -25,6 +25,7 @@ const translations = {
     specFor: "Spec for new pipes",
     edit: "Edit",
     erase: "Erase",
+    select: "Select",
     move: "Move",
     undo: "Undo",
     redo: "Redo",
@@ -61,6 +62,7 @@ const translations = {
     specFor: "次の配管の仕様",
     edit: "編集",
     erase: "消去",
+    select: "選択",
     move: "移動",
     undo: "戻す",
     redo: "やり直し",
@@ -115,6 +117,8 @@ export default function TopBar() {
     setEraseMode,
     moveMode,
     setMoveMode,
+    selectMode,
+    setSelectMode,
     drawing,
     cancelDraw,
     undo,
@@ -213,14 +217,14 @@ export default function TopBar() {
       <div className="dock">
         <button
           className={"dock-btn" + (!editMode && !eraseMode && !moveMode ? " glow" : "")}
-          onClick={() => { setEditMode(false); setEraseMode(false); setMoveMode(false); }}
+          onClick={() => { setEditMode(false); setEraseMode(false); setMoveMode(false); setSelectMode(false); }}
         >
           <PencilDrawIcon />
           <span>{t.draw}</span>
         </button>
         <button
           className={"dock-btn" + (editMode ? " glow" : "")}
-          onClick={() => { setEditMode(!editMode); setEraseMode(false); setMoveMode(false); }}
+          onClick={() => { setEditMode(!editMode); setEraseMode(false); setMoveMode(false); setSelectMode(false); }}
           disabled={!lines.length}
         >
           <PencilIcon />
@@ -228,15 +232,28 @@ export default function TopBar() {
         </button>
         <button
           className={"dock-btn" + (eraseMode ? " danger-glow" : "")}
-          onClick={() => { setEraseMode(!eraseMode); setEditMode(false); setMoveMode(false); }}
+          onClick={() => { setEraseMode(!eraseMode); setEditMode(false); setMoveMode(false); setSelectMode(false); }}
           disabled={!lines.length}
         >
           <EraserIcon />
           <span>{t.erase}</span>
         </button>
         <button
+          className={"dock-btn" + (selectMode ? " glow" : "")}
+          onClick={() => {
+            setSelectMode(!selectMode);
+            setEditMode(false);
+            setEraseMode(false);
+            setMoveMode(false);
+          }}
+          disabled={!lines.length}
+        >
+          <SelectIcon />
+          <span>{t.select}</span>
+        </button>
+        <button
           className={"dock-btn" + (moveMode ? " glow" : "")}
-          onClick={() => { setMoveMode(!moveMode); setEditMode(false); setEraseMode(false); }}
+          onClick={() => { setMoveMode(!moveMode); setEditMode(false); setEraseMode(false); setSelectMode(false); }}
           disabled={!lines.length}
         >
           <MoveIcon />

@@ -100,6 +100,7 @@ export default function Workspace() {
   });
   const [eraseMode, setEraseMode] = useState(false);                        // v2.08 tap a line to delete it
   const [moveMode, setMoveMode] = useState(false);                          // v2.16 drag runs across the ground
+  const [selectMode, setSelectMode] = useState(false);                      // v2.37 its own tool
   const [selection, setSelection] = useState([]);                           // v2.29 selected line indices
   const [marquee, setMarquee] = useState(null);                             // v2.29 rubber band box
   const [moveReadout, setMoveReadout] = useState(null);                     // v2.32 X / Y / EL while dragging
@@ -317,7 +318,7 @@ export default function Workspace() {
   };
 
   const marqueeStart = (clientX, clientY) => {
-    if (!moveMode) return false;
+    if (!selectMode) return false;
     const point = toWorkspace(clientX, clientY);
     marqueeRef.current = { x0: point.x, y0: point.y, x1: point.x, y1: point.y };
     setMarquee(marqueeRef.current);
@@ -521,6 +522,21 @@ export default function Workspace() {
 
   const handleClick = (e) => {
     if (moveMode) return;                                                  // v2.16 drags, not taps
+    // v2.37 Select mode: a tap adds or removes one run from the selection.
+    if (selectMode) {
+      const point = {
+        x: (e.clientX - (viewport.w / 2 + offset.x)) / zoom,
+        y: (e.clientY - (viewport.h / 2 + offset.y)) / zoom,
+      };
+      const index = findSegmentAt(point, lines, 24 / zoom);
+      if (index >= 0) {
+        setSelection((current) => (current.includes(index)
+          ? current.filter((i) => i !== index)
+          : [...current, index]));
+      }
+      return;
+    }
+
     // v2.08 Erase mode: a tap removes the nearest segment. The GL plane and
     // every derived number recompute from what is left.
     if (eraseMode) {
@@ -628,7 +644,9 @@ export default function Workspace() {
     eraseMode,                                                             // v2.08 erase mode
     setEraseMode,
     moveMode,                                                              // v2.16 move mode
-    setMoveMode: (on) => { setMoveMode(on); if (!on) setSelection([]); },
+    setMoveMode,
+    selectMode,                                                            // v2.37 selection tool
+    setSelectMode: (on) => { setSelectMode(on); if (!on) setSelection([]); },
     currentSpec,                                                           // v2.31 spec for new pipes
     setShowSpecSheet,
     selection,                                                             // v2.29 marquee selection
@@ -694,6 +712,7 @@ export default function Workspace() {
             datums={datums}
             activeDatum={showGlSheet ? datumIndex : -1}
             glEditPlane={glEditPlane || moveMode}
+            selectMode={selectMode}
             jointTypes={jointTypes}
             showJointMarks={showJointMarks}
             selection={selection}
