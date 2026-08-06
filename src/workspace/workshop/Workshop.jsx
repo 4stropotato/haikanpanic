@@ -48,7 +48,8 @@ function makeLabel(text, tone = "size") {
 }
 
 export default function Workshop({
-  lines, mmPerPoint, glOffsetMm = 0, jointTypes = {}, onEditSegment, onClose,
+  lines, mmPerPoint, glOffsetMm = 0, jointTypes = {}, detail = "normal",
+  onEditSegment, onClose,
 }) {
   const hostRef = useRef(null);
   const apiRef = useRef(null);
@@ -60,6 +61,12 @@ export default function Workshop({
     const host = hostRef.current;
     if (!host) return undefined;
     sceneBuilds += 1;
+
+    // v2.33 Eco trades annotation and mesh density for memory and frame
+    // time — the same model, drawn cheaply.
+    const eco = detail === "eco";
+    const full = detail === "full";
+    const radial = eco ? 14 : 32;
 
     // A geometry fault must never blank the view: report it and carry on
     // with whatever could be built.
@@ -117,7 +124,7 @@ export default function Workshop({
       const dir = b.clone().sub(a);
       const height = dir.length();
       if (height < 0.5) return null;
-      const geometry = new THREE.CylinderGeometry(odTop / 2, odBottom / 2, height, 32, 1);
+      const geometry = new THREE.CylinderGeometry(odTop / 2, odBottom / 2, height, radial, 1);
       const mesh = new THREE.Mesh(geometry, material);
       mesh.position.copy(a).add(dir.clone().multiplyScalar(0.5));
       mesh.quaternion.setFromUnitVectors(up, dir.normalize());
@@ -150,16 +157,22 @@ export default function Workshop({
       const slopeText = sloped
         ? ` · ∠${Math.abs(run.slopeDeg)}° ${run.riseMm > 0 ? "↑" : "↓"}${Math.abs(run.riseMm)}`
         : "";
-      const label = makeLabel(
-        `${run.nominalA ? `${run.nominalA}A` : "pipe"} · ${run.lengthMm}${slopeText}`,
-      );
-      addSprite(label, mid.clone().add(perp));
-      dimObjects.push(label);
+      if (!eco) {
+        // full detail names the material and schedule the way a spec line does
+        const grade = full && run.materialId && run.materialId !== "SGP"
+          ? ` ${run.materialId.replace("TP", "")}` : "";
+        const sch = full && run.schedule && run.schedule !== run.materialId
+          ? ` ${run.schedule}` : "";
+        const size = run.nominalA ? `${run.nominalA}A${grade}${sch}` : "pipe";
+        const label = makeLabel(`${size} · ${run.lengthMm}${slopeText}`);
+        addSprite(label, mid.clone().add(perp));
+        dimObjects.push(label);
+      }
     }
 
     for (const elbow of model.elbows) {
       const curve = new THREE.CatmullRomCurve3(elbow.path.map(V));
-      const geometry = new THREE.TubeGeometry(curve, 24, elbow.od / 2, 32, false);
+      const geometry = new THREE.TubeGeometry(curve, eco ? 12 : 24, elbow.od / 2, radial, false);
       group.add(new THREE.Mesh(geometry, fittingMat));
       elbow.path.forEach((p) => bounds.expandByPoint(V(p)));
     }
@@ -189,6 +202,7 @@ export default function Workshop({
       const boltGeom = new THREE.CylinderGeometry(
         flange.boltDia / 2, flange.boltDia / 2, flange.t * 1.9, 10, 1,
       );
+      if (eco) continue;                                                    // bolts are detail
       for (let i = 0; i < flange.boltCount; i += 1) {
         const angle = (i / flange.boltCount) * Math.PI * 2;
         const offset = new THREE.Vector3(
@@ -225,7 +239,7 @@ export default function Workshop({
       transparent: true,
     });
     const seenElevations = new Set();
-    for (const point of model.points) {
+    for (const point of eco ? [] : model.points) {
       const elevation = Math.round(point.y);
       if (elevation <= 1 || seenElevations.has(elevation)) continue;
       seenElevations.add(elevation);
@@ -488,7 +502,7 @@ export default function Workshop({
       renderer.dispose();
       if (renderer.domElement.parentNode === host) host.removeChild(renderer.domElement);
     };
-  }, [lines, mmPerPoint, glOffsetMm, jointTypes, onEditSegment]);
+  }, [lines, mmPerPoint, glOffsetMm, jointTypes, detail, onEditSegment]);
 
   return (
     <div className="workshop">

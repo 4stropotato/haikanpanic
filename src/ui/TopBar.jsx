@@ -37,6 +37,11 @@ const translations = {
     glEdit: "Datums (GL / FL)",
     glDrag: "Drag handles",
     jointMarks: "Fitting marks (L / T)",
+    detail: "Detail",
+    detailFull: "Full",
+    detailNormal: "Normal",
+    detailEco: "Eco",
+    detailNote: "Eco drops 3D labels and lightens the model.",
     more: "More",
     scale: "Scale: 1 pt =",
     clear: "Clear all",
@@ -68,6 +73,11 @@ const translations = {
     glEdit: "基準面 (GL / FL)",
     glDrag: "ハンドルで調整",
     jointMarks: "継手記号 (L / T)",
+    detail: "表示量",
+    detailFull: "詳細",
+    detailNormal: "標準",
+    detailEco: "軽量",
+    detailNote: "軽量は3Dの表記を省き、モデルを軽くします。",
     more: "その他",
     scale: "縮尺: 1 pt =",
     clear: "全消去",
@@ -117,6 +127,8 @@ export default function TopBar() {
     setShowGL,
     showJointMarks,
     setShowJointMarks,
+    detail,
+    setDetail,
     glEditPlane,
     setGlEditPlane,
     setShowGlSheet,
@@ -270,6 +282,23 @@ export default function TopBar() {
             >
               <ListIcon /> <span>{t.cutList}</span>
             </button>
+            <div className="sheet-row">
+              <span>{t.detail}</span>
+              <div className="seg-group">
+                {[["full", t.detailFull], ["normal", t.detailNormal], ["eco", t.detailEco]].map(
+                  ([value, label]) => (
+                    <button
+                      key={value}
+                      className={"seg-btn" + (detail === value ? " on" : "")}
+                      onClick={() => setDetail(value)}
+                    >
+                      {label}
+                    </button>
+                  ),
+                )}
+              </div>
+            </div>
+            <div className="sheet-hint">{t.detailNote}</div>
             <button className="sheet-btn" onClick={() => setShowJointMarks(!showJointMarks)}>
               <PencilIcon /> <span>{t.jointMarks}</span> {showJointMarks && <CheckIcon />}
             </button>

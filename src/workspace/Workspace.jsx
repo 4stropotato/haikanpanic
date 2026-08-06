@@ -67,7 +67,7 @@ export default function Workspace() {
       return [
         { start: a, end: b, lengthMm: 620, spec: { a: 100, conn: "BW", flange: "start" } },
         { start: b, end: c, lengthMm: 1500, spec: { a: 100, conn: "BW" } },
-        { start: c, end: d, lengthMm: 800, spec: { a: 50, conn: "BW", flange: "end" } },
+        { start: c, end: d, lengthMm: 800, spec: { a: 50, conn: "BW", flange: "end", material: "SUS304TP", schedule: "Sch10S" } },
       ];
     }
     try {
@@ -131,6 +131,10 @@ export default function Workspace() {
   });
   const [showCutList, setShowCutList] = useState(() => new URLSearchParams(window.location.search).has("cutlist")); // v2.07 材料表 sheet
   const [showGL, setShowGL] = useState(true);                               // v2.07 GL/EL in 2D
+  const [detail, setDetail] = useState(                                     // v2.33 full / normal / eco
+    () => new URLSearchParams(window.location.search).get("detail")
+      || localStorage.getItem("haikan-detail") || "normal",
+  );
   const [showJointMarks, setShowJointMarks] = useState(                     // v2.26 L/T circles
     () => localStorage.getItem("haikan-joint-marks") !== "off",
   );
@@ -641,6 +645,8 @@ export default function Workspace() {
     setShowGL,
     showJointMarks,                                                        // v2.26 fitting circles
     setShowJointMarks,
+    detail,                                                                // v2.33 display detail
+    setDetail,
     datums,
     glEditPlane,
     setGlEditPlane,
@@ -811,6 +817,7 @@ export default function Workspace() {
             mmPerPoint={mmPerPoint}
             glOffsetMm={primary?.offsetMm ?? 0}
             jointTypes={jointTypes}
+            detail={detail}
             onEditSegment={setEditTarget}
             onClose={() => setShowWorkshop(false)}
           />
