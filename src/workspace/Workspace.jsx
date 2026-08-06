@@ -116,6 +116,7 @@ export default function Workspace() {
   });
   const [eraseMode, setEraseMode] = useState(false);                        // v2.08 tap a line to delete it
   const [moveMode, setMoveMode] = useState(() => new URLSearchParams(window.location.search).has("move")); // v2.16 drag runs across the ground
+  const [guides, setGuides] = useState([]);                                 // v2.84 alignment guides
   const [datumSel, setDatumSel] = useState([]);                             // v2.81 picked datums
   const [selectMode, setSelectMode] = useState(false);                      // v2.37 its own tool
   // v2.59 One dock slot holds both view gestures: a phone has no room for
@@ -422,6 +423,30 @@ export default function Workspace() {
   // v2.79 The plane turns with the view, so the hit test has to be handed
   // the same projection and viewpoint the renderer draws with — otherwise
   // you would be grabbing where the plane used to be.
+  // v2.84 Illustrator-style guides: while something is being dragged, say
+  // when it lines up with what is already drawn. A guide is a statement, not
+  // a magnet — the lattice already owns snapping, and two things pulling at
+  // the geometry would fight.
+  const guidesFor = (points) => {
+    const tol = 4 / zoom;
+    const found = [];
+    for (const line of viewLines) {
+      for (const node of [line.start, line.end]) {
+        for (const p of points) {
+          if (Math.abs(p.x - node.x) < tol) found.push({ axis: "x", at: node.x });
+          if (Math.abs(p.y - node.y) < tol) found.push({ axis: "y", at: node.y });
+        }
+      }
+    }
+    const seen = new Set();
+    return found.filter((g) => {
+      const key = `${g.axis}${g.at.toFixed(1)}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).slice(0, 6);
+  };
+
   const planeAt = (i) => glPlaneGeometry(lines, mmPerPoint, { ...datums[i], projection, view });
   const currentPlane = () => planeAt(datumIndex);
 
@@ -793,6 +818,7 @@ export default function Workspace() {
       const base = drag.datumBase[i];
       if (base) patchDatum(i, { center: { x: base.x + dx, y: base.y + dy } });
     }
+    setGuides(guidesFor([wanted]));
     setLines(lines.map((line, i) => {
       if (!drag.members.has(i)) return line;
       const base = drag.base[i];
@@ -880,6 +906,8 @@ export default function Workspace() {
     } else {
       const centre = { x: point.x + drag.dx, y: point.y + drag.dy };
       patchDatum(drag.index ?? datumIndex, { center: centre });
+      const plane = planeAt(drag.index ?? datumIndex);
+      setGuides(guidesFor(plane ? [centre, ...plane.corners, ...plane.edges.map((e) => e.point)] : [centre]));
       // v2.70 A floor is set out from a datum like anything else on site, so
       // moving it quotes where its centre now stands.
       const isoUx = Math.cos(-Math.PI / 6);
@@ -997,8 +1025,8 @@ export default function Workspace() {
     if (zoomDrag.current) { zoomDrag.current = null; return; }
     if (labelDrag.current) { labelDrag.current = null; return; }
     if (levelDrag.current) { levelDrag.current = null; setMoveReadout(null); return; }
-    if (pipeDrag.current) { pipeDrag.current = null; setMoveReadout(null); return; }
-    if (planeDrag.current) { planeDrag.current = null; setMoveReadout(null); return; }
+    if (pipeDrag.current) { pipeDrag.current = null; setGuides([]); setMoveReadout(null); return; }
+    if (planeDrag.current) { planeDrag.current = null; setMoveReadout(null); setGuides([]); return; }
     if (marqueeRef.current) { marqueeEnd(); return; }
     lastTouch.current = null;
     clearTimeout(holdTimeout.current);
@@ -1296,6 +1324,7 @@ export default function Workspace() {
             onLabelLayout={(list) => { labelAnchors.current = list; }}
             selection={selection}
             datumSel={datumSel}
+            guides={guides}
             marquee={marquee}
           />
           {/* v2.68 The sketch's crosshair and lens have no business over the

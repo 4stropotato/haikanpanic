@@ -62,7 +62,7 @@ const DrawLayer = ({
   lines, preview, isDark, zoom, offset, mmPerPoint = 10,
   showGL = true, glEditPlane = false,
   jointTypes = {}, datums = [], activeDatum = -1, showJointMarks = true,
-  selection = [], datumSel = [], marquee = null, moveMode = false, projection = null,
+  selection = [], datumSel = [], guides = [], marquee = null, moveMode = false, projection = null,
   labelFields = LABEL_DEFAULT, labelAvoid = true, onLabelLayout = null,
   elOffsets = {}, labelFlat = false, gripAll = false, view = null,
 }) => { // [v1.09] Accept zoom and offset for scaling
@@ -334,6 +334,31 @@ const DrawLayer = ({
           ctx.restore();
         }
       });
+    }
+
+    // v2.84 Alignment guides: drawn under the runs so they never obscure the
+    // pipe you are lining up, and full-bleed so the match is unmistakable.
+    if (guides.length) {
+      ctx.save();
+      ctx.strokeStyle = "#ff5ea8";
+      ctx.lineWidth = 1 / zoom;
+      ctx.setLineDash([7 / zoom, 5 / zoom]);
+      const left = ((-width / 2) - offset.x) / zoom;
+      const right = ((width / 2) - offset.x) / zoom;
+      const top = ((-height / 2) - offset.y) / zoom;
+      const bottom = ((height / 2) - offset.y) / zoom;
+      for (const guide of guides) {
+        ctx.beginPath();
+        if (guide.axis === "x") {
+          ctx.moveTo(guide.at, top);
+          ctx.lineTo(guide.at, bottom);
+        } else {
+          ctx.moveTo(left, guide.at);
+          ctx.lineTo(right, guide.at);
+        }
+        ctx.stroke();
+      }
+      ctx.restore();
     }
 
     const selected = new Set(selection);
