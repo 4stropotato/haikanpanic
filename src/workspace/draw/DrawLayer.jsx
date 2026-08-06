@@ -10,7 +10,7 @@ import { pointStep } from "../utils/constants";                 // v1.17+ dot-st
 import { useViewport } from "../utils/viewport";                // v1.18+ live workspace size
 import { segmentLengthMm } from "../utils/lengths";             // v2.05 pure length math
 import { overlappingRuns } from "../utils/editLength";          // v2.41 two pipes, one line
-import { glPlaneGeometry } from "../utils/glPlane";              // v2.09 GL/FL datum plane
+import { glPlaneGeometry, viewRect, clampHandle } from "../utils/glPlane"; // v2.09 GL/FL datum plane
 import { nodeElevations, runMetrics } from "../workshop/pipe3d"; // v2.24 slope from elevations
 import { sketchJoints, jointTypeOf, JOINT_MARK } from "../utils/joints"; // v2.10 corner fittings
 import { datumFor } from "../utils/datums";
@@ -286,12 +286,23 @@ const DrawLayer = ({
           ctx.save();
           ctx.strokeStyle = "rgba(10,14,20,0.9)";
           ctx.lineWidth = 2 / zoom;
-          for (const corner of corners) {
+          // v2.62 A plane wider than the screen kept its grips off it. They
+          // are drawn at the edge instead, hollow, so it reads as "the corner
+          // is out that way" while still being something you can take hold of.
+          const rect = viewRect(width, height, zoom, offset);
+          const grips = [
+            ...corners.map((c) => ({ at: c, kind: "corner" })),
+            ...edges.map((e) => ({ at: e.point, kind: "edge" })),
+          ];
+          for (const grip of grips) {
+            const at = clampHandle(grip.at, plane.cx, plane.cy, rect);
             ctx.beginPath();
-            ctx.arc(corner.x, corner.y, 9 / zoom, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(${tint},0.92)`;
+            ctx.arc(at.x, at.y, (grip.kind === "corner" ? 9 : 8) / zoom, 0, Math.PI * 2);
+            ctx.fillStyle = at.clamped ? "rgba(10,14,20,0.85)" : `rgba(${tint},0.92)`;
             ctx.fill();
+            ctx.strokeStyle = at.clamped ? `rgba(${tint},0.95)` : "rgba(10,14,20,0.9)";
             ctx.stroke();
+            ctx.strokeStyle = "rgba(10,14,20,0.9)";
           }
           // centre handle: the one grip that moves the whole plane
           ctx.beginPath();

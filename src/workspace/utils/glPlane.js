@@ -111,3 +111,33 @@ export function sizeFromHandle(point, cx, cy, mmPerPoint, axis = "both") {
     v: axis === "u" ? null : toMm(b),
   };
 }
+
+// v2.62 A datum plane is usually bigger than the phone screen, which put
+// seven of its eight handles outside the viewport — there was no way to
+// resize it by dragging, however hard you looked. Handles that fall outside
+// are pulled to the edge, along the line from the plane's centre, so the
+// direction still reads and the grip is always reachable.
+export function viewRect(w, h, zoom, offset, margin = 30) {
+  const m = margin / zoom;
+  return {
+    x1: ((-w / 2) - offset.x) / zoom + m,
+    x2: ((w / 2) - offset.x) / zoom - m,
+    y1: ((-h / 2) - offset.y) / zoom + m,
+    y2: ((h / 2) - offset.y) / zoom - m,
+  };
+}
+
+export function clampHandle(point, cx, cy, rect) {
+  const inside = point.x >= rect.x1 && point.x <= rect.x2
+    && point.y >= rect.y1 && point.y <= rect.y2;
+  if (inside) return { x: point.x, y: point.y, clamped: false };
+  const dx = point.x - cx;
+  const dy = point.y - cy;
+  let t = 1;
+  if (dx > 0) t = Math.min(t, (rect.x2 - cx) / dx);
+  if (dx < 0) t = Math.min(t, (rect.x1 - cx) / dx);
+  if (dy > 0) t = Math.min(t, (rect.y2 - cy) / dy);
+  if (dy < 0) t = Math.min(t, (rect.y1 - cy) / dy);
+  t = Math.max(0, Math.min(1, t));
+  return { x: cx + (dx * t), y: cy + (dy * t), clamped: true };
+}

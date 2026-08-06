@@ -35,6 +35,7 @@ import { segmentLengthMm, dropDegenerate } from "./utils/lengths";          // v
 import { viewport, observeViewport } from "./utils/viewport";               // v1.19+ tap coord conversion
 import {
   glPlaneGeometry, sizeFromHandle, insidePlane,
+  viewRect, clampHandle,                                                    // v2.62 reachable grips
 } from "./utils/glPlane";                                                   // v2.09 datum plane
 import GlSheet from "../ui/GlSheet";
 import LevelSheet from "../ui/LevelSheet";
@@ -739,18 +740,24 @@ export default function Workspace() {
     if (!plane) return false;
     const point = toWorkspace(clientX, clientY);
     const grabRadius = 22 / zoom;
-    for (const corner of plane.corners) {
-      if (Math.hypot(point.x - corner.x, point.y - corner.y) < grabRadius) {
-        planeDrag.current = { mode: "resize", axis: "both", cx: plane.cx, cy: plane.cy };
-        return true;
-      }
-    }
-    for (const edge of plane.edges) {
-      if (Math.hypot(point.x - edge.point.x, point.y - edge.point.y) < grabRadius) {
-        planeDrag.current = { mode: "resize", axis: edge.axis, cx: plane.cx, cy: plane.cy };
-        return true;
-      }
-    }
+    // v2.62 Grips are hit where they are actually drawn — pulled inside the
+    // viewport when the plane runs off it. The slack keeps the size from
+    // jumping when the grip is not sitting on its true corner.
+    const rect = viewRect(viewport.w, viewport.h, zoom, offset);
+    const grip = (target, axis) => {
+      const at = clampHandle(target, plane.cx, plane.cy, rect);
+      if (Math.hypot(point.x - at.x, point.y - at.y) >= grabRadius) return false;
+      planeDrag.current = {
+        mode: "resize",
+        axis,
+        cx: plane.cx,
+        cy: plane.cy,
+        slack: { x: target.x - point.x, y: target.y - point.y },
+      };
+      return true;
+    };
+    for (const corner of plane.corners) if (grip(corner, "both")) return true;
+    for (const edge of plane.edges) if (grip(edge.point, edge.axis)) return true;
     // v2.29 The plane travels by its own centre handle. Grabbing it from
     // anywhere used to swallow every drag that started off a pipe, which is
     // the space the rubber band needs.
@@ -766,7 +773,10 @@ export default function Workspace() {
     if (!drag) return false;
     const point = toWorkspace(clientX, clientY);
     if (drag.mode === "resize") {
-      const size = sizeFromHandle(point, drag.cx, drag.cy, mmPerPoint, drag.axis);
+      const at = drag.slack
+        ? { x: point.x + drag.slack.x, y: point.y + drag.slack.y }
+        : point;
+      const size = sizeFromHandle(at, drag.cx, drag.cy, mmPerPoint, drag.axis);
       const patch = { fitted: true };
       if (size.u != null) patch.sizeMm = size.u;
       if (size.v != null) patch.sizeVMm = size.v;
@@ -1140,7 +1150,10 @@ export default function Workspace() {
             mmPerPoint={mmPerPoint}
             showGL={showGL}
             datums={datums}
-            activeDatum={showGlSheet ? datumIndex : -1}
+            // v2.62 Grips show whenever the plane can be taken hold of, not
+            // only while its sheet is open — an invisible control is no
+            // control, which is why the plane never seemed resizable.
+            activeDatum={showGlSheet || moveMode || glEditPlane ? datumIndex : -1}
             glEditPlane={glEditPlane || moveMode}
             selectMode={selectMode}
             moveMode={moveMode}

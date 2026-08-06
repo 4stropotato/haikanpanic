@@ -581,7 +581,12 @@ export default function Workshop({
     <div className="workshop">
       <div className="workshop-canvas" ref={hostRef} />
       <div className="workshop-chrome">
-        <span className="workshop-title">WORKSHOP</span>
+        {/* v2.63 The brand leads, the mode follows underneath — Workshop is
+            a room inside Haikanpanic, not a separate app. */}
+        <span className="workshop-brand">
+          <span className="workshop-mark">ハイカンパニック!</span>
+          <span className="workshop-title">WORKSHOP</span>
+        </span>
         <button className="workshop-close" onClick={onClose}>✕</button>
       </div>
       {new URLSearchParams(window.location.search).has("debug") && (

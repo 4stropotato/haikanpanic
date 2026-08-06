@@ -457,6 +457,11 @@ html, body, #root {
   padding: 0.8rem 1rem;
   pointer-events: none;
 }
+.workshop-brand { display: flex; flex-direction: column; gap: 2px; }
+.workshop-mark {
+  font-size: 1rem; font-weight: 700; letter-spacing: 0.01em;
+  color: var(--ink, #eaf0f7);
+}
 .workshop-title {
   font-size: 0.72rem;
   font-weight: 800;
