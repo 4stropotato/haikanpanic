@@ -737,20 +737,20 @@ export default function Workspace() {
 
   // v2.09 Plane editing: grab a corner or a side to resize, the face to move.
   const planeGrab = (clientX, clientY) => {
-    if ((!glEditPlane && !moveMode) || datums[datumIndex]?.continuous || !lines.length) return false;
-    const plane = currentPlane();
-    if (!plane) return false;
+    if ((!glEditPlane && !moveMode) || !lines.length) return false;
     const point = toWorkspace(clientX, clientY);
     const grabRadius = 22 / zoom;
     // v2.62 Grips are hit where they are actually drawn — pulled inside the
     // viewport when the plane runs off it. The slack keeps the size from
     // jumping when the grip is not sitting on its true corner.
     const rect = viewRect(viewport.w, viewport.h, zoom, offset);
-    const grip = (target, axis) => {
+    const grip = (plane, index, target, axis) => {
       const at = clampHandle(target, plane.cx, plane.cy, rect);
       if (Math.hypot(point.x - at.x, point.y - at.y) >= grabRadius) return false;
+      setDatumIndex(index);
       planeDrag.current = {
         mode: "resize",
+        index,
         axis,
         cx: plane.cx,
         cy: plane.cy,
@@ -758,14 +758,24 @@ export default function Workspace() {
       };
       return true;
     };
-    for (const corner of plane.corners) if (grip(corner, "both")) return true;
-    for (const edge of plane.edges) if (grip(edge.point, edge.axis)) return true;
-    // v2.29 The plane travels by its own centre handle. Grabbing it from
-    // anywhere used to swallow every drag that started off a pipe, which is
-    // the space the rubber band needs.
-    if (Math.hypot(point.x - plane.cx, point.y - plane.cy) < grabRadius) {
-      planeDrag.current = { mode: "move", dx: plane.cx - point.x, dy: plane.cy - point.y };
-      return true;
+
+    // v2.72 Every datum on the job can be taken hold of, not just whichever
+    // one the sheet happens to have selected — FL was uneditable for exactly
+    // that reason. The one you grab becomes the one you are editing.
+    const order = [datumIndex, ...datums.map((_, i) => i).filter((i) => i !== datumIndex)];
+    for (const index of order) {
+      if (datums[index]?.continuous) continue;
+      const plane = planeAt(index);
+      if (!plane) continue;
+      for (const corner of plane.corners) if (grip(plane, index, corner, "both")) return true;
+      for (const edge of plane.edges) if (grip(plane, index, edge.point, edge.axis)) return true;
+      if (Math.hypot(point.x - plane.cx, point.y - plane.cy) < grabRadius) {
+        setDatumIndex(index);
+        planeDrag.current = {
+          mode: "move", index, dx: plane.cx - point.x, dy: plane.cy - point.y,
+        };
+        return true;
+      }
     }
     return false;
   };
@@ -782,26 +792,27 @@ export default function Workspace() {
       const patch = { fitted: true };
       if (size.u != null) patch.sizeMm = size.u;
       if (size.v != null) patch.sizeVMm = size.v;
-      patchDatum(datumIndex, patch);
+      patchDatum(drag.index ?? datumIndex, patch);
       // v2.65 A datum is a floor, and a floor is quoted by its span and its
       // area — the number the job actually needs while you drag.
-      const w = patch.sizeMm ?? datums[datumIndex]?.sizeMm ?? 0;
-      const d = patch.sizeVMm ?? datums[datumIndex]?.sizeVMm ?? 0;
+      const target = datums[drag.index ?? datumIndex];
+      const w = patch.sizeMm ?? target?.sizeMm ?? 0;
+      const d = patch.sizeVMm ?? target?.sizeVMm ?? 0;
       setMoveReadout({
-        plane: datums[datumIndex]?.name ?? "GL",
+        plane: target?.name ?? "GL",
         w: Math.round(w),
         d: Math.round(d),
         area: (w / 1000) * (d / 1000),
       });
     } else {
       const centre = { x: point.x + drag.dx, y: point.y + drag.dy };
-      patchDatum(datumIndex, { center: centre });
+      patchDatum(drag.index ?? datumIndex, { center: centre });
       // v2.70 A floor is set out from a datum like anything else on site, so
       // moving it quotes where its centre now stands.
       const isoUx = Math.cos(-Math.PI / 6);
       const mmScale = mmPerPoint / pointStep;
       setMoveReadout({
-        plane: datums[datumIndex]?.name ?? "GL",
+        plane: datums[drag.index ?? datumIndex]?.name ?? "GL",
         cx: Math.round(((centre.x / (2 * isoUx)) - centre.y) * mmScale),
         cy: Math.round(((-centre.x / (2 * isoUx)) - centre.y) * mmScale),
       });
@@ -1181,6 +1192,7 @@ export default function Workspace() {
             // only while its sheet is open — an invisible control is no
             // control, which is why the plane never seemed resizable.
             activeDatum={showGlSheet || moveMode || glEditPlane ? datumIndex : -1}
+            gripAll={moveMode || glEditPlane}
             glEditPlane={glEditPlane || moveMode}
             selectMode={selectMode}
             moveMode={moveMode}

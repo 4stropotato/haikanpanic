@@ -63,7 +63,7 @@ const DrawLayer = ({
   jointTypes = {}, datums = [], activeDatum = -1, showJointMarks = true,
   selection = [], marquee = null, moveMode = false, projection = null,
   labelFields = LABEL_DEFAULT, labelAvoid = true, onLabelLayout = null,
-  elOffsets = {}, labelFlat = false,
+  elOffsets = {}, labelFlat = false, gripAll = false,
 }) => { // [v1.09] Accept zoom and offset for scaling
   const canvasRef = useRef(null);                                 // [v1.02] Canvas DOM reference
   const { w: vpW, h: vpH } = useViewport();                       // v1.18+ re-render on resize
@@ -282,7 +282,9 @@ const DrawLayer = ({
         }
 
         // handles only on the plane being edited
-        if (active && glEditPlane && !datum.continuous) {
+        // v2.72 Grips on every datum while the plane tool is live: FL could
+        // not be grabbed because only the selected datum ever drew them.
+        if ((active || gripAll) && glEditPlane && !datum.continuous) {
           ctx.save();
           ctx.strokeStyle = "rgba(10,14,20,0.9)";
           ctx.lineWidth = 2 / zoom;
