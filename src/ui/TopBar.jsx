@@ -22,6 +22,7 @@ const translations = {
     language: "Language",
     noJoint: "Draw two connected lines first",
     draw: "Draw",
+    specFor: "New pipe:",
     edit: "Edit",
     erase: "Erase",
     move: "Move",
@@ -52,6 +53,7 @@ const translations = {
     language: "言語",
     noJoint: "接続された2本の線を描いてください",
     draw: "作図",
+    specFor: "次の配管:",
     edit: "編集",
     erase: "消去",
     move: "移動",
@@ -117,7 +119,9 @@ export default function TopBar() {
     setShowJointMarks,
     glEditPlane,
     setGlEditPlane,
-    setShowGlSheet
+    setShowGlSheet,
+    currentSpec,
+    setShowSpecSheet
   } = useContext(WorkspaceContext);
 
   const [showSheet, setShowSheet] = useState(() => new URLSearchParams(window.location.search).has("more"));
@@ -185,6 +189,14 @@ export default function TopBar() {
       >
         <CubeIcon />
         <span>{t.workshop}</span>
+      </button>
+
+      {/* v2.31 the spec new pipes inherit, changed when it changes */}
+      <button className="spec-chip" onClick={() => setShowSpecSheet(true)}>
+        <span className="spec-chip-label">{t.specFor}</span>
+        {currentSpec
+          ? `${currentSpec.a}A ${currentSpec.material === "SGP" ? "SGP" : currentSpec.material} ${currentSpec.conn}`
+          : "100A SGP BW"}
       </button>
 
       {drawing && (

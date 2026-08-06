@@ -24,6 +24,8 @@ const TEXT = {
     apply: "Apply",
     cancel: "Cancel",
     gapNote: "裏波 back-bead gap — comes off the cut length",
+    ends: "Ends",
+    from: (d) => `from ${d}`,
     tooShort: (od) => `Shorter than the ${od}mm outside diameter — it will not read as pipe in 3D`,
     flangeLabels: { none: "None", start: "Start", end: "End", both: "Both" },
   },
@@ -39,14 +41,21 @@ const TEXT = {
     apply: "適用",
     cancel: "キャンセル",
     gapNote: "裏波用の開先ギャップ — 切断長から差し引き",
+    ends: "両端の高さ",
+    from: (d) => `${d} 基準`,
     tooShort: (od) => `外径 ${od}mm より短いので3Dでは管に見えません`,
     flangeLabels: { none: "なし", start: "始", end: "終", both: "両端" },
   },
 };
 
-export default function EditSheet({ line, mmPerPoint, lang, onApply, onClose }) {
+export default function EditSheet({
+  line, mmPerPoint, lang, onApply, onClose, hideLength = false, title,
+  ends = null, datumName = "GL",
+}) {
   const spec = line.spec ?? {};
-  const [mm, setMm] = useState(String(line.lengthMm ?? segmentLengthMm(line, mmPerPoint)));
+  const [mm, setMm] = useState(
+    hideLength ? "1" : String(line.lengthMm ?? segmentLengthMm(line, mmPerPoint)),
+  );
   const [nominalA, setNominalA] = useState(spec.a ?? 100);
   const [materialId, setMaterialId] = useState(spec.material ?? "SGP");
   const [schedule, setSchedule] = useState(
@@ -89,20 +98,32 @@ export default function EditSheet({ line, mmPerPoint, lang, onApply, onClose }) 
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <div className="sheet-scroll">
         <div className="sheet-handle" />
-        <div className="sheet-title">{t.title}</div>
+        <div className="sheet-title">{title ?? t.title}</div>
 
-        <div className="sheet-row">
-          <span>{t.length}</span>
-          <input
-            type="number"
-            min="1"
-            value={mm}
-            onFocus={(e) => e.target.select()}
-            onChange={(e) => setMm(e.target.value)}
-          />
-          <span>mm</span>
-        </div>
-        {tooShort && <div className="sheet-hint warn">⚠ {t.tooShort(od)}</div>}
+        {!hideLength && (
+          <div className="sheet-row">
+            <span>{t.length}</span>
+            <input
+              type="number"
+              min="1"
+              value={mm}
+              onFocus={(e) => e.target.select()}
+              onChange={(e) => setMm(e.target.value)}
+            />
+            <span>mm</span>
+          </div>
+        )}
+        {!hideLength && tooShort && <div className="sheet-hint warn">⚠ {t.tooShort(od)}</div>}
+
+        {ends && (
+          <div className="sheet-row">
+            <span>{t.ends}</span>
+            <strong className="ends-el">
+              EL {ends.start >= 0 ? "+" : ""}{ends.start} → {ends.end >= 0 ? "+" : ""}{ends.end}
+            </strong>
+            <span className="joint-stock">{t.from(datumName)}</span>
+          </div>
+        )}
 
         <div className="sheet-row">
           <span>{t.size}</span>

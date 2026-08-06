@@ -833,3 +833,47 @@ html, body, #root {
 /* v2.30 five tool slots; history lives in the top bar now */
 .dock-btn { min-width: 60px; padding: 9px 8px; font-size: 0.64rem; }
 .top-btn:disabled { opacity: 0.35; }
+
+/* v2.31 current-spec chip: what the next pipe will be */
+.spec-chip {
+  position: fixed;
+  left: 12px;
+  bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border-2);
+  background: color-mix(in srgb, var(--panel) 86%, transparent);
+  backdrop-filter: blur(12px);
+  color: var(--accent);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.spec-chip-label { color: var(--muted, #8fa0b5); font-weight: 600; }
+.spec-chip:active { transform: scale(0.96); }
+
+.ends-el { color: var(--accent); font-size: 0.9rem; }
+/* v2.32 live position while dragging */
+.move-readout {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  top: calc(112px + env(safe-area-inset-top, 0px));
+  z-index: 10002;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--accent-border, rgba(124,196,255,0.4));
+  background: color-mix(in srgb, var(--panel) 90%, transparent);
+  backdrop-filter: blur(12px);
+  color: var(--accent);
+  font: 700 0.78rem ui-monospace, monospace;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.move-readout span { color: var(--accent-2); }

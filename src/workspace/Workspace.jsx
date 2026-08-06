@@ -86,6 +86,14 @@ export default function Workspace() {
   );                                                                        // [v1.02] whether in draw mode
   const [isHolding, setIsHolding] = useState(false);                        // [v1.11] track touch hold state for magnifier
   const [editMode, setEditMode] = useState(false);                          // v1.19+ tap segments to edit lengths
+  const [currentSpec, setCurrentSpec] = useState(() => {                    // v2.31 spec for new pipes
+    try {
+      return JSON.parse(localStorage.getItem("haikan-spec-v1")) ?? null;
+    } catch {
+      return null;
+    }
+  });
+  const [showSpecSheet, setShowSpecSheet] = useState(false);
   const [editTarget, setEditTarget] = useState(() => {                      // v2.02 segment being edited
     const seed = new URLSearchParams(window.location.search).get("edit");
     return seed === null ? null : Number(seed);
@@ -94,6 +102,7 @@ export default function Workspace() {
   const [moveMode, setMoveMode] = useState(false);                          // v2.16 drag runs across the ground
   const [selection, setSelection] = useState([]);                           // v2.29 selected line indices
   const [marquee, setMarquee] = useState(null);                             // v2.29 rubber band box
+  const [moveReadout, setMoveReadout] = useState(null);                     // v2.32 X / Y / EL while dragging
   const marqueeRef = useRef(null);
   const [past, setPast] = useState([]);                                     // v2.17 undo stack
   const [future, setFuture] = useState([]);                                 // v2.17 redo stack
@@ -138,6 +147,8 @@ export default function Workspace() {
   const heldEnough = useRef(false);                                         // [v1.04] long press flag
   const lastTouch = useRef(null);                                           // [v1.09] pinch zoom tracker
   const pendingStart = useRef(null);                                        // [v1.04] pending start point
+  const pendingStartExact = useRef(null);                                   // v2.31 exact endpoint if snapped
+  const startExact = useRef(null);
   const pendingEnd = useRef(null);                                          // [v1.04] pending end point
   const confirmTapTimeout = useRef(null);                                   // [v1.04] tap confirmation timer
   const tapCount = useRef(0);                                               // [v1.04] double tap tracker
@@ -229,6 +240,8 @@ export default function Workspace() {
     setPreviewLine(null);
     setReadyToDraw(false);
     pendingStart.current = null;
+    pendingStartExact.current = null;
+    startExact.current = null;
     pendingEnd.current = null;
     clearTimeout(confirmTapTimeout.current);
   };
@@ -346,6 +359,18 @@ export default function Workspace() {
     const snapped = snapWorkspaceToGrid(wanted);                            // stay on the lattice
     const dx = snapped.x - anchorBase.x;
     const dy = snapped.y - anchorBase.y;
+    // v2.32 Where the grabbed run has landed, so two pieces can be told
+    // apart when they look identical on an isometric.
+    const isoUx = Math.cos(-Math.PI / 6);
+    const mmScale = mmPerPoint / pointStep;
+    const moved = { x: anchorBase.x + dx, y: anchorBase.y + dy };
+    setMoveReadout({
+      x: Math.round(((moved.x / (2 * isoUx)) - moved.y) * mmScale),
+      y: Math.round(((-moved.x / (2 * isoUx)) - moved.y) * mmScale),
+      el: Math.round(drag.elevationMm + (primary?.offsetMm ?? 0)),
+      datum: primary?.name ?? "GL",
+    });
+
     setLines(lines.map((line, i) => {
       if (!drag.members.has(i)) return line;
       const base = drag.base[i];
@@ -468,7 +493,7 @@ export default function Workspace() {
   };
 
   const handleTouchEnd = () => {
-    if (pipeDrag.current) { pipeDrag.current = null; return; }
+    if (pipeDrag.current) { pipeDrag.current = null; setMoveReadout(null); return; }
     if (planeDrag.current) { planeDrag.current = null; return; }
     if (marqueeRef.current) { marqueeEnd(); return; }
     lastTouch.current = null;
@@ -477,7 +502,12 @@ export default function Workspace() {
     if (!heldEnough.current) return;
 
     if (!readyToDraw && !startPoint) {
+      // v2.31 Editing a length moves an endpoint off the lattice, so a new
+      // run started "there" would snap to the nearest grid point instead and
+      // silently fail to connect. Remember the exact endpoint when one is
+      // under the finger.
       pendingStart.current = lastSnap;
+      pendingStartExact.current = snappedEndpoint?.workspacePoint ?? null;
       confirmTapTimeout.current = setTimeout(() => (pendingStart.current = null), 5000);
     } else if (readyToDraw && startPoint) {
       pendingEnd.current = lastSnap;
@@ -528,6 +558,7 @@ export default function Workspace() {
     if (!("ontouchstart" in window || navigator.maxTouchPoints > 0)) return;
 
     if (!readyToDraw && pendingStart.current) {
+      startExact.current = pendingStartExact.current;
       setStartPoint(pendingStart.current);
       setReadyToDraw(true);
       pendingStart.current = null;
@@ -545,17 +576,23 @@ export default function Workspace() {
     if (!startPoint || !pendingEnd.current) return;
     const angleSnapped = snapToAllowedAngle(startPoint, pendingEnd.current);         // [v1.03] lock direction
     // v1.15+ Use snapped endpoint if available, otherwise snap to grid
-    const snappedStart = snapToNearestGrid(angleSnapped.start, zoom, offset);
+    const snappedStart = startExact.current
+      ?? snapToNearestGrid(angleSnapped.start, zoom, offset);
     const snappedEnd = snappedEndpoint || snapToNearestGrid(angleSnapped.end, zoom, offset);
     const drawnPx = Math.hypot(snappedEnd.x - snappedStart.x, snappedEnd.y - snappedStart.y);
     if (drawnPx < pointStep * 0.5) { cancelDraw(); return; }                // v2.24 no 0mm pipes
-    commitLines([...lines, { start: snappedStart, end: snappedEnd }]);
+    // v2.31 A new run takes the current spec. Asking for it after every
+    // single line made chaining a run unbearable; the spec is a setting you
+    // change when it changes, not a question per pipe.
+    commitLines([...lines, {
+      start: snappedStart,
+      end: snappedEnd,
+      ...(currentSpec ? { spec: { ...currentSpec } } : {}),
+    }]);
     setStartPoint(null);
     setPreviewLine(null);
     setReadyToDraw(false);
     pendingEnd.current = null;
-    setEditTarget(lines.length);            // v2.03 spec sheet opens after every draw:
-                                            // sketch gesture -> type true length/size/joint
   };
 
   useEffect(() => {
@@ -588,6 +625,8 @@ export default function Workspace() {
     setEraseMode,
     moveMode,                                                              // v2.16 move mode
     setMoveMode: (on) => { setMoveMode(on); if (!on) setSelection([]); },
+    currentSpec,                                                           // v2.31 spec for new pipes
+    setShowSpecSheet,
     selection,                                                             // v2.29 marquee selection
     clearSelection: () => setSelection([]),
     drawing: Boolean(startPoint && readyToDraw),                            // v2.22 line in progress
@@ -628,6 +667,7 @@ export default function Workspace() {
           }}
           onMouseUp={() => {
             pipeDrag.current = null;
+            setMoveReadout(null);
             planeDrag.current = null;
             if (marqueeRef.current) marqueeEnd();
           }}
@@ -669,6 +709,16 @@ export default function Workspace() {
             line={lines[editTarget]}
             mmPerPoint={mmPerPoint}
             lang={localStorage.getItem("haikan-lang") === "jp" ? "jp" : "en"}
+            ends={(() => {
+              const els = nodeElevations(lines, mmPerPoint);
+              const key = (p2) => `${p2.x.toFixed(3)},${p2.y.toFixed(3)}`;
+              const base = primary?.offsetMm ?? 0;
+              return {
+                start: (els.get(key(lines[editTarget].start)) ?? 0) + base,
+                end: (els.get(key(lines[editTarget].end)) ?? 0) + base,
+              };
+            })()}
+            datumName={primary?.name ?? "GL"}
             onClose={() => setEditTarget(null)}
             onApply={({ mm, a, conn, flange, material, schedule, gap }) => {
               const next = setSegmentLength(lines, editTarget, mm, mmPerPoint);
@@ -677,9 +727,16 @@ export default function Workspace() {
                 spec: { a, conn, flange, material, schedule, gap },
               };
               commitLines(next);
+              setCurrentSpec({ a, conn, flange, material, schedule, gap });
               setEditTarget(null);
             }}
           />
+        )}
+        {moveReadout && (
+          <div className="move-readout">
+            X {moveReadout.x} · Y {moveReadout.y} · EL {moveReadout.el >= 0 ? "+" : ""}
+            {moveReadout.el} <span>{moveReadout.datum}</span>
+          </div>
         )}
         {showGlSheet && (
           <GlSheet
@@ -722,6 +779,20 @@ export default function Workspace() {
               const rest = { ...jointTypes };
               delete rest[jointTarget.key];
               setJointTypes(rest);
+            }}
+          />
+        )}
+        {showSpecSheet && (
+          <EditSheet
+            line={{ spec: currentSpec ?? {} }}
+            mmPerPoint={mmPerPoint}
+            hideLength
+            title={localStorage.getItem("haikan-lang") === "jp" ? "次の配管の仕様" : "Spec for new pipes"}
+            lang={localStorage.getItem("haikan-lang") === "jp" ? "jp" : "en"}
+            onClose={() => setShowSpecSheet(false)}
+            onApply={({ a, conn, flange, material, schedule, gap }) => {
+              setCurrentSpec({ a, conn, flange, material, schedule, gap });
+              setShowSpecSheet(false);
             }}
           />
         )}
