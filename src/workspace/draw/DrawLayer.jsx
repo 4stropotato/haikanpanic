@@ -44,7 +44,7 @@ const DrawLayer = ({
   lines, preview, isDark, zoom, offset, mmPerPoint = 10,
   showGL = true, glEditPlane = false,
   jointTypes = {}, datums = [], activeDatum = -1, showJointMarks = true,
-  selection = [], marquee = null,
+  selection = [], marquee = null, moveMode = false,
 }) => { // [v1.09] Accept zoom and offset for scaling
   const canvasRef = useRef(null);                                 // [v1.02] Canvas DOM reference
   const { w: vpW, h: vpH } = useViewport();                       // v1.18+ re-render on resize
@@ -248,6 +248,33 @@ const DrawLayer = ({
       drawLabel(preview);                                         // v1.17+ live length while drawing
     }
 
+    // v2.38 Level handles. You cannot grab what you cannot see: while Move
+    // is active every endpoint shows a ring, and dragging one changes that
+    // node's elevation rather than sliding the whole run.
+    if (moveMode) {
+      const seenEnds = new Set();
+      ctx.save();
+      for (const line of lines) {
+        for (const node of [line.start, line.end]) {
+          const key = `${node.x.toFixed(3)},${node.y.toFixed(3)}`;
+          if (seenEnds.has(key)) continue;
+          seenEnds.add(key);
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, 7 / zoom, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(10,14,20,0.85)";
+          ctx.fill();
+          ctx.strokeStyle = "rgba(245,186,102,0.95)";
+          ctx.lineWidth = 2 / zoom;
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(node.x, node.y - (3.5 / zoom));
+          ctx.lineTo(node.x, node.y + (3.5 / zoom));
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
+    }
+
     // v2.29 Rubber band. It is deliberately square to the screen, not to
     // the isometric axes, because that is how a selection box reads.
     if (marquee) {
@@ -268,7 +295,7 @@ const DrawLayer = ({
     ctx.restore();                                                // [v1.10] End transform block
   }, [lines, preview, isDark, zoom, offset, mmPerPoint, showGL, glEditPlane,
       jointTypes, datums, activeDatum, showJointMarks,
-      selection, marquee, vpW, vpH]);   // [v1.10] Redraw on zoom or pan
+      selection, marquee, moveMode, vpW, vpH]);   // [v1.10] Redraw on zoom or pan
 
   return (
     <canvas

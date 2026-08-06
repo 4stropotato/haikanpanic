@@ -33,6 +33,7 @@ import {
   glPlaneGeometry, sizeFromHandle, insidePlane,
 } from "./utils/glPlane";                                                   // v2.09 datum plane
 import GlSheet from "../ui/GlSheet";
+import LevelSheet from "../ui/LevelSheet";
 import { loadDatums, saveDatums, makeDatum, datumFor } from "./utils/datums";
 import { findJointAt, jointSettingOf } from "./utils/joints";               // v2.10 corner fittings
 import JointSheet from "../ui/JointSheet";
@@ -99,7 +100,7 @@ export default function Workspace() {
     return seed === null ? null : Number(seed);
   });
   const [eraseMode, setEraseMode] = useState(false);                        // v2.08 tap a line to delete it
-  const [moveMode, setMoveMode] = useState(false);                          // v2.16 drag runs across the ground
+  const [moveMode, setMoveMode] = useState(() => new URLSearchParams(window.location.search).has("move")); // v2.16 drag runs across the ground
   const [selectMode, setSelectMode] = useState(false);                      // v2.37 its own tool
   const [selection, setSelection] = useState([]);                           // v2.29 selected line indices
   const [marquee, setMarquee] = useState(null);                             // v2.29 rubber band box
@@ -109,6 +110,7 @@ export default function Workspace() {
   const [future, setFuture] = useState([]);                                 // v2.17 redo stack
   const pipeDrag = useRef(null);
   const levelDrag = useRef(null);
+  const [levelTarget, setLevelTarget] = useState(null);                     // v2.39 EL being typed
   const [jointTypes, setJointTypes] = useState(() => {                      // v2.10 corner fittings
     const demoJoint = new URLSearchParams(window.location.search).get("joint");
     if (demoJoint) {                                                        // seed for screenshots
@@ -300,7 +302,7 @@ export default function Workspace() {
   const levelGrab = (clientX, clientY) => {
     if (!moveMode || !lines.length) return false;
     const point = toWorkspace(clientX, clientY);
-    const reach = 20 / zoom;
+    const reach = 26 / zoom;
     const els = nodeElevations(lines, mmPerPoint);
     const base = primary?.offsetMm ?? 0;
     for (let i = 0; i < lines.length; i += 1) {
@@ -318,6 +320,26 @@ export default function Workspace() {
       }
     }
     return false;
+  };
+
+  // v2.39 An EL callout sits just under its node; tapping there is how a
+  // fitter would reach for the number itself.
+  const levelLabelAt = (point) => {
+    const els = nodeElevations(lines, mmPerPoint);
+    const base = primary?.offsetMm ?? 0;
+    const reach = 26 / zoom;
+    for (let i = 0; i < lines.length; i += 1) {
+      for (const which of [1, 2]) {
+        const node = which === 1 ? lines[i].start : lines[i].end;
+        const label = { x: node.x - (30 / zoom), y: node.y + (16 / zoom) };
+        if (Math.hypot(point.x - label.x, point.y - label.y) > reach) continue;
+        const key = `${node.x.toFixed(3)},${node.y.toFixed(3)}`;
+        const el = (els.get(key) ?? 0) + base;
+        if (Math.abs(el) < 1 && which === 1) continue;
+        return { index: i, which, el };
+      }
+    }
+    return null;
   };
 
   const levelMove = (clientY) => {
@@ -339,7 +361,7 @@ export default function Workspace() {
   const pipeGrab = (clientX, clientY) => {
     if (!moveMode || !lines.length) return false;
     const point = toWorkspace(clientX, clientY);
-    const index = findSegmentAt(point, lines, 26 / zoom);
+    const index = findSegmentAt(point, lines, 22 / zoom);
     if (index < 0) return false;
     setPast((stack) => [...stack.slice(-49), lines]);                       // one entry per drag
     setFuture([]);
@@ -417,6 +439,7 @@ export default function Workspace() {
       y: Math.round(((-moved.x / (2 * isoUx)) - moved.y) * mmScale),
       el: Math.round(drag.elevationMm + (primary?.offsetMm ?? 0)),
       datum: primary?.name ?? "GL",
+      count: drag.members.size,
     });
 
     setLines(lines.map((line, i) => {
@@ -610,6 +633,10 @@ export default function Workspace() {
         x: (e.clientX - (viewport.w / 2 + offset.x)) / zoom,
         y: (e.clientY - (viewport.h / 2 + offset.y)) / zoom,
       };
+      // v2.39 the height callout is editable where it is written
+      const level = levelLabelAt(point);
+      if (level) { setLevelTarget(level); return; }
+
       // a corner is a fitting decision; the run behind it is a pipe spec
       const joint = findJointAt(point, lines, 18 / zoom);       // v2.20 corners stay reachable
       if (joint) { setJointTarget(joint); return; }
@@ -770,6 +797,7 @@ export default function Workspace() {
             activeDatum={showGlSheet ? datumIndex : -1}
             glEditPlane={glEditPlane || moveMode}
             selectMode={selectMode}
+            moveMode={moveMode}
             jointTypes={jointTypes}
             showJointMarks={showJointMarks}
             selection={selection}
@@ -821,7 +849,25 @@ export default function Workspace() {
               ? `${moveReadout.datum} ${moveReadout.rel >= 0 ? "+" : ""}${moveReadout.rel}`
               : `EL ${moveReadout.el >= 0 ? "+" : ""}${moveReadout.el}`}
             {moveReadout.rel == null && <span> {moveReadout.datum}</span>}
+            {moveReadout.count > 1 && <span> · {moveReadout.count} runs</span>}
           </div>
+        )}
+        {levelTarget && (
+          <LevelSheet
+            value={levelTarget.el}
+            datums={datums}
+            lang={localStorage.getItem("haikan-lang") === "jp" ? "jp" : "en"}
+            onClose={() => setLevelTarget(null)}
+            onApply={(mm) => {
+              commitLines(lines.map((line, i) => (i === levelTarget.index
+                ? {
+                  ...line,
+                  [levelTarget.which === 1 ? "elev1Mm" : "elev2Mm"]: mm - (primary?.offsetMm ?? 0),
+                }
+                : line)));
+              setLevelTarget(null);
+            }}
+          />
         )}
         {showGlSheet && (
           <GlSheet
