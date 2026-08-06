@@ -14,6 +14,8 @@ const TEXT = {
     note: "Cut = centre length − fitting take-out − root gaps",
     cutNote: "cut to angle",
     roll: "roll",
+    con: "conc.",
+    ecc: "ecc.",
     close: "Close", copy: "Copy",
   },
   jp: {
@@ -25,6 +27,8 @@ const TEXT = {
     note: "切断長 = 芯々 − 継手の取り代 − ルートギャップ",
     cutNote: "角度切詰",
     roll: "ころ",
+    con: "同心",
+    ecc: "偏心",
     close: "閉じる", copy: "コピー",
   },
 };
@@ -70,9 +74,13 @@ export default function CutList({ lines, mmPerPoint, jointTypes = {}, lang, onCl
   for (const [size, count] of countBy(model.tees.filter((x) => x.kind !== "wye"), (x) => x.nominalA)) {
     fittings.push(`${count} × ${t.tee} ${size}A`);
   }
-  if (model.reducers.length) fittings.push(`${model.reducers.length} × ${t.reducer}`);
-  for (const [size, count] of countBy(model.flanges, (f) => f.nominalA)) {
-    fittings.push(`${count} × ${t.flange} ${size}A 10K`);
+  for (const [key, count] of countBy(model.reducers, (r) => `${r.nominalA ?? "?"}|${r.kind ?? "concentric"}`)) {
+    const [size, kind] = key.split("|");
+    fittings.push(`${count} × ${t.reducer} ${size}A ${kind === "eccentric" ? t.ecc : t.con}`);
+  }
+  for (const [key, count] of countBy(model.flanges, (f) => `${f.nominalA}|${f.type ?? "SO"}`)) {
+    const [size, type] = key.split("|");
+    fittings.push(`${count} × ${t.flange} ${type} ${size}A 10K`);
   }
 
   const copyText = () => {

@@ -3,7 +3,7 @@
 // flanges. This record is what makes Workshop 3D and the cut list possible.
 import { useState } from "react";
 import {
-  SGP, pipeSpec, MATERIALS, SCHEDULES,
+  SGP, pipeSpec, MATERIALS, SCHEDULES, FLANGE_TYPES, FLANGE_LABEL,
   material as materialOf, wallThickness, massPerMetre,
 } from "../workspace/data/jis";
 import { segmentLengthMm } from "../workspace/utils/lengths";
@@ -25,6 +25,10 @@ const TEXT = {
     cancel: "Cancel",
     gapNote: "裏波 back-bead gap — comes off the cut length",
     ends: "Ends",
+    flangeType: "Flange type",
+    flangeSize: "Flange size",
+    samePipe: "same as pipe",
+    ratingNote: "JIS B2220 10K dimensions.",
     from: (d) => `from ${d}`,
     tooShort: (od) => `Shorter than the ${od}mm outside diameter — it will not read as pipe in 3D`,
     flangeLabels: { none: "None", start: "Start", end: "End", both: "Both" },
@@ -42,6 +46,10 @@ const TEXT = {
     cancel: "キャンセル",
     gapNote: "裏波用の開先ギャップ — 切断長から差し引き",
     ends: "両端の高さ",
+    flangeType: "フランジ形状",
+    flangeSize: "フランジ呼び径",
+    samePipe: "配管と同じ",
+    ratingNote: "JIS B2220 10K 寸法。",
     from: (d) => `${d} 基準`,
     tooShort: (od) => `外径 ${od}mm より短いので3Dでは管に見えません`,
     flangeLabels: { none: "なし", start: "始", end: "終", both: "両端" },
@@ -64,6 +72,8 @@ export default function EditSheet({
   const [conn, setConn] = useState(spec.conn ?? "BW");
   const [gap, setGap] = useState(String(spec.gap ?? materialOf(spec.material ?? "SGP").gap));
   const [flange, setFlange] = useState(spec.flange ?? "none");
+  const [flangeType, setFlangeType] = useState(spec.flangeType ?? "SO");
+  const [flangeSizeA, setFlangeSizeA] = useState(spec.flangeSizeA ?? "");
 
   const t = TEXT[lang === "jp" ? "jp" : "en"];
   const od = pipeSpec(nominalA)?.od ?? 0;
@@ -90,6 +100,8 @@ export default function EditSheet({
       material: materialId,
       schedule,
       gap: Number(gap) || 0,
+      flangeType,
+      flangeSizeA: flangeSizeA === "" ? null : Number(flangeSizeA),
     });
   };
 
@@ -208,6 +220,34 @@ export default function EditSheet({
             ))}
           </div>
         </div>
+
+        {flange !== "none" && (
+          <>
+            <div className="sheet-row">
+              <span>{t.flangeType}</span>
+              <select value={flangeType} onChange={(e) => setFlangeType(e.target.value)}>
+                {FLANGE_TYPES.map((item) => (
+                  <option key={item} value={item}>
+                    {item} · {FLANGE_LABEL[lang === "jp" ? "jp" : "en"][item]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="sheet-row">
+              <span>{t.flangeSize}</span>
+              <select
+                value={flangeSizeA}
+                onChange={(e) => setFlangeSizeA(e.target.value === "" ? "" : Number(e.target.value))}
+              >
+                <option value="">{t.samePipe} ({nominalA}A)</option>
+                {SGP.map((row) => (
+                  <option key={row.a} value={row.a}>{row.a}A ({row.b}B)</option>
+                ))}
+              </select>
+            </div>
+            <div className="sheet-hint">{t.ratingNote}</div>
+          </>
+        )}
 
         </div>
 

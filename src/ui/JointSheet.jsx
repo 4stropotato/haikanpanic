@@ -5,7 +5,7 @@
 import { useEffect, useState } from "react";
 import { JOINT_TYPES, JOINT_LABEL, JOINT_MARK } from "../workspace/utils/joints";
 import { elbowRadius } from "../workspace/workshop/pipe3d";
-import { teeCentreToEnd, wyeCentreToEnd } from "../workspace/data/jis";
+import { teeCentreToEnd, wyeCentreToEnd, REDUCER_TYPES, REDUCER_LABEL } from "../workspace/data/jis";
 
 const TEXT = {
   en: {
@@ -18,6 +18,7 @@ const TEXT = {
     done: "Done",
     note: "Take-out is what comes off each pipe at this corner.",
     angle: "Angle needed",
+    reducer: "Reducer",
     roll: "Roll",
     rollNote: "Rotate the fitting about the incoming pipe by this much.",
     rollFlat: "in the vertical plane — no roll",
@@ -33,6 +34,7 @@ const TEXT = {
     done: "完了",
     note: "取り代はこの角で各配管から差し引く長さです。",
     angle: "必要角度",
+    reducer: "レジューサ",
     roll: "ころ（回転）",
     rollNote: "手前の配管を軸にこの角度だけ継手を回します。",
     rollFlat: "垂直面内 — ころ無し",
@@ -64,7 +66,8 @@ export function fittingFor(deflectionDeg, lang) {
 }
 
 export default function JointSheet({
-  nominalA, setting, deflectionDeg = 90, rollDeg = 0, gapMm = 2, lang, onChange, onReset, onClose,
+  nominalA, setting, deflectionDeg = 90, rollDeg = 0, gapMm = 2, hasReducer = false,
+  lang, onChange, onReset, onClose,
 }) {
   const t = TEXT[lang === "jp" ? "jp" : "en"];
   const labels = JOINT_LABEL[lang === "jp" ? "jp" : "en"];
@@ -133,6 +136,23 @@ export default function JointSheet({
               <div className="sheet-hint">{t.note}</div>
               <div className="sheet-hint">{t.gapNote(gapMm)}</div>
             </>
+          )}
+
+          {hasReducer && (
+            <div className="sheet-row">
+              <span>{t.reducer}</span>
+              <div className="seg-group">
+                {REDUCER_TYPES.map((item) => (
+                  <button
+                    key={item}
+                    className={"seg-btn" + ((setting?.reducer ?? "concentric") === item ? " on" : "")}
+                    onClick={() => onChange({ ...setting, type, reducer: item })}
+                  >
+                    {REDUCER_LABEL[lang === "jp" ? "jp" : "en"][item]}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
 
           <button className="sheet-btn" onClick={onReset}>{t.reset}</button>

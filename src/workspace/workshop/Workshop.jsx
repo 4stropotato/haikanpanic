@@ -178,7 +178,18 @@ export default function Workshop({
     }
 
     for (const reducer of model.reducers) {
-      addTube(reducer.p1, reducer.p2, reducer.od2, reducer.od1, fittingMat);
+      if (reducer.kind === "eccentric") {
+        // the small end drops so the crowns line up, which is the whole
+        // point of an eccentric on a pump suction or a drained line
+        const drop = (reducer.od1 - reducer.od2) / 2;
+        addTube(
+          reducer.p1,
+          { x: reducer.p2.x, y: reducer.p2.y - drop, z: reducer.p2.z },
+          reducer.od2, reducer.od1, fittingMat,
+        );
+      } else {
+        addTube(reducer.p1, reducer.p2, reducer.od2, reducer.od1, fittingMat);
+      }
     }
 
     // チーズ: one arm per port, all meeting at the joint centre
@@ -192,17 +203,29 @@ export default function Workshop({
       }
     }
 
-    // JIS 10K flanges: face disc plus bolts around the bolt circle
+    // v2.34 Flange faces. The face disc is common to all of them; what
+    // differs is what sits behind it — a hub for a slip-on, a taper for a
+    // weld neck, and nothing at all for a blind, which closes the line.
     for (const flange of model.flanges) {
       const dir = V(flange.dir).normalize();
       const face = V(flange.p);
-      const back = face.clone().add(dir.clone().multiplyScalar(flange.t));
-      addTube(face, back, flange.od, flange.od, flangeMat);
+      const back = face.clone().add(dir.clone().multiplyScalar(-flange.t));
+      addTube(back, face, flange.od, flange.od, flangeMat);
+
+      const hubOd = Math.min(flange.od * 0.72, flange.pipeOd * 1.6);
+      if (flange.type === "WN") {
+        const neck = back.clone().add(dir.clone().multiplyScalar(-flange.t * 2.2));
+        addTube(neck, back, flange.pipeOd * 1.05, hubOd, flangeMat);
+      } else if (flange.type !== "BL") {
+        const hub = back.clone().add(dir.clone().multiplyScalar(-flange.t * 0.9));
+        addTube(hub, back, hubOd, hubOd, flangeMat);
+      }
+
+      if (eco) continue;                                                    // bolts are detail
       const quat = new THREE.Quaternion().setFromUnitVectors(up, dir);
       const boltGeom = new THREE.CylinderGeometry(
         flange.boltDia / 2, flange.boltDia / 2, flange.t * 1.9, 10, 1,
       );
-      if (eco) continue;                                                    // bolts are detail
       for (let i = 0; i < flange.boltCount; i += 1) {
         const angle = (i / flange.boltCount) * Math.PI * 2;
         const offset = new THREE.Vector3(
@@ -210,7 +233,7 @@ export default function Workshop({
         ).applyQuaternion(quat);
         const bolt = new THREE.Mesh(boltGeom, boltMat);
         bolt.quaternion.copy(quat);
-        bolt.position.copy(face).add(dir.clone().multiplyScalar(flange.t / 2)).add(offset);
+        bolt.position.copy(face).add(dir.clone().multiplyScalar(-flange.t / 2)).add(offset);
         group.add(bolt);
       }
     }

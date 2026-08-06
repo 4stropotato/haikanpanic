@@ -106,6 +106,8 @@ function placeNodes(lines, mmPerPoint, defaultOd) {
       wall: nominalA ? wallThickness(nominalA, schedule) : null,
       kgm: nominalA ? massPerMetre(nominalA, schedule, materialId) : null,
       flange: line.spec?.flange ?? "none",
+      flangeType: line.spec?.flangeType ?? "SO",
+      flangeSizeA: line.spec?.flangeSizeA ?? null,
       lineIndex: segments.length,
       trim1: 0, trim2: 0, weld1: false, weld2: false,
     });
@@ -221,6 +223,8 @@ export function buildPipeModel(lines, mmPerPoint, options = {}) {
         p2: add(p, mul(v, half)),
         od1: segA.od,
         od2: segB.od,
+        kind: setting.reducer ?? "concentric",
+        nominalA: bigA || null,
       });
       if (refA.which === 1) segA.trim1 = half; else segA.trim2 = half;
       if (refB.which === 1) segB.trim1 = half; else segB.trim2 = half;
@@ -308,6 +312,8 @@ export function buildPipeModel(lines, mmPerPoint, options = {}) {
         p2: add(from, mul(smallDir, L)),
         od1: elbowOd,
         od2: smallSeg.od,
+        kind: setting.reducer ?? "concentric",
+        nominalA: bigA || null,
       });
       if (smallRef === refA) trimA += L; else trimB += L;
     }
@@ -320,12 +326,14 @@ export function buildPipeModel(lines, mmPerPoint, options = {}) {
   for (const seg of segments) {
     const wantStart = seg.flange === "start" || seg.flange === "both";
     const wantEnd = seg.flange === "end" || seg.flange === "both";
-    const spec = flangeSpec(seg.nominalA ?? 0);
+    // a flange is usually the pipe's size, but a tie-in can call for another
+    const spec = flangeSpec(seg.flangeSizeA ?? seg.nominalA ?? 0);
     if (!spec) continue;
     if (wantStart) {
       flanges.push({
-        p: add(seg.p1, mul(seg.dir, seg.trim1)), dir: seg.dir,
-        pipeOd: seg.od, nominalA: seg.nominalA, ...spec,
+        p: add(seg.p1, mul(seg.dir, seg.trim1)), dir: mul(seg.dir, -1),
+        pipeOd: seg.od, nominalA: seg.flangeSizeA ?? seg.nominalA,
+        type: seg.flangeType, ...spec,
       });
       seg.trim1 += spec.t;
       seg.weld1 = true;
@@ -333,7 +341,8 @@ export function buildPipeModel(lines, mmPerPoint, options = {}) {
     if (wantEnd) {
       flanges.push({
         p: sub(seg.p2, mul(seg.dir, seg.trim2)), dir: seg.dir,
-        pipeOd: seg.od, nominalA: seg.nominalA, ...spec,
+        pipeOd: seg.od, nominalA: seg.flangeSizeA ?? seg.nominalA,
+        type: seg.flangeType, ...spec,
       });
       seg.trim2 += spec.t;
       seg.weld2 = true;

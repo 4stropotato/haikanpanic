@@ -778,6 +778,10 @@ export default function Workspace() {
             deflectionDeg={jointInfo(jointTarget.key)?.deflectionDeg ?? 90}
             rollDeg={jointInfo(jointTarget.key)?.rollDeg ?? 0}
             gapMm={lines[jointTarget.legs[0].index]?.spec?.gap ?? 2}
+            hasReducer={(() => {
+              const sizes = jointTarget.legs.map((leg) => lines[leg.index]?.spec?.a ?? 100);
+              return new Set(sizes).size > 1;
+            })()}
             lang={localStorage.getItem("haikan-lang") === "jp" ? "jp" : "en"}
             onClose={() => setJointTarget(null)}
             onChange={(next) => setJointTypes({ ...jointTypes, [jointTarget.key]: next })}

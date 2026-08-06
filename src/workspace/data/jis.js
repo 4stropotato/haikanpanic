@@ -157,3 +157,24 @@ const WYE_CENTRE_TO_END = {
 export function wyeCentreToEnd(nominalA) {
   return WYE_CENTRE_TO_END[nominalA] ?? teeCentreToEnd(nominalA) * 2.5;
 }
+
+// v2.34 Flange faces. Dimensions come from the JIS B2220 10K table above;
+// the type changes how it is made and how it is drawn, and a blind closes
+// the line rather than passing it on.
+export const FLANGE_TYPES = ["SO", "WN", "BL", "SW", "TH"];
+
+export const FLANGE_LABEL = {
+  en: {
+    SO: "Slip-on", WN: "Weld neck", BL: "Blind", SW: "Socket weld", TH: "Threaded",
+  },
+  jp: {
+    SO: "差込 (SO)", WN: "溶接首 (WN)", BL: "閉止 (BL)", SW: "ソケット (SW)", TH: "ねじ込 (TH)",
+  },
+};
+
+export const REDUCER_TYPES = ["concentric", "eccentric"];
+
+export const REDUCER_LABEL = {
+  en: { concentric: "Concentric", eccentric: "Eccentric (flat top)" },
+  jp: { concentric: "同心", eccentric: "偏心（天端合わせ）" },
+};
