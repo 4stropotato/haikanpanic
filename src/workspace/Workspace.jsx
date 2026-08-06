@@ -27,7 +27,7 @@ import { nodeElevations, jointAngles } from "./workshop/pipe3d";            // v
 import {
   findSegmentAt, setSegmentLength, connectedIndices,
 } from "./utils/editLength";                                                // v1.19+ tap-to-edit lengths
-import { segmentLengthMm } from "./utils/lengths";                          // v1.19+ current mm for prompt
+import { segmentLengthMm, dropDegenerate } from "./utils/lengths";          // v1.19+ current mm for prompt
 import { viewport, observeViewport } from "./utils/viewport";               // v1.19+ tap coord conversion
 import {
   glPlaneGeometry, sizeFromHandle, insidePlane,
@@ -71,7 +71,7 @@ export default function Workspace() {
       ];
     }
     try {
-      return JSON.parse(localStorage.getItem("haikan-lines-v1")) ?? [];
+      return dropDegenerate(JSON.parse(localStorage.getItem("haikan-lines-v1")) ?? []);
     } catch {
       return [];
     }
@@ -236,7 +236,7 @@ export default function Workspace() {
   const commitLines = (next) => {
     setPast((stack) => [...stack.slice(-49), lines]);
     setFuture([]);
-    setLines(next);
+    setLines(dropDegenerate(next));
   };
   const undo = () => {
     if (!past.length) return;

@@ -66,6 +66,9 @@ function placeNodes(lines, mmPerPoint, defaultOd) {
   const segments = [];
   const scale = mmPerPoint / pointStep;
   for (const line of lines) {
+    // a zero-length line is a stray tap, not a pipe; it would otherwise add
+    // a phantom leg at its corner and turn an elbow into a tee
+    if (Math.hypot(line.end.x - line.start.x, line.end.y - line.start.y) < EPS) continue;
     const d = isoDirectionTo3D(line.end.x - line.start.x, line.end.y - line.start.y);
     const lengthMm = line.lengthMm ?? segmentLengthMm(line, mmPerPoint);
     const startKey = key2D(line.start);

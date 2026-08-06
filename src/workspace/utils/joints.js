@@ -35,6 +35,8 @@ export const JOINT_MARK = {
 export function sketchJoints(lines) {
   const map = new Map();
   lines.forEach((line, index) => {
+    // a dot contributes no direction, so it must not count as a leg
+    if (Math.hypot(line.end.x - line.start.x, line.end.y - line.start.y) < EPS) return;
     for (const which of [1, 2]) {
       const point = which === 1 ? line.start : line.end;
       const key = key2D(point);

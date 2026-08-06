@@ -12,3 +12,17 @@ export function segmentLengthMm(line, mmPerPoint) {
 export function trueLengthMm(line, mmPerPoint) {
   return line.lengthMm ?? segmentLengthMm(line, mmPerPoint);
 }
+
+// v2.28 A tap that never became a run leaves a zero-length line behind. It
+// is invisible on the drawing but it counts as a leg at its corner, so an
+// elbow reads as a tee and no fitting can be built. A dot does not exist in
+// a pipeline, so it is removed everywhere lines are accepted.
+export function dropDegenerate(lines) {
+  if (!Array.isArray(lines)) return [];
+  return lines.filter((line) => {
+    if (!line?.start || !line?.end) return false;
+    const px = Math.hypot(line.end.x - line.start.x, line.end.y - line.start.y);
+    if (px < pointStep * 0.5) return false;
+    return !(line.lengthMm != null && line.lengthMm <= 0);
+  });
+}
