@@ -581,13 +581,13 @@ export function projectedNodes(lines, mmPerPoint, options = {}) {
   // delta rather than the world, so the geometry was wrong once the view came
   // back. The caller holds the translation steady across edits and only lets
   // it be recomputed when the viewpoint itself changes.
-  let shift = options.translate;
-  if (!shift) {
-    const firstKey = key2D(lines[0].start);
-    const anchor = raw.get(firstKey);
-    if (!anchor) return out;
-    shift = { x: lines[0].start.x - anchor.x, y: lines[0].start.y - anchor.y };
-  }
+  // v2.77 The view turns about the origin — the red dot — because that is
+  // the point the whole drawing is set out from. Anchoring on the first
+  // line's start node made that one pipe the pivot, so turning the view
+  // swung everything around whichever run happened to be drawn first.
+  // project() is linear, so the world origin already lands on (0,0): the
+  // translation is simply none.
+  const shift = options.translate ?? { x: 0, y: 0 };
   for (const [key, point] of raw) {
     out.set(key, { x: point.x + shift.x, y: point.y + shift.y });
   }
