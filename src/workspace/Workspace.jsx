@@ -37,6 +37,7 @@ import {
   glPlaneGeometry, sizeFromHandle, insidePlane,
   viewRect, clampHandle,                                                    // v2.62 reachable grips
 } from "./utils/glPlane";                                                   // v2.09 datum plane
+import { pipeSpec } from "./data/jis";                                      // v2.82 the floor rule
 import GlSheet from "../ui/GlSheet";
 import LevelSheet from "../ui/LevelSheet";
 import AngleSheet from "../ui/AngleSheet";
