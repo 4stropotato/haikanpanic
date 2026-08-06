@@ -1184,7 +1184,11 @@ export default function Workspace() {
             selection={selection}
             marquee={marquee}
           />
-          {!hideCrosshair && (
+          {/* v2.68 The sketch's crosshair and lens have no business over the
+              3D model: they drew on top of it and ate the drags the camera
+              needed. Not rendered at all in Workshop — a z-index race is not
+              worth running twice. */}
+          {!hideCrosshair && !showWorkshop && (
             <SnapOverlay
               onSnapChange={setLastSnap}
               onEndpointSnap={setSnappedEndpoint}
@@ -1193,7 +1197,7 @@ export default function Workspace() {
               lines={lines}
             />
           )}
-          {showMagnifier && <Magnify x={lensPos.x} y={lensPos.y} isHolding={isHolding} mode={magnifyMode} />}
+          {showMagnifier && !showWorkshop && <Magnify x={lensPos.x} y={lensPos.y} isHolding={isHolding} mode={magnifyMode} />}
         </div>
         {editTarget != null && lines[editTarget] && (
           <EditSheet
