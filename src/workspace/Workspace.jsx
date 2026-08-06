@@ -212,7 +212,15 @@ export default function Workspace() {
     if (!plane) return;
     const toMm = (half) => Math.max(500, Math.round(((half * 2) / plane.pxPerMm) / 500) * 500);
     setDatums((list) => list.map((d, i) => (i === pending
-      ? { ...d, sizeMm: toMm(plane.halfU), sizeVMm: toMm(plane.halfV), fitted: true }
+      ? {
+        ...d,
+        sizeMm: toMm(plane.halfU),
+        sizeVMm: toMm(plane.halfV),
+        // pin the centre too, or the plane drifts with the drawing every
+        // time a pipe is moved
+        center: { x: plane.cx, y: plane.cy },
+        fitted: true,
+      }
       : d)));
   }, [lines.length, datums, mmPerPoint]);
 
@@ -393,9 +401,12 @@ export default function Workspace() {
     if (index < 0) return false;
     setPast((stack) => [...stack.slice(-49), lines]);                       // one entry per drag
     setFuture([]);
+    // v2.45 One pipe means one pipe. Dragging used to carry everything
+    // welded to it, which on a finished sketch is the whole job. Use Select
+    // when several runs should travel together.
     const members = selection.includes(index)
-      ? new Set(selection)                                                  // v2.29 move the selection
-      : connectedIndices(lines, index);
+      ? new Set(selection)
+      : new Set([index]);
     const anchorIndex = Math.min(...members);
     const elevations = nodeElevations(lines, mmPerPoint);
     const anchor = lines[anchorIndex];
