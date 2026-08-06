@@ -704,7 +704,13 @@ export default function Workspace() {
     const right = Math.max(box.x0, box.x1);
     const top = Math.min(box.y0, box.y1);
     const bottom = Math.max(box.y0, box.y1);
-    if (right - left < 6 / zoom && bottom - top < 6 / zoom) { setSelection([]); return; }
+    // v2.78 A tap on empty space clears the selection only while Select is
+    // the tool in hand. In Move it must not: the selection was made in order
+    // to be moved, and a missed grab would otherwise throw it away.
+    if (right - left < 6 / zoom && bottom - top < 6 / zoom) {
+      if (selectMode) setSelection([]);
+      return;
+    }
     const inside = (p) => p.x >= left && p.x <= right && p.y >= top && p.y <= bottom;
     // v2.46 A box adds to what is already picked, so a selection can be
     // built up in as many passes as the job needs.
