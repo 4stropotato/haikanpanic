@@ -7,6 +7,7 @@ import {
   material as materialOf, wallThickness, massPerMetre,
 } from "../workspace/data/jis";
 import { segmentLengthMm } from "../workspace/utils/lengths";
+import { TONES, TONE_TEXT, TONE_COLOR } from "../workspace/utils/tones";  // v2.83
 
 const CONN_TYPES = ["BW", "SW", "ねじ"];
 const FLANGE_MODES = ["none", "start", "end", "both"];
@@ -23,6 +24,7 @@ const TEXT = {
     flange: "Flange",
     apply: "Apply",
     cancel: "Cancel",
+    tone: "Mark-up",
     gapNote: "裏波 back-bead gap — comes off the cut length",
     ends: "Ends",
     flangeType: "Flange type",
@@ -44,6 +46,7 @@ const TEXT = {
     flange: "フランジ",
     apply: "適用",
     cancel: "キャンセル",
+    tone: "色分け",
     gapNote: "裏波用の開先ギャップ — 切断長から差し引き",
     ends: "両端の高さ",
     flangeType: "フランジ形状",
@@ -74,6 +77,7 @@ export default function EditSheet({
   const [flange, setFlange] = useState(spec.flange ?? "none");
   const [flangeType, setFlangeType] = useState(spec.flangeType ?? "SO");
   const [flangeSizeA, setFlangeSizeA] = useState(spec.flangeSizeA ?? "");
+  const [tone, setTone] = useState(line.tone ?? "none");
 
   const t = TEXT[lang === "jp" ? "jp" : "en"];
   const od = pipeSpec(nominalA)?.od ?? 0;
@@ -93,6 +97,7 @@ export default function EditSheet({
     const value = Number(mm);
     if (!Number.isFinite(value) || value <= 0) return;
     onApply({
+      tone: tone === "none" ? null : tone,
       mm: value,
       a: nominalA,
       conn,
@@ -136,6 +141,22 @@ export default function EditSheet({
             <span className="joint-stock">{t.from(datumName)}</span>
           </div>
         )}
+
+        <div className="sheet-row">
+          <span>{t.tone}</span>
+          <div className="seg-group wrap">
+            {TONES.map((item) => (
+              <button
+                key={item}
+                className={"seg-btn" + (tone === item ? " on" : "")}
+                onClick={() => setTone(item)}
+                style={TONE_COLOR[item] ? { color: TONE_COLOR[item] } : undefined}
+              >
+                {TONE_TEXT[lang === "jp" ? "jp" : "en"][item]}
+              </button>
+            ))}
+          </div>
+        </div>
 
         <div className="sheet-row">
           <span>{t.size}</span>

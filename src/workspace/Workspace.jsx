@@ -1329,10 +1329,11 @@ export default function Workspace() {
             })()}
             datumName={primary?.name ?? "GL"}
             onClose={() => setEditTarget(null)}
-            onApply={({ mm, a, conn, flange, material, schedule, gap }) => {
+            onApply={({ mm, a, conn, flange, material, schedule, gap, tone }) => {
               const next = setSegmentLength(lines, editTarget, mm, mmPerPoint);
               next[editTarget] = {
                 ...next[editTarget],
+                tone,                                                      // v2.83 mark-up colour
                 spec: { a, conn, flange, material, schedule, gap },
               };
               commitLines(next);

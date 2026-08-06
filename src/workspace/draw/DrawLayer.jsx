@@ -14,7 +14,8 @@ import { glPlaneGeometry, viewRect, clampHandle } from "../utils/glPlane"; // v2
 import { nodeElevations, runMetrics } from "../workshop/pipe3d"; // v2.24 slope from elevations
 import { sketchJoints, jointTypeOf, JOINT_MARK } from "../utils/joints"; // v2.10 corner fittings
 import { datumFor } from "../utils/datums";
-import { LABEL_DEFAULT, LABEL_HOME } from "../utils/labelFields";      // v2.51 what a label says                      // v2.38 which level a height is read from
+import { LABEL_DEFAULT, LABEL_HOME } from "../utils/labelFields";
+import { toneColor } from "../utils/tones";                      // v2.83 mark-up colours      // v2.51 what a label says                      // v2.38 which level a height is read from
 
 export { segmentLengthMm } from "../utils/lengths";   // v2.05 moved to pure module
 
@@ -341,7 +342,7 @@ const DrawLayer = ({
       const on = selected.has(index);
       // two runs sharing a grid line read as one pipe, so they are called out
       const clash = stacked.has(index);
-      ctx.strokeStyle = on ? "#7cc4ff" : (clash ? "#f5ba66" : (isDark ? "white" : "black"));
+      ctx.strokeStyle = on ? "#7cc4ff" : (clash ? "#f5ba66" : toneColor(line.tone, isDark));
       ctx.lineWidth = (on || clash ? 4 : 2) / zoom;
       ctx.setLineDash(clash && !on ? [9 / zoom, 5 / zoom] : []);
       ctx.beginPath();
