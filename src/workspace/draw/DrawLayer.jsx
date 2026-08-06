@@ -63,7 +63,7 @@ const DrawLayer = ({
   jointTypes = {}, datums = [], activeDatum = -1, showJointMarks = true,
   selection = [], marquee = null, moveMode = false, projection = null,
   labelFields = LABEL_DEFAULT, labelAvoid = true, onLabelLayout = null,
-  elOffsets = {}, labelFlat = false, gripAll = false,
+  elOffsets = {}, labelFlat = false, gripAll = false, view = null,
 }) => { // [v1.09] Accept zoom and offset for scaling
   const canvasRef = useRef(null);                                 // [v1.02] Canvas DOM reference
   const { w: vpW, h: vpH } = useViewport();                       // v1.18+ re-render on resize
@@ -184,7 +184,7 @@ const DrawLayer = ({
     // list is drawn; the first one is primary and carries the EL leaders.
     if (showGL && lines.length && datums.length) {
       datums.forEach((datum, datumIdx) => {
-        const plane = glPlaneGeometry(lines, mmPerPoint, { ...datum, projection });
+        const plane = glPlaneGeometry(lines, mmPerPoint, { ...datum, projection, view });
         if (!plane) return;
         const { corners, edges, nodes } = plane;
         const active = datumIdx === activeDatum;

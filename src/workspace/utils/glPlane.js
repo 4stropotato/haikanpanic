@@ -8,21 +8,43 @@
 // anchored every disconnected piece at zero and made the leaders disagree
 // with their own labels.
 import { pointStep } from "./constants";
-import { nodeElevations } from "../workshop/pipe3d";
+import { nodeElevations, ISO_YAW, ISO_PITCH } from "../workshop/pipe3d";
 
 export const ISO_U = { x: Math.cos(-Math.PI / 6), y: Math.sin(-Math.PI / 6) };
 export const ISO_V = { x: Math.cos((-5 * Math.PI) / 6), y: Math.sin((-5 * Math.PI) / 6) };
+
+// v2.79 The plane turns with the view. Its two axes are the horizontal world
+// axes as the current viewpoint projects them — not unit vectors, and of
+// unequal length, which is the foreshortening that makes a turned plane read
+// as a floor. At the home view they come out exactly ISO_U and ISO_V.
+const VIEW_K = 1 / Math.cos((ISO_PITCH * Math.PI) / 180);
+
+export function planeAxes(view) {
+  if (!view) return { u: ISO_U, v: ISO_V };
+  const yaw = ((view.yawDeg ?? ISO_YAW) * Math.PI) / 180;
+  const pitch = ((view.pitchDeg ?? ISO_PITCH) * Math.PI) / 180;
+  const cy = Math.cos(yaw);
+  const sy = Math.sin(yaw);
+  const sp = Math.sin(pitch);
+  return {
+    u: { x: VIEW_K * cy, y: -VIEW_K * sy * sp },
+    v: { x: -VIEW_K * sy, y: -VIEW_K * cy * sp },
+  };
+}
 
 const key2D = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
 const VERTICAL_EPS = 0.5;
 
 // Iso-axis coordinates of a point relative to a centre: p - c = a*u + b*v.
-export function isoCoords(point, cx, cy) {
+export function isoCoords(point, cx, cy, axes = { u: ISO_U, v: ISO_V }) {
   const dx = point.x - cx;
   const dy = point.y - cy;
+  const { u, v } = axes;
+  const det = (u.x * v.y) - (v.x * u.y);
+  if (Math.abs(det) < 1e-9) return { a: 0, b: 0 };
   return {
-    a: (dx / (2 * ISO_U.x)) - dy,
-    b: (-dx / (2 * ISO_U.x)) - dy,
+    a: ((dx * v.y) - (v.x * dy)) / det,
+    b: ((u.x * dy) - (dx * u.y)) / det,
   };
 }
 
@@ -31,7 +53,9 @@ export function isoCoords(point, cx, cy) {
 export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
   const {
     sizeMm = 0, sizeVMm = 0, offsetMm = 0, center = null, projection = null,
+    view = null,
   } = plane;
+  const axes = planeAxes(view);
   if (!lines.length) return null;
 
   const pxPerMm = pointStep / mmPerPoint;
@@ -67,7 +91,7 @@ export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
   let reachA = 0;
   let reachB = 0;
   for (const node of nodes) {
-    const { a, b } = isoCoords(node.ground, cx, cy);
+    const { a, b } = isoCoords(node.ground, cx, cy, axes);
     reachA = Math.max(reachA, Math.abs(a));
     reachB = Math.max(reachB, Math.abs(b));
   }
@@ -78,8 +102,8 @@ export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
   const halfV = sizeVMm > 0 ? (sizeVMm / 2) * pxPerMm : autoHalf;
 
   const at = (a, b) => ({
-    x: cx + (ISO_U.x * a) + (ISO_V.x * b),
-    y: cy + (ISO_U.y * a) + (ISO_V.y * b),
+    x: cx + (axes.u.x * a) + (axes.v.x * b),
+    y: cy + (axes.u.y * a) + (axes.v.y * b),
   });
 
   // corners, then the four side midpoints with the axis each one resizes
@@ -91,19 +115,19 @@ export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
     { point: at(0, -halfV), axis: "v" },
   ];
 
-  return { cx, cy, halfU, halfV, corners, edges, centre: { x: cx, y: cy }, nodes, pxPerMm };
+  return { cx, cy, halfU, halfV, corners, edges, centre: { x: cx, y: cy }, nodes, pxPerMm, axes };
 }
 
 // Is a workspace point inside the rhombus?
 export function insidePlane(point, plane) {
-  const { a, b } = isoCoords(point, plane.cx, plane.cy);
+  const { a, b } = isoCoords(point, plane.cx, plane.cy, plane.axes);
   return Math.abs(a) <= plane.halfU && Math.abs(b) <= plane.halfV;
 }
 
 // Sizes in mm implied by dragging a handle to `point`. `axis` limits the
 // change to one direction, which is what the side handles do.
-export function sizeFromHandle(point, cx, cy, mmPerPoint, axis = "both") {
-  const { a, b } = isoCoords(point, cx, cy);
+export function sizeFromHandle(point, cx, cy, mmPerPoint, axis = "both", axes) {
+  const { a, b } = isoCoords(point, cx, cy, axes);
   const toMm = (half) => Math.round(((Math.max(Math.abs(half), pointStep) * 2)
     / (pointStep / mmPerPoint)) / 50) * 50;
   return {

@@ -288,7 +288,7 @@ export default function Workspace() {
     if (!lines.length) return;
     const pending = datums.findIndex((d) => !d.fitted);
     if (pending < 0) return;
-    const plane = glPlaneGeometry(lines, mmPerPoint, datums[pending]);
+    const plane = glPlaneGeometry(lines, mmPerPoint, { ...datums[pending], projection, view });
     if (!plane) return;
     const toMm = (half) => Math.max(500, Math.round(((half * 2) / plane.pxPerMm) / 500) * 500);
     setDatums((list) => list.map((d, i) => (i === pending
@@ -417,7 +417,10 @@ export default function Workspace() {
   const patchDatum = (i, patch) => setDatums(
     (list) => list.map((d, index) => (index === i ? { ...d, ...patch } : d)),
   );
-  const planeAt = (i) => glPlaneGeometry(lines, mmPerPoint, datums[i]);
+  // v2.79 The plane turns with the view, so the hit test has to be handed
+  // the same projection and viewpoint the renderer draws with — otherwise
+  // you would be grabbing where the plane used to be.
+  const planeAt = (i) => glPlaneGeometry(lines, mmPerPoint, { ...datums[i], projection, view });
   const currentPlane = () => planeAt(datumIndex);
 
   // v2.16 Move tool. A drag translates the whole welded run across the
@@ -783,6 +786,7 @@ export default function Workspace() {
         axis,
         cx: plane.cx,
         cy: plane.cy,
+        axes: plane.axes,
         slack: { x: target.x - point.x, y: target.y - point.y },
       };
       return true;
@@ -817,7 +821,7 @@ export default function Workspace() {
       const at = drag.slack
         ? { x: point.x + drag.slack.x, y: point.y + drag.slack.y }
         : point;
-      const size = sizeFromHandle(at, drag.cx, drag.cy, mmPerPoint, drag.axis);
+      const size = sizeFromHandle(at, drag.cx, drag.cy, mmPerPoint, drag.axis, drag.axes);
       const patch = { fitted: true };
       if (size.u != null) patch.sizeMm = size.u;
       if (size.v != null) patch.sizeVMm = size.v;
@@ -1227,6 +1231,7 @@ export default function Workspace() {
             // control, which is why the plane never seemed resizable.
             activeDatum={showGlSheet || moveMode || glEditPlane ? datumIndex : -1}
             gripAll={moveMode || glEditPlane}
+            view={view}
             glEditPlane={glEditPlane || moveMode}
             selectMode={selectMode}
             moveMode={moveMode}
