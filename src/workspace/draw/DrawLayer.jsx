@@ -71,7 +71,7 @@ const DrawLayer = ({
   lines, preview, isDark, zoom, offset, mmPerPoint = 10,
   showGL = true, glEditPlane = false,
   jointTypes = {}, datums = [], activeDatum = -1, showJointMarks = true,
-  selection = [], datumSel = [], guides = [], marquee = null, moveMode = false, projection = null,
+  selection = [], datumSel = [], marquee = null, moveMode = false, projection = null,
   labelFields = LABEL_DEFAULT, labelAvoid = true, onLabelLayout = null,
   elOffsets = {}, labelFlat = false, gripAll = false, view = null,
 }) => { // [v1.09] Accept zoom and offset for scaling
@@ -242,6 +242,19 @@ const DrawLayer = ({
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
           for (const node of nodes) {
+            // v2.91 A run standing level with this datum is the thing worth
+            // pointing out — the height matches, so the two read as one
+            // level on site. Marked where it is true, with no drag needed.
+            if (Math.abs(node.elevation - datum.offsetMm) < 1) {
+              ctx.save();
+              ctx.beginPath();
+              ctx.arc(node.point.x, node.point.y, 13 / zoom, 0, Math.PI * 2);
+              ctx.strokeStyle = "#ff5ea8";
+              ctx.lineWidth = 2 / zoom;
+              ctx.setLineDash([5 / zoom, 4 / zoom]);
+              ctx.stroke();
+              ctx.restore();
+            }
             if (Math.abs(node.ground.y - node.point.y) < 2) continue;
             ctx.beginPath();
             ctx.moveTo(node.point.x, node.point.y);
@@ -344,35 +357,6 @@ const DrawLayer = ({
           ctx.restore();
         }
       });
-    }
-
-    // v2.84 Alignment guides: drawn under the runs so they never obscure the
-    // pipe you are lining up, and full-bleed so the match is unmistakable.
-    if (guides.length) {
-      ctx.save();
-      ctx.strokeStyle = "#ff5ea8";
-      ctx.lineWidth = 1 / zoom;
-      ctx.setLineDash([7 / zoom, 5 / zoom]);
-      const left = ((-width / 2) - offset.x) / zoom;
-      const right = ((width / 2) - offset.x) / zoom;
-      const top = ((-height / 2) - offset.y) / zoom;
-      const bottom = ((height / 2) - offset.y) / zoom;
-      for (const guide of guides) {
-        ctx.beginPath();
-        ctx.moveTo(guide.from.x, guide.from.y);
-        ctx.lineTo(guide.to.x, guide.to.y);
-        ctx.stroke();
-        // a tick at each end, so it is clear what met what
-        ctx.setLineDash([]);
-        for (const end of [guide.from, guide.to]) {
-          ctx.beginPath();
-          ctx.arc(end.x, end.y, 3.5 / zoom, 0, Math.PI * 2);
-          ctx.fillStyle = "#ff5ea8";
-          ctx.fill();
-        }
-        ctx.setLineDash([7 / zoom, 5 / zoom]);
-      }
-      ctx.restore();
     }
 
     const selected = new Set(selection);

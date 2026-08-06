@@ -116,7 +116,6 @@ export default function Workspace() {
   });
   const [eraseMode, setEraseMode] = useState(false);                        // v2.08 tap a line to delete it
   const [moveMode, setMoveMode] = useState(() => new URLSearchParams(window.location.search).has("move")); // v2.16 drag runs across the ground
-  const [guides, setGuides] = useState([]);                                 // v2.84 alignment guides
   const [datumSel, setDatumSel] = useState([]);                             // v2.81 picked datums
   const [selectMode, setSelectMode] = useState(false);                      // v2.37 its own tool
   // v2.59 One dock slot holds both view gestures: a phone has no room for
@@ -423,55 +422,6 @@ export default function Workspace() {
   // v2.79 The plane turns with the view, so the hit test has to be handed
   // the same projection and viewpoint the renderer draws with — otherwise
   // you would be grabbing where the plane used to be.
-  // v2.84 Illustrator-style guides: while something is being dragged, say
-  // when it lines up with what is already drawn. A guide is a statement, not
-  // a magnet — the lattice already owns snapping, and two things pulling at
-  // the geometry would fight.
-  const guidesFor = (points, liftMm = 0) => {
-    const tol = 5 / zoom;
-    const axes = planeAxes(view);
-    const dirs = [axes.u, axes.v, { x: 0, y: 1 }];
-    // v2.88 Alignment is a fact about the site, not about the picture. An
-    // isometric draws a run at EL 1300 higher up the screen, so comparing
-    // drawn positions called a floor "aligned" with a pipe more than a metre
-    // above it. Both sides are dropped to their plan position first — the
-    // elevation is added back — so a match means they really do stand over
-    // one another.
-    const pxPerMm = 1 / (view3d.risePerPx || 1);
-    const els = lines.length ? nodeElevations(lines, mmPerPoint) : new Map();
-    const plan = (pt, mm) => ({ x: pt.x, y: pt.y + (mm * pxPerMm) });
-    const from = points.map((pt) => plan(pt, liftMm));
-    const found = [];
-    for (const line of viewLines) {
-      for (const raw of [line.start, line.end]) {
-        const key = nodeKey(raw);
-        const node = plan(raw, els.get(key) ?? 0);
-        for (const p of from) {
-          const dx = p.x - node.x;
-          const dy = p.y - node.y;
-          for (const d of dirs) {
-            const len = Math.hypot(d.x, d.y) || 1;
-            const off = Math.abs((dx * d.y) - (dy * d.x)) / len;
-            if (off < tol) {
-              // v2.89 A guide joins the two things that line up — the plane's
-              // side to the run — instead of ruling an endless line across the
-              // sheet. An infinite line says nothing about what matched, and
-              // on an isometric it does not even read as one of its axes.
-              found.push({ from: points[from.indexOf(p)] ?? points[0], to: raw });
-            }
-          }
-        }
-      }
-    }
-    const seen = new Set();
-    return found.filter((g) => {
-      const key = `${g.to.x.toFixed(1)},${g.to.y.toFixed(1)},${g.from.x.toFixed(1)}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    }).slice(0, 6);
-  };
-
   const planeAt = (i) => glPlaneGeometry(lines, mmPerPoint, { ...datums[i], projection, view });
   const currentPlane = () => planeAt(datumIndex);
 
@@ -843,7 +793,6 @@ export default function Workspace() {
       const base = drag.datumBase[i];
       if (base) patchDatum(i, { center: { x: base.x + dx, y: base.y + dy } });
     }
-    setGuides(guidesFor([wanted], drag.elevationMm ?? 0));
     setLines(lines.map((line, i) => {
       if (!drag.members.has(i)) return line;
       const base = drag.base[i];
@@ -932,10 +881,6 @@ export default function Workspace() {
       const centre = { x: point.x + drag.dx, y: point.y + drag.dy };
       patchDatum(drag.index ?? datumIndex, { center: centre });
       const plane = planeAt(drag.index ?? datumIndex);
-      setGuides(guidesFor(
-        plane ? [centre, ...plane.corners, ...plane.edges.map((e) => e.point)] : [centre],
-        datums[drag.index ?? datumIndex]?.offsetMm ?? 0,
-      ));
       // v2.70 A floor is set out from a datum like anything else on site, so
       // moving it quotes where its centre now stands.
       const isoUx = Math.cos(-Math.PI / 6);
@@ -1053,8 +998,8 @@ export default function Workspace() {
     if (zoomDrag.current) { zoomDrag.current = null; return; }
     if (labelDrag.current) { labelDrag.current = null; return; }
     if (levelDrag.current) { levelDrag.current = null; setMoveReadout(null); return; }
-    if (pipeDrag.current) { pipeDrag.current = null; setGuides([]); setMoveReadout(null); return; }
-    if (planeDrag.current) { planeDrag.current = null; setMoveReadout(null); setGuides([]); return; }
+    if (pipeDrag.current) { pipeDrag.current = null; setMoveReadout(null); return; }
+    if (planeDrag.current) { planeDrag.current = null; setMoveReadout(null); return; }
     if (marqueeRef.current) { marqueeEnd(); return; }
     lastTouch.current = null;
     clearTimeout(holdTimeout.current);
@@ -1352,7 +1297,6 @@ export default function Workspace() {
             onLabelLayout={(list) => { labelAnchors.current = list; }}
             selection={selection}
             datumSel={datumSel}
-            guides={guides}
             marquee={marquee}
           />
           {/* v2.68 The sketch's crosshair and lens have no business over the
