@@ -454,6 +454,35 @@ export default function Workspace() {
   // v2.74 Fit the whole drawing on screen, centred so the origin marker and
   // the view turn about the same point the drawing is set out from.
   const fitToView = () => {
+    // v2.80 With runs picked out, the gesture moves the PIPES to the middle
+    // of the sheet rather than the eye: select all, then bring it home. The
+    // shift is nudged onto the lattice so the drawing stays on the grid.
+    if (selection.length) {
+      let x1 = Infinity; let y1 = Infinity; let x2 = -Infinity; let y2 = -Infinity;
+      for (const i of selection) {
+        const line = lines[i];
+        if (!line) continue;
+        for (const pt of [line.start, line.end]) {
+          x1 = Math.min(x1, pt.x); y1 = Math.min(y1, pt.y);
+          x2 = Math.max(x2, pt.x); y2 = Math.max(y2, pt.y);
+        }
+      }
+      if (!Number.isFinite(x1)) return;
+      const shift = { x: -(x1 + x2) / 2, y: -(y1 + y2) / 2 };
+      const first = lines[selection[0]];
+      const ref = { x: first.start.x + shift.x, y: first.start.y + shift.y };
+      const snapped = snapWorkspaceToGrid(ref);
+      shift.x += snapped.x - ref.x;
+      shift.y += snapped.y - ref.y;
+      commitLines(lines.map((line, i) => (selection.includes(i) ? {
+        ...line,
+        start: { x: line.start.x + shift.x, y: line.start.y + shift.y },
+        end: { x: line.end.x + shift.x, y: line.end.y + shift.y },
+      } : line)));
+      setOffset({ x: 0, y: 0 });
+      return;
+    }
+
     // v2.75 The origin is the centre of the sheet, so bringing the drawing
     // home means putting the red dot in the middle of the screen and pulling
     // back far enough to see everything around it — not centring the
