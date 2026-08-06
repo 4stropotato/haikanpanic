@@ -33,7 +33,7 @@ import {
   glPlaneGeometry, sizeFromHandle, insidePlane,
 } from "./utils/glPlane";                                                   // v2.09 datum plane
 import GlSheet from "../ui/GlSheet";
-import { loadDatums, saveDatums, makeDatum } from "./utils/datums";
+import { loadDatums, saveDatums, makeDatum, datumFor } from "./utils/datums";
 import { findJointAt, jointSettingOf } from "./utils/joints";               // v2.10 corner fittings
 import JointSheet from "../ui/JointSheet";
 import { zoomMin, zoomMax, pointStep } from "./utils/constants";                       // [v1.10] zoom range constants
@@ -108,6 +108,7 @@ export default function Workspace() {
   const [past, setPast] = useState([]);                                     // v2.17 undo stack
   const [future, setFuture] = useState([]);                                 // v2.17 redo stack
   const pipeDrag = useRef(null);
+  const levelDrag = useRef(null);
   const [jointTypes, setJointTypes] = useState(() => {                      // v2.10 corner fittings
     const demoJoint = new URLSearchParams(window.location.search).get("joint");
     if (demoJoint) {                                                        // seed for screenshots
@@ -293,6 +294,48 @@ export default function Workspace() {
   // sideways drag should change. The elevation is frozen on the anchor line
   // at grab time, because an unfrozen piece takes its height from where it
   // sits on screen.
+  // v2.38 An endpoint in Move mode is a level handle: dragging it up or
+  // down sets that node's elevation, which makes the run slope between two
+  // known levels instead of forcing the whole chain to move.
+  const levelGrab = (clientX, clientY) => {
+    if (!moveMode || !lines.length) return false;
+    const point = toWorkspace(clientX, clientY);
+    const reach = 20 / zoom;
+    const els = nodeElevations(lines, mmPerPoint);
+    const base = primary?.offsetMm ?? 0;
+    for (let i = 0; i < lines.length; i += 1) {
+      for (const which of [1, 2]) {
+        const node = which === 1 ? lines[i].start : lines[i].end;
+        if (Math.hypot(point.x - node.x, point.y - node.y) > reach) continue;
+        const key = `${node.x.toFixed(3)},${node.y.toFixed(3)}`;
+        levelDrag.current = {
+          index: i,
+          which,
+          startY: clientY,
+          startEl: (els.get(key) ?? 0) + base,
+        };
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const levelMove = (clientY) => {
+    const drag = levelDrag.current;
+    if (!drag) return false;
+    const mmPerPx = mmPerPoint / pointStep;
+    const raw = drag.startEl + ((drag.startY - clientY) / zoom) * mmPerPx;
+    const value = Math.round(raw / 10) * 10;
+    const ref = datumFor(value, datums);
+    setMoveReadout({
+      x: null, y: null, el: value, datum: ref.name, rel: Math.round(value - ref.offsetMm),
+    });
+    setLines(lines.map((line, i) => (i === drag.index
+      ? { ...line, [drag.which === 1 ? "elev1Mm" : "elev2Mm"]: value - (primary?.offsetMm ?? 0) }
+      : line)));
+    return true;
+  };
+
   const pipeGrab = (clientX, clientY) => {
     if (!moveMode || !lines.length) return false;
     const point = toWorkspace(clientX, clientY);
@@ -436,6 +479,11 @@ export default function Workspace() {
   };
 
   const handleTouchMove = (e) => {
+    if (levelDrag.current && e.touches.length === 1) {
+      e.preventDefault();
+      levelMove(e.touches[0].clientY);
+      return;
+    }
     if (pipeDrag.current && e.touches.length === 1) {
       e.preventDefault();
       pipeMove(e.touches[0].clientX, e.touches[0].clientY);
@@ -481,6 +529,11 @@ export default function Workspace() {
   };
 
   const handleTouchStart = (e) => {
+    if (e.touches.length === 1 && levelGrab(e.touches[0].clientX, e.touches[0].clientY)) {
+      setPast((stack) => [...stack.slice(-49), lines]);                    // v2.38 one entry per drag
+      setFuture([]);
+      return;
+    }
     if (e.touches.length === 1 && pipeGrab(e.touches[0].clientX, e.touches[0].clientY)) {
       return;                                                              // v2.16 dragging a run
     }
@@ -498,6 +551,7 @@ export default function Workspace() {
   };
 
   const handleTouchEnd = () => {
+    if (levelDrag.current) { levelDrag.current = null; setMoveReadout(null); return; }
     if (pipeDrag.current) { pipeDrag.current = null; setMoveReadout(null); return; }
     if (planeDrag.current) { planeDrag.current = null; return; }
     if (marqueeRef.current) { marqueeEnd(); return; }
@@ -681,15 +735,18 @@ export default function Workspace() {
         <div
           className="workspace"
           ref={workspaceRef}
-          onMouseDown={(e) => pipeGrab(e.clientX, e.clientY)
+          onMouseDown={(e) => levelGrab(e.clientX, e.clientY)
+            || pipeGrab(e.clientX, e.clientY)
             || planeGrab(e.clientX, e.clientY)
             || marqueeStart(e.clientX, e.clientY)}
           onMouseMove={(e) => {
-            if (pipeDrag.current) pipeMove(e.clientX, e.clientY);
+            if (levelDrag.current) levelMove(e.clientY);
+            else if (pipeDrag.current) pipeMove(e.clientX, e.clientY);
             else if (planeDrag.current) planeMove(e.clientX, e.clientY);
             else if (marqueeRef.current) marqueeMove(e.clientX, e.clientY);
           }}
           onMouseUp={() => {
+            levelDrag.current = null;
             pipeDrag.current = null;
             setMoveReadout(null);
             planeDrag.current = null;
@@ -759,8 +816,11 @@ export default function Workspace() {
         )}
         {moveReadout && (
           <div className="move-readout">
-            X {moveReadout.x} · Y {moveReadout.y} · EL {moveReadout.el >= 0 ? "+" : ""}
-            {moveReadout.el} <span>{moveReadout.datum}</span>
+            {moveReadout.x != null && `X ${moveReadout.x} · Y ${moveReadout.y} · `}
+            {moveReadout.rel != null
+              ? `${moveReadout.datum} ${moveReadout.rel >= 0 ? "+" : ""}${moveReadout.rel}`
+              : `EL ${moveReadout.el >= 0 ? "+" : ""}${moveReadout.el}`}
+            {moveReadout.rel == null && <span> {moveReadout.datum}</span>}
           </div>
         )}
         {showGlSheet && (

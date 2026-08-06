@@ -151,6 +151,20 @@ export function buildPipeModel(lines, mmPerPoint, options = {}) {
   // ground line, making every elevation readable as height above GL.
   let minY = Infinity;
   for (const seg of segments) minY = Math.min(minY, seg.p1.y, seg.p2.y);
+  // v2.38 An endpoint dragged to a level of its own overrides what the walk
+  // derived, which is how a run is made to slope between two known levels.
+  const overrides = new Map();
+  for (const line of lines) {
+    if (Number.isFinite(line.elev1Mm)) overrides.set(key2D(line.start), line.elev1Mm);
+    if (Number.isFinite(line.elev2Mm)) overrides.set(key2D(line.end), line.elev2Mm);
+  }
+  if (overrides.size) {
+    for (const seg of segments) {
+      if (overrides.has(seg.key1)) seg.p1.y = overrides.get(seg.key1);
+      if (overrides.has(seg.key2)) seg.p2.y = overrides.get(seg.key2);
+    }
+  }
+
   // v2.09 the datum can sit below the lowest pipe, which lifts the whole
   // model in 3D exactly as the 2D plane offset shows it.
   const lift = (Number.isFinite(minY) ? -minY : 0) + (options.glOffsetMm ?? 0);

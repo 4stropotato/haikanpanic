@@ -42,3 +42,14 @@ export function loadDatums() {
 export function saveDatums(datums) {
   localStorage.setItem("haikan-datums-v1", JSON.stringify(datums));
 }
+
+// v2.38 The datum an elevation is quoted against: the highest one at or
+// below it, or the lowest one above if the level sits under them all.
+export function datumFor(elevationMm, datums) {
+  if (!datums?.length) return { name: "GL", offsetMm: 0 };
+  const below = datums
+    .filter((d) => d.offsetMm <= elevationMm)
+    .sort((a, b) => b.offsetMm - a.offsetMm)[0];
+  if (below) return below;
+  return [...datums].sort((a, b) => a.offsetMm - b.offsetMm)[0];
+}

@@ -12,6 +12,7 @@ import { segmentLengthMm } from "../utils/lengths";             // v2.05 pure le
 import { glPlaneGeometry } from "../utils/glPlane";              // v2.09 GL/FL datum plane
 import { nodeElevations } from "../workshop/pipe3d";            // v2.24 slope from elevations
 import { sketchJoints, jointTypeOf, JOINT_MARK } from "../utils/joints"; // v2.10 corner fittings
+import { datumFor } from "../utils/datums";                      // v2.38 which level a height is read from
 
 export { segmentLengthMm } from "../utils/lengths";   // v2.05 moved to pure module
 
@@ -151,8 +152,10 @@ const DrawLayer = ({
             ctx.moveTo(node.point.x, node.point.y);
             ctx.lineTo(node.ground.x, node.ground.y);
             ctx.stroke();
+            const ref = datumFor(node.elevation, datums);
+            const rel = Math.round(node.elevation - ref.offsetMm);
             ctx.fillText(
-              `EL +${node.elevation}`,
+              `${ref.name} ${rel >= 0 ? "+" : ""}${rel}`,
               node.point.x - (14 / zoom),
               node.point.y + (16 / zoom),
             );
