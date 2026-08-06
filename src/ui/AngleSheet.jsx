@@ -35,7 +35,10 @@ const TEXT = {
   },
 };
 
-export default function AngleSheet({ horizontalMm, trueLengthMm, slopeDeg, lang, onApply, onClose }) {
+export default function AngleSheet({
+  horizontalMm: horizontalRaw, trueLengthMm, slopeDeg, lang, onApply, onClose,
+}) {
+  const horizontalMm = horizontalRaw > 0 ? horizontalRaw : (trueLengthMm || 1000);
   const t = TEXT[lang === "jp" ? "jp" : "en"];
   const [text, setText] = useState(String(Math.abs(slopeDeg || 0)));
   const [hold, setHold] = useState("run");
@@ -101,8 +104,9 @@ export default function AngleSheet({ horizontalMm, trueLengthMm, slopeDeg, lang,
           <button className="sheet-action ghost" onClick={onClose}>{t.cancel}</button>
           <button
             className="sheet-action solid"
+            disabled={!(nextHorizontal > 0)}
             onClick={() => onApply({
-              horizontalMm: Math.round(nextHorizontal),
+              horizontalMm: Math.max(1, Math.round(nextHorizontal)),
               riseMm: Math.round(nextRise),
             })}
           >

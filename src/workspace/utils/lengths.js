@@ -19,10 +19,20 @@ export function trueLengthMm(line, mmPerPoint) {
 // a pipeline, so it is removed everywhere lines are accepted.
 export function dropDegenerate(lines) {
   if (!Array.isArray(lines)) return [];
-  return lines.filter((line) => {
-    if (!line?.start || !line?.end) return false;
+  const out = [];
+  for (const line of lines) {
+    if (!line?.start || !line?.end) continue;
+    // only a line with no drawn extent is a stray tap
     const px = Math.hypot(line.end.x - line.start.x, line.end.y - line.start.y);
-    if (px < pointStep * 0.5) return false;
-    return !(line.lengthMm != null && line.lengthMm <= 0);
-  });
+    if (px < pointStep * 0.5) continue;
+    // a nonsense length is a data fault, not a reason to delete the pipe:
+    // drop the bad value and let the drawn length speak for it
+    if (line.lengthMm != null && !(line.lengthMm > 0)) {
+      const { lengthMm, ...rest } = line;
+      out.push(rest);
+      continue;
+    }
+    out.push(line);
+  }
+  return out;
 }

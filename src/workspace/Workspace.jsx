@@ -905,12 +905,14 @@ export default function Workspace() {
         )}
         {angleTarget && (
           <AngleSheet
-            horizontalMm={lines[angleTarget.index]?.lengthMm ?? 0}
+            horizontalMm={lines[angleTarget.index]?.lengthMm
+              ?? segmentLengthMm(lines[angleTarget.index], mmPerPoint)}
             trueLengthMm={angleTarget.metric.trueLengthMm}
             slopeDeg={angleTarget.metric.slopeDeg}
             lang={localStorage.getItem("haikan-lang") === "jp" ? "jp" : "en"}
             onClose={() => setAngleTarget(null)}
             onApply={({ horizontalMm, riseMm }) => {
+              if (!(horizontalMm > 0)) { setAngleTarget(null); return; }
               const els = nodeElevations(lines, mmPerPoint);
               const startEl = els.get(nodeKey(lines[angleTarget.index].start)) ?? 0;
               commitLines(lines.map((line, i) => (i === angleTarget.index
