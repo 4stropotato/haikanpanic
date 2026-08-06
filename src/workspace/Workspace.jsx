@@ -794,7 +794,17 @@ export default function Workspace() {
         area: (w / 1000) * (d / 1000),
       });
     } else {
-      patchDatum(datumIndex, { center: { x: point.x + drag.dx, y: point.y + drag.dy } });
+      const centre = { x: point.x + drag.dx, y: point.y + drag.dy };
+      patchDatum(datumIndex, { center: centre });
+      // v2.70 A floor is set out from a datum like anything else on site, so
+      // moving it quotes where its centre now stands.
+      const isoUx = Math.cos(-Math.PI / 6);
+      const mmScale = mmPerPoint / pointStep;
+      setMoveReadout({
+        plane: datums[datumIndex]?.name ?? "GL",
+        cx: Math.round(((centre.x / (2 * isoUx)) - centre.y) * mmScale),
+        cy: Math.round(((-centre.x / (2 * isoUx)) - centre.y) * mmScale),
+      });
     }
     return true;
   };
@@ -1234,10 +1244,17 @@ export default function Workspace() {
         )}
         {moveReadout?.plane && (
           <div className="move-readout">
-            <strong>{moveReadout.plane}</strong> {moveReadout.w} × {moveReadout.d} mm
-            <span> · {moveReadout.area >= 1
-              ? `${moveReadout.area.toFixed(2)} m²`
-              : `${Math.round(moveReadout.area * 1e6).toLocaleString()} mm²`}</span>
+            <strong>{moveReadout.plane}</strong>
+            {moveReadout.w != null ? (
+              <>
+                {" "}{moveReadout.w} × {moveReadout.d} mm
+                <span> · {moveReadout.area >= 1
+                  ? `${moveReadout.area.toFixed(2)} m²`
+                  : `${Math.round(moveReadout.area * 1e6).toLocaleString()} mm²`}</span>
+              </>
+            ) : (
+              <span> X {moveReadout.cx} · Y {moveReadout.cy}</span>
+            )}
           </div>
         )}
         {moveReadout && !moveReadout.plane && (
