@@ -10,6 +10,7 @@ const TEXT = {
     title: "Datums",
     primary: "primary",
     name: "Name",
+    colour: "Colour",
     height: (name) => `${name} elevation`,
     width: "Width",
     depth: "Depth",
@@ -29,6 +30,7 @@ const TEXT = {
     title: "基準面",
     primary: "主基準",
     name: "名称",
+    colour: "色",
     height: (name) => `${name} の高さ`,
     width: "幅",
     depth: "奥行",
@@ -114,6 +116,17 @@ export default function GlSheet({
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="sheet-row">
+            <span>{t.colour}</span>
+            <input
+              type="color"
+              className="tone-pick"
+              aria-label={t.colour}
+              value={plane.color ?? (index === 0 ? "#f5ba66" : "#7cc4ff")}
+              onChange={(e) => onChange({ color: e.target.value })}
+            />
           </div>
 
           <NumberRow

@@ -15,7 +15,16 @@ import { nodeElevations, runMetrics } from "../workshop/pipe3d"; // v2.24 slope 
 import { sketchJoints, jointTypeOf, JOINT_MARK } from "../utils/joints"; // v2.10 corner fittings
 import { datumFor } from "../utils/datums";
 import { LABEL_DEFAULT, LABEL_HOME } from "../utils/labelFields";
-import { toneColor } from "../utils/tones";                      // v2.83 mark-up colours      // v2.51 what a label says                      // v2.38 which level a height is read from
+import { toneColor } from "../utils/tones";                      // v2.83 mark-up colours
+
+// v2.86 A datum carries its own colour, so the tint has to come from a hex
+// rather than the two built-in ones. Kept as "r,g,b" because every fill and
+// stroke here builds an rgba() from it with its own alpha.
+function rgbOf(hex, fallback) {
+  if (typeof hex !== "string" || !/^#[0-9a-f]{6}$/i.test(hex)) return fallback;
+  const n = parseInt(hex.slice(1), 16);
+  return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
+}      // v2.51 what a label says                      // v2.38 which level a height is read from
 
 export { segmentLengthMm } from "../utils/lengths";   // v2.05 moved to pure module
 
@@ -189,7 +198,7 @@ const DrawLayer = ({
         if (!plane) return;
         const { corners, edges, nodes } = plane;
         const active = datumIdx === activeDatum;
-        const tint = datumIdx === 0 ? "245,186,102" : "124,196,255";
+        const tint = rgbOf(datum.color, datumIdx === 0 ? "245,186,102" : "124,196,255");
         // v2.81 A picked datum says so, the way a picked run does
         const picked = datumSel.includes(datumIdx);
 
