@@ -10,7 +10,7 @@ import { pointStep } from "../utils/constants";                 // v1.17+ dot-st
 import { useViewport } from "../utils/viewport";                // v1.18+ live workspace size
 import { segmentLengthMm } from "../utils/lengths";             // v2.05 pure length math
 import { overlappingRuns } from "../utils/editLength";          // v2.41 two pipes, one line
-import { glPlaneGeometry, viewRect, clampHandle } from "../utils/glPlane"; // v2.09 GL/FL datum plane
+import { glPlaneGeometry, viewRect, clampHandle, insidePlane } from "../utils/glPlane"; // v2.09 GL/FL datum plane
 import { nodeElevations, runMetrics } from "../workshop/pipe3d"; // v2.24 slope from elevations
 import { sketchJoints, jointTypeOf, JOINT_MARK } from "../utils/joints"; // v2.10 corner fittings
 import { datumFor } from "../utils/datums";
@@ -241,14 +241,14 @@ const DrawLayer = ({
           ctx.fillStyle = `rgb(${tint})`;
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
-          // v2.92 The footprint. An elevated run tells you nothing about
-          // where it lands until you drop it onto the floor, so the whole
-          // path — bends and all — is cast onto the datum in pink. That is
-          // the line you set out from on site.
+          // v2.92 The drop. A run at EL 1300 tells you nothing about where it
+          // lands, so the space between it and the floor is drawn as a
+          // standing plane — the curtain from the pipe down to its footprint,
+          // which is what you set out from on site.
+          // v2.94 Only where there is floor beneath it: a run off the edge of
+          // the datum has nothing to stand on, and drawing a curtain there
+          // would claim a relationship that is not real.
           ctx.save();
-          ctx.strokeStyle = "rgba(255,94,168,0.85)";
-          ctx.lineWidth = 1.6 / zoom;
-          ctx.setLineDash([8 / zoom, 5 / zoom]);
           const drop = (pt) => {
             const el = elevationsForLabels?.get(`${pt.x.toFixed(3)},${pt.y.toFixed(3)}`) ?? 0;
             return { x: pt.x, y: pt.y + ((el - datum.offsetMm) * plane.pxPerMm) };
@@ -257,9 +257,28 @@ const DrawLayer = ({
             const a = drop(line.start);
             const b = drop(line.end);
             if (Math.abs(a.x - b.x) < 0.01 && Math.abs(a.y - b.y) < 0.01) continue;
+            if (!insidePlane(a, plane) && !insidePlane(b, plane)) continue;
+
+            ctx.beginPath();
+            ctx.moveTo(line.start.x, line.start.y);
+            ctx.lineTo(line.end.x, line.end.y);
+            ctx.lineTo(b.x, b.y);
+            ctx.lineTo(a.x, a.y);
+            ctx.closePath();
+            ctx.fillStyle = "rgba(255,94,168,0.13)";
+            ctx.fill();
+            ctx.strokeStyle = "rgba(255,94,168,0.5)";
+            ctx.lineWidth = 1.2 / zoom;
+            ctx.setLineDash([]);
+            ctx.stroke();
+
+            // the footprint itself reads harder than the rest of the curtain
             ctx.beginPath();
             ctx.moveTo(a.x, a.y);
             ctx.lineTo(b.x, b.y);
+            ctx.strokeStyle = "rgba(255,94,168,0.9)";
+            ctx.lineWidth = 1.8 / zoom;
+            ctx.setLineDash([8 / zoom, 5 / zoom]);
             ctx.stroke();
           }
           ctx.restore();
