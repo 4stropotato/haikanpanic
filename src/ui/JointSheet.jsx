@@ -19,6 +19,10 @@ const TEXT = {
     note: "Take-out is what comes off each pipe at this corner.",
     angle: "Angle needed",
     reducer: "Reducer",
+    flanged: "Flanged joint",
+    flangedOn: "Flanged",
+    flangedOff: "Welded",
+    flangedNote: "A flanged connection is a pair of flanges with a gasket between.",
     roll: "Roll",
     rollNote: "Rotate the fitting about the incoming pipe by this much.",
     rollFlat: "in the vertical plane — no roll",
@@ -35,6 +39,10 @@ const TEXT = {
     note: "取り代はこの角で各配管から差し引く長さです。",
     angle: "必要角度",
     reducer: "レジューサ",
+    flanged: "フランジ接続",
+    flangedOn: "フランジ",
+    flangedOff: "溶接",
+    flangedNote: "フランジ接続はガスケットを挟んだ2枚1組です。",
     roll: "ころ（回転）",
     rollNote: "手前の配管を軸にこの角度だけ継手を回します。",
     rollFlat: "垂直面内 — ころ無し",
@@ -67,7 +75,7 @@ export function fittingFor(deflectionDeg, lang) {
 
 export default function JointSheet({
   nominalA, setting, deflectionDeg = 90, rollDeg = 0, gapMm = 2, hasReducer = false,
-  lang, onChange, onReset, onClose,
+  flanged = false, onFlangedChange, lang, onChange, onReset, onClose,
 }) {
   const t = TEXT[lang === "jp" ? "jp" : "en"];
   const labels = JOINT_LABEL[lang === "jp" ? "jp" : "en"];
@@ -135,6 +143,29 @@ export default function JointSheet({
               </div>
               <div className="sheet-hint">{t.note}</div>
               <div className="sheet-hint">{t.gapNote(gapMm)}</div>
+            </>
+          )}
+
+          {onFlangedChange && (
+            <>
+              <div className="sheet-row">
+                <span>{t.flanged}</span>
+                <div className="seg-group">
+                  <button
+                    className={"seg-btn" + (flanged ? "" : " on")}
+                    onClick={() => onFlangedChange(false)}
+                  >
+                    {t.flangedOff}
+                  </button>
+                  <button
+                    className={"seg-btn" + (flanged ? " on" : "")}
+                    onClick={() => onFlangedChange(true)}
+                  >
+                    {t.flangedOn}
+                  </button>
+                </div>
+              </div>
+              <div className="sheet-hint">{t.flangedNote}</div>
             </>
           )}
 

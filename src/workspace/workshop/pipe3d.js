@@ -13,6 +13,7 @@ import { sketchJoints, jointSettingOf } from "../utils/joints";
 import { pointStep } from "../utils/constants";
 
 const EPS = 1e-6;
+const GASKET_MM = 3;            // JIS 10K non-asbestos sheet, per joint
 const ISO_UX = Math.cos(-Math.PI / 6);   // screen x of the +X ground axis
 
 const sub = (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
@@ -214,6 +215,29 @@ export function buildPipeModel(lines, mmPerPoint, options = {}) {
     if (refA.which === 1) segA.weld1 = true; else segA.weld2 = true;
     if (refB.which === 1) segB.weld1 = true; else segB.weld2 = true;
 
+    // v2.35 A flange is a connection, not a pipe end: it always comes in a
+    // pair with a gasket between. Asking for one on either side of a joint
+    // gives both sides one, which is what a fitter means by "flanged here"
+    // and stops a lone flange stacking on top of an elbow.
+    const wantsFlange = (seg, which) => (which === 1
+      ? seg.flange === "start" || seg.flange === "both"
+      : seg.flange === "end" || seg.flange === "both");
+    const setFlange = (seg, which) => {
+      if (which === 1) seg.flange = seg.flange === "end" ? "both" : "start";
+      else seg.flange = seg.flange === "start" ? "both" : "end";
+    };
+    const aWants = wantsFlange(segA, refA.which);
+    const bWants = wantsFlange(segB, refB.which);
+    if (aWants || bWants) {
+      const donor = aWants ? segA : segB;
+      if (!aWants) { segA.flangeType = donor.flangeType; segA.flangeSizeA = donor.flangeSizeA; }
+      if (!bWants) { segB.flangeType = donor.flangeType; segB.flangeSizeA = donor.flangeSizeA; }
+      setFlange(segA, refA.which);
+      setFlange(segB, refB.which);
+      if (refA.which === 1) segA.jointFlange1 = true; else segA.jointFlange2 = true;
+      if (refB.which === 1) segB.jointFlange1 = true; else segB.jointFlange2 = true;
+    }
+
     if (straight) {
       if (!sizesDiffer) continue;                 // plain butt weld, nothing to draw
       const L = reducerLength(bigA || 100);
@@ -330,21 +354,23 @@ export function buildPipeModel(lines, mmPerPoint, options = {}) {
     const spec = flangeSpec(seg.flangeSizeA ?? seg.nominalA ?? 0);
     if (!spec) continue;
     if (wantStart) {
+      const half1 = seg.jointFlange1 ? GASKET_MM / 2 : 0;
       flanges.push({
         p: add(seg.p1, mul(seg.dir, seg.trim1)), dir: mul(seg.dir, -1),
         pipeOd: seg.od, nominalA: seg.flangeSizeA ?? seg.nominalA,
         type: seg.flangeType, ...spec,
       });
-      seg.trim1 += spec.t;
+      seg.trim1 += spec.t + half1;
       seg.weld1 = true;
     }
     if (wantEnd) {
+      const half2 = seg.jointFlange2 ? GASKET_MM / 2 : 0;
       flanges.push({
         p: sub(seg.p2, mul(seg.dir, seg.trim2)), dir: seg.dir,
         pipeOd: seg.od, nominalA: seg.flangeSizeA ?? seg.nominalA,
         type: seg.flangeType, ...spec,
       });
-      seg.trim2 += spec.t;
+      seg.trim2 += spec.t + half2;
       seg.weld2 = true;
     }
   }

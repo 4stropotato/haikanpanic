@@ -778,6 +778,35 @@ export default function Workspace() {
             deflectionDeg={jointInfo(jointTarget.key)?.deflectionDeg ?? 90}
             rollDeg={jointInfo(jointTarget.key)?.rollDeg ?? 0}
             gapMm={lines[jointTarget.legs[0].index]?.spec?.gap ?? 2}
+            flanged={jointTarget.legs.some((leg) => {
+              const f = lines[leg.index]?.spec?.flange ?? "none";
+              return leg.which === 1 ? f === "start" || f === "both" : f === "end" || f === "both";
+            })}
+            onFlangedChange={(on) => {
+              // one leg carries the setting; the model derives the mating
+              // flange from it, so a corner is never half flanged
+              const next = lines.map((line, i) => {
+                const leg = jointTarget.legs.find((l) => l.index === i);
+                if (!leg) return line;
+                const current = line.spec?.flange ?? "none";
+                const has = leg.which === 1
+                  ? current === "start" || current === "both"
+                  : current === "end" || current === "both";
+                if (on === has) return line;
+                let flange;
+                if (on) {
+                  flange = leg.which === 1
+                    ? (current === "end" ? "both" : "start")
+                    : (current === "start" ? "both" : "end");
+                } else {
+                  flange = current === "both"
+                    ? (leg.which === 1 ? "end" : "start")
+                    : "none";
+                }
+                return { ...line, spec: { ...(line.spec ?? {}), flange } };
+              });
+              commitLines(next);
+            }}
             hasReducer={(() => {
               const sizes = jointTarget.legs.map((leg) => lines[leg.index]?.spec?.a ?? 100);
               return new Set(sizes).size > 1;
