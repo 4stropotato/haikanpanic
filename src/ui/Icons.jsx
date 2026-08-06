@@ -235,3 +235,12 @@ export const ShrinkIcon = () => (
     <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />
   </svg>
 );
+
+// v2.69 Tag: the dimension labels that hang off the model.
+export const TagIcon = () => (
+  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+    strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 12l8-8h9v9l-8 8z" />
+    <circle cx="16.5" cy="7.5" r="1.4" />
+  </svg>
+);

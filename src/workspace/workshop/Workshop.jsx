@@ -8,6 +8,7 @@
 // library's gesture assumptions.
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
+import { ExpandIcon, ShrinkIcon, TagIcon } from "../../ui/Icons";           // v2.69 3D chrome
 import { buildPipeModel } from "./pipe3d";
 
 const V = (p) => new THREE.Vector3(p.x, p.y, p.z);
@@ -70,7 +71,8 @@ function makeAxisLabel(text, tone, axis) {
 
 export default function Workshop({
   lines, mmPerPoint, glOffsetMm = 0, jointTypes = {}, detail = "normal",
-  labelFlat = false, showDims = true, onEditSegment, onClose,
+  labelFlat = false, showDims = true, immersive = false,
+  onToggleDims, onToggleImmersive, onEditSegment, onClose,
 }) {
   const hostRef = useRef(null);
   const apiRef = useRef(null);
@@ -576,6 +578,9 @@ export default function Workshop({
     };
   }, [lines, mmPerPoint, glOffsetMm, jointTypes, detail, onEditSegment]);
 
+  const jp = (localStorage.getItem("haikan-lang") || navigator.language || "").startsWith("ja")
+    || localStorage.getItem("haikan-lang") === "jp";
+
   // v2.64 Dimensions are a display setting like any other, so they live in
   // the same sheet as the rest and are handed down rather than owned here.
   useEffect(() => {
@@ -585,6 +590,35 @@ export default function Workshop({
   return (
     <div className="workshop">
       <div className="workshop-canvas" ref={hostRef} />
+      {/* v2.69 Workshop stands on its own again. Its chrome is only what 3D
+          needs: who you are and the way out at the top, and at the bottom the
+          two switches that change what you see. */}
+      {!immersive && (
+        <>
+          <div className="workshop-chrome">
+            <span className="workshop-brand">
+              <span className="workshop-mark">ハイカンパニック!</span>
+              <span className="workshop-title">WORKSHOP</span>
+            </span>
+            <button className="workshop-close" onClick={onClose} aria-label="close">✕</button>
+          </div>
+          <div className="workshop-bottom">
+            <button onClick={onToggleImmersive}>
+              <ExpandIcon />
+              <span>{jp ? "全画面" : "Full screen"}</span>
+            </button>
+            <button className={showDims ? "on" : ""} onClick={onToggleDims}>
+              <TagIcon />
+              <span>{jp ? "寸法表示" : "Labels"}</span>
+            </button>
+          </div>
+        </>
+      )}
+      {immersive && (
+        <button className="immersive-exit" onClick={onToggleImmersive} aria-label="show controls">
+          <ShrinkIcon />
+        </button>
+      )}
       {new URLSearchParams(window.location.search).has("debug") && (
         <div className="workshop-debug" ref={debugRef} />
       )}

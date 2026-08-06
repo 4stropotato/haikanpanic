@@ -443,14 +443,10 @@ html, body, #root {
 .workshop {
   position: fixed;
   inset: 0;
-  /* v2.64 3D is a mode of the same app, so it keeps the shared chrome
-     instead of hiding it behind a full-screen overlay.
-     v2.67 It must clear EVERY sketch layer, not just the canvases. At 900 it
-     sat under the snap overlay, which drew the red crosshair over the model
-     and swallowed every drag before the camera saw it — the same failure as
-     the v2.17 pointer-events bug. Sketch layers top out in the low
-     thousands; the bars start at 10000, so 9000 sits between them. */
-  z-index: 9000;
+  /* v2.69 Above everything: 3D is its own screen with its own small chrome.
+     Sharing the sketch's bars put the snap overlay over the model — it drew
+     the crosshair on top and swallowed the camera's drags. */
+  z-index: 10005;
   background: #0a0e14;
   animation: fade-in 0.2s ease;
 }
@@ -464,17 +460,29 @@ html, body, #root {
   padding: 0.8rem 1rem;
   pointer-events: none;
 }
+.workshop-brand { display: flex; flex-direction: column; gap: 2px; }
 .brand-mode {                                      /* v2.64 which room you are in */
   display: block; font-size: 0.62rem; font-weight: 800;
   letter-spacing: 0.26em; color: var(--accent);
   margin-top: 1px;
 }
-.workshop-actions {                                /* v2.66 3D corner controls */
-  position: fixed; right: 12px; top: calc(58px + env(safe-area-inset-top, 0px));
-  display: flex; gap: 8px; z-index: 10002;
+.workshop-bottom {                                 /* v2.69 the two 3D switches */
+  position: absolute; left: 50%; transform: translateX(-50%);
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  display: flex; gap: 8px; z-index: 2;
+  padding: 7px; border-radius: 20px;
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--edge, rgba(255,255,255,0.12));
 }
+.workshop-bottom button {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  min-width: 84px; padding: 9px 12px; border: none; border-radius: 15px;
+  background: transparent; color: inherit; font-size: 0.68rem; font-weight: 600;
+}
+.workshop-bottom button.on { color: var(--accent); background: rgba(124,196,255,0.12); }
 .immersive-exit {
-  position: fixed; right: 12px; top: calc(12px + env(safe-area-inset-top, 0px));
+  position: absolute; z-index: 3; right: 12px; top: calc(12px + env(safe-area-inset-top, 0px));
   width: 42px; height: 42px; border-radius: 12px; z-index: 10002;
   display: grid; place-items: center; color: inherit;
   border: 1px solid var(--edge, rgba(255,255,255,0.14));

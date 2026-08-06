@@ -1422,6 +1422,9 @@ export default function Workspace() {
             detail={detail}
             labelFlat={labelFlat}
             showDims={showDims}
+            immersive={immersive}
+            onToggleDims={() => setShowDims((d) => !d)}
+            onToggleImmersive={() => setImmersive((v) => !v)}
             onEditSegment={setEditTarget}
             onClose={() => { setShowWorkshop(false); setImmersive(false); }}
           />
