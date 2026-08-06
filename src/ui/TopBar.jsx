@@ -8,7 +8,7 @@
 
 import { useContext, useState, useEffect } from "react";
 import { WorkspaceContext } from "../workspace/WorkspaceContext";
-import { SunIcon, MoonIcon, GridIcon, CrosshairIcon, MagnifierIcon, RotateIcon, GlobeIcon, CheckIcon, SendToStudioIcon, PencilIcon, MoreIcon, CubeIcon, ListIcon, EraserIcon, MoveIcon, RedoIcon } from "./Icons";
+import { SunIcon, MoonIcon, GridIcon, CrosshairIcon, MagnifierIcon, RotateIcon, GlobeIcon, CheckIcon, SendToStudioIcon, PencilIcon, MoreIcon, CubeIcon, ListIcon, EraserIcon, MoveIcon, RedoIcon, PencilDrawIcon } from "./Icons";
 import { buildStudioHandoff, encodeHandoff } from "../workspace/utils/handoff";
 
 const translations = {
@@ -21,6 +21,7 @@ const translations = {
     center: "Center",
     language: "Language",
     noJoint: "Draw two connected lines first",
+    draw: "Draw",
     edit: "Edit",
     erase: "Erase",
     move: "Move",
@@ -50,6 +51,7 @@ const translations = {
     center: "中央",
     language: "言語",
     noJoint: "接続された2本の線を描いてください",
+    draw: "作図",
     edit: "編集",
     erase: "消去",
     move: "移動",
@@ -152,6 +154,12 @@ export default function TopBar() {
       <div className="top-bar">
         <span className="brand">ハイカンパニック!</span>
         <div className="top-actions">
+          <button className="top-btn" onClick={undo} disabled={!canUndo} aria-label={t.undo}>
+            <RotateIcon />
+          </button>
+          <button className="top-btn" onClick={redo} disabled={!canRedo} aria-label={t.redo}>
+            <RedoIcon />
+          </button>
           <button
             className={"top-btn" + (showGrid ? " on" : "")}
             onClick={() => setShowGrid((g) => !g)}
@@ -187,13 +195,12 @@ export default function TopBar() {
 
       {/* v2.00 floating dock: only the actions used constantly while drawing */}
       <div className="dock">
-        <button className="dock-btn" onClick={undo} disabled={!canUndo}>
-          <RotateIcon />
-          <span>{t.undo}</span>
-        </button>
-        <button className="dock-btn" onClick={redo} disabled={!canRedo}>
-          <RedoIcon />
-          <span>{t.redo}</span>
+        <button
+          className={"dock-btn" + (!editMode && !eraseMode && !moveMode ? " glow" : "")}
+          onClick={() => { setEditMode(false); setEraseMode(false); setMoveMode(false); }}
+        >
+          <PencilDrawIcon />
+          <span>{t.draw}</span>
         </button>
         <button
           className={"dock-btn" + (editMode ? " glow" : "")}

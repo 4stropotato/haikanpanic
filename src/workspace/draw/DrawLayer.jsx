@@ -43,6 +43,7 @@ const DrawLayer = ({
   lines, preview, isDark, zoom, offset, mmPerPoint = 10,
   showGL = true, glEditPlane = false,
   jointTypes = {}, datums = [], activeDatum = -1, showJointMarks = true,
+  selection = [], marquee = null,
 }) => { // [v1.09] Accept zoom and offset for scaling
   const canvasRef = useRef(null);                                 // [v1.02] Canvas DOM reference
   const { w: vpW, h: vpH } = useViewport();                       // v1.18+ re-render on resize
@@ -171,6 +172,20 @@ const DrawLayer = ({
             ctx.fill();
             ctx.stroke();
           }
+          // centre handle: the one grip that moves the whole plane
+          ctx.beginPath();
+          ctx.arc(plane.cx, plane.cy, 11 / zoom, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${tint},0.95)`;
+          ctx.fill();
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(plane.cx - (5 / zoom), plane.cy);
+          ctx.lineTo(plane.cx + (5 / zoom), plane.cy);
+          ctx.moveTo(plane.cx, plane.cy - (5 / zoom));
+          ctx.lineTo(plane.cx, plane.cy + (5 / zoom));
+          ctx.strokeStyle = "rgba(10,14,20,0.9)";
+          ctx.stroke();
+
           const half = 7 / zoom;
           for (const edge of edges) {
             ctx.beginPath();
@@ -184,12 +199,17 @@ const DrawLayer = ({
       });
     }
 
-    for (const line of lines) {
+    const selected = new Set(selection);
+    lines.forEach((line, index) => {
+      const on = selected.has(index);
+      ctx.strokeStyle = on ? "#7cc4ff" : (isDark ? "white" : "black");
+      ctx.lineWidth = (on ? 4 : 2) / zoom;
       ctx.beginPath();
       ctx.moveTo(line.start.x, line.start.y);                     // [v1.09] Use workspace-space coordinates directly
       ctx.lineTo(line.end.x, line.end.y);
       ctx.stroke();
-    }
+    });
+    ctx.strokeStyle = isDark ? "white" : "black";
     ctx.lineWidth = 2 / zoom;
     for (const line of lines) drawLabel(line);                    // v1.17+ labels above lines
 
@@ -225,9 +245,27 @@ const DrawLayer = ({
       drawLabel(preview);                                         // v1.17+ live length while drawing
     }
 
+    // v2.29 Rubber band. It is deliberately square to the screen, not to
+    // the isometric axes, because that is how a selection box reads.
+    if (marquee) {
+      const left = Math.min(marquee.x0, marquee.x1);
+      const top = Math.min(marquee.y0, marquee.y1);
+      const w = Math.abs(marquee.x1 - marquee.x0);
+      const h = Math.abs(marquee.y1 - marquee.y0);
+      ctx.save();
+      ctx.fillStyle = "rgba(124,196,255,0.10)";
+      ctx.fillRect(left, top, w, h);
+      ctx.setLineDash([6 / zoom, 4 / zoom]);
+      ctx.strokeStyle = "rgba(124,196,255,0.9)";
+      ctx.lineWidth = 1.5 / zoom;
+      ctx.strokeRect(left, top, w, h);
+      ctx.restore();
+    }
+
     ctx.restore();                                                // [v1.10] End transform block
   }, [lines, preview, isDark, zoom, offset, mmPerPoint, showGL, glEditPlane,
-      jointTypes, datums, activeDatum, showJointMarks, vpW, vpH]);   // [v1.10] Redraw on zoom or pan
+      jointTypes, datums, activeDatum, showJointMarks,
+      selection, marquee, vpW, vpH]);   // [v1.10] Redraw on zoom or pan
 
   return (
     <canvas

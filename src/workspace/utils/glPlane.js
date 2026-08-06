@@ -88,7 +88,7 @@ export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
     { point: at(0, -halfV), axis: "v" },
   ];
 
-  return { cx, cy, halfU, halfV, corners, edges, nodes, pxPerMm };
+  return { cx, cy, halfU, halfV, corners, edges, centre: { x: cx, y: cy }, nodes, pxPerMm };
 }
 
 // Is a workspace point inside the rhombus?

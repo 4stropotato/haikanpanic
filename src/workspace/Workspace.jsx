@@ -92,6 +92,9 @@ export default function Workspace() {
   });
   const [eraseMode, setEraseMode] = useState(false);                        // v2.08 tap a line to delete it
   const [moveMode, setMoveMode] = useState(false);                          // v2.16 drag runs across the ground
+  const [selection, setSelection] = useState([]);                           // v2.29 selected line indices
+  const [marquee, setMarquee] = useState(null);                             // v2.29 rubber band box
+  const marqueeRef = useRef(null);
   const [past, setPast] = useState([]);                                     // v2.17 undo stack
   const [future, setFuture] = useState([]);                                 // v2.17 redo stack
   const pipeDrag = useRef(null);
@@ -279,7 +282,9 @@ export default function Workspace() {
     if (index < 0) return false;
     setPast((stack) => [...stack.slice(-49), lines]);                       // one entry per drag
     setFuture([]);
-    const members = connectedIndices(lines, index);
+    const members = selection.includes(index)
+      ? new Set(selection)                                                  // v2.29 move the selection
+      : connectedIndices(lines, index);
     const anchorIndex = Math.min(...members);
     const elevations = nodeElevations(lines, mmPerPoint);
     const anchor = lines[anchorIndex];
@@ -292,6 +297,41 @@ export default function Workspace() {
       base: lines.map((line) => ({ start: { ...line.start }, end: { ...line.end } })),
     };
     return true;
+  };
+
+  const marqueeStart = (clientX, clientY) => {
+    if (!moveMode) return false;
+    const point = toWorkspace(clientX, clientY);
+    marqueeRef.current = { x0: point.x, y0: point.y, x1: point.x, y1: point.y };
+    setMarquee(marqueeRef.current);
+    return true;
+  };
+
+  const marqueeMove = (clientX, clientY) => {
+    if (!marqueeRef.current) return false;
+    const point = toWorkspace(clientX, clientY);
+    marqueeRef.current = { ...marqueeRef.current, x1: point.x, y1: point.y };
+    setMarquee(marqueeRef.current);
+    return true;
+  };
+
+  const marqueeEnd = () => {
+    const box = marqueeRef.current;
+    marqueeRef.current = null;
+    setMarquee(null);
+    if (!box) return;
+    const left = Math.min(box.x0, box.x1);
+    const right = Math.max(box.x0, box.x1);
+    const top = Math.min(box.y0, box.y1);
+    const bottom = Math.max(box.y0, box.y1);
+    if (right - left < 6 / zoom && bottom - top < 6 / zoom) { setSelection([]); return; }
+    const inside = (p) => p.x >= left && p.x <= right && p.y >= top && p.y <= bottom;
+    // a run belongs to the box when it sits inside it entirely, whatever its
+    // level or distance from the rest
+    setSelection(lines.reduce((acc, line, i) => {
+      if (inside(line.start) && inside(line.end)) acc.push(i);
+      return acc;
+    }, []));
   };
 
   const pipeMove = (clientX, clientY) => {
@@ -326,7 +366,7 @@ export default function Workspace() {
     const plane = currentPlane();
     if (!plane) return false;
     const point = toWorkspace(clientX, clientY);
-    const grabRadius = 20 / zoom;
+    const grabRadius = 22 / zoom;
     for (const corner of plane.corners) {
       if (Math.hypot(point.x - corner.x, point.y - corner.y) < grabRadius) {
         planeDrag.current = { mode: "resize", axis: "both", cx: plane.cx, cy: plane.cy };
@@ -339,12 +379,14 @@ export default function Workspace() {
         return true;
       }
     }
-    planeDrag.current = {
-      mode: "move",
-      dx: plane.cx - point.x,
-      dy: plane.cy - point.y,
-    };
-    return true;
+    // v2.29 The plane travels by its own centre handle. Grabbing it from
+    // anywhere used to swallow every drag that started off a pipe, which is
+    // the space the rubber band needs.
+    if (Math.hypot(point.x - plane.cx, point.y - plane.cy) < grabRadius) {
+      planeDrag.current = { mode: "move", dx: plane.cx - point.x, dy: plane.cy - point.y };
+      return true;
+    }
+    return false;
   };
 
   const planeMove = (clientX, clientY) => {
@@ -367,6 +409,11 @@ export default function Workspace() {
     if (pipeDrag.current && e.touches.length === 1) {
       e.preventDefault();
       pipeMove(e.touches[0].clientX, e.touches[0].clientY);
+      return;
+    }
+    if (marqueeRef.current && e.touches.length === 1) {
+      e.preventDefault();
+      marqueeMove(e.touches[0].clientX, e.touches[0].clientY);
       return;
     }
     if (planeDrag.current && e.touches.length === 1) {
@@ -410,6 +457,9 @@ export default function Workspace() {
     if (e.touches.length === 1 && planeGrab(e.touches[0].clientX, e.touches[0].clientY)) {
       return;                                                              // v2.09 dragging the datum
     }
+    if (e.touches.length === 1 && marqueeStart(e.touches[0].clientX, e.touches[0].clientY)) {
+      return;                                                              // v2.29 rubber band
+    }
     heldEnough.current = false;
     setIsHolding(true);                                                    // [v1.11] magnifier moves to top
     holdTimeout.current = setTimeout(() => {
@@ -420,6 +470,7 @@ export default function Workspace() {
   const handleTouchEnd = () => {
     if (pipeDrag.current) { pipeDrag.current = null; return; }
     if (planeDrag.current) { planeDrag.current = null; return; }
+    if (marqueeRef.current) { marqueeEnd(); return; }
     lastTouch.current = null;
     clearTimeout(holdTimeout.current);
     setIsHolding(false);                                                   // [v1.11] magnifier returns to crosshair
@@ -536,7 +587,9 @@ export default function Workspace() {
     eraseMode,                                                             // v2.08 erase mode
     setEraseMode,
     moveMode,                                                              // v2.16 move mode
-    setMoveMode,
+    setMoveMode: (on) => { setMoveMode(on); if (!on) setSelection([]); },
+    selection,                                                             // v2.29 marquee selection
+    clearSelection: () => setSelection([]),
     drawing: Boolean(startPoint && readyToDraw),                            // v2.22 line in progress
     cancelDraw,
     undo,                                                                  // v2.17 history
@@ -565,12 +618,19 @@ export default function Workspace() {
         <div
           className="workspace"
           ref={workspaceRef}
-          onMouseDown={(e) => pipeGrab(e.clientX, e.clientY) || planeGrab(e.clientX, e.clientY)}
+          onMouseDown={(e) => pipeGrab(e.clientX, e.clientY)
+            || planeGrab(e.clientX, e.clientY)
+            || marqueeStart(e.clientX, e.clientY)}
           onMouseMove={(e) => {
             if (pipeDrag.current) pipeMove(e.clientX, e.clientY);
             else if (planeDrag.current) planeMove(e.clientX, e.clientY);
+            else if (marqueeRef.current) marqueeMove(e.clientX, e.clientY);
           }}
-          onMouseUp={() => { pipeDrag.current = null; planeDrag.current = null; }}
+          onMouseUp={() => {
+            pipeDrag.current = null;
+            planeDrag.current = null;
+            if (marqueeRef.current) marqueeEnd();
+          }}
           onClick={handleClick}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
@@ -590,6 +650,8 @@ export default function Workspace() {
             glEditPlane={glEditPlane || moveMode}
             jointTypes={jointTypes}
             showJointMarks={showJointMarks}
+            selection={selection}
+            marquee={marquee}
           />
           {!hideCrosshair && (
             <SnapOverlay

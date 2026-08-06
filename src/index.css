@@ -829,3 +829,7 @@ html, body, #root {
 
 .joint-angle { color: var(--accent); font-size: 1.05rem; }
 .joint-stock { font-size: 0.74rem; color: var(--muted, #8fa0b5); }
+
+/* v2.30 five tool slots; history lives in the top bar now */
+.dock-btn { min-width: 60px; padding: 9px 8px; font-size: 0.64rem; }
+.top-btn:disabled { opacity: 0.35; }
