@@ -1116,7 +1116,10 @@ export default function Workspace() {
     fitToView,                                                             // v2.74 double-tap Move
     selectAll: () => setSelection(lines.map((_, i) => i)),
     selectMode,                                                            // v2.37 selection tool
-    setSelectMode: (on) => { setSelectMode(on); if (!on) setSelection([]); },
+    // v2.76 A selection outlives the tool that made it: you pick the runs,
+    // then switch to Move to carry them. Clearing it on the way out meant
+    // Move only ever took one pipe. Only tapping Select again empties it.
+    setSelectMode,
     currentSpec,                                                           // v2.31 spec for new pipes
     setShowSpecSheet,
     selection,                                                             // v2.29 marquee selection

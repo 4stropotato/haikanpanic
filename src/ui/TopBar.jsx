@@ -164,7 +164,7 @@ export default function TopBar() {
     setEraseMode,
     moveMode,
     setMoveMode,
-    viewTool, setViewTool, fitToView, selectAll,
+    viewTool, setViewTool, fitToView, selectAll, clearSelection,
     selectMode,
     setSelectMode,
     drawing,
@@ -354,6 +354,7 @@ export default function TopBar() {
           className={"dock-btn" + (selectMode ? " glow" : "")}
           onClick={() => {
             if (doubleTap("select", selectAll)) return;
+            if (selectMode) clearSelection();          // v2.76 second tap empties it
             setSelectMode(!selectMode); setViewTool(null);
             setEditMode(false);
             setEraseMode(false);
