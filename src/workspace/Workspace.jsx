@@ -1419,6 +1419,7 @@ export default function Workspace() {
         {levelTarget && (
           <LevelSheet
             value={levelTarget.el}
+            odMm={pipeSpec(lines[levelTarget.index]?.spec?.a ?? 0)?.od ?? 0}
             datums={datums}
             lang={localStorage.getItem("haikan-lang") === "jp" ? "jp" : "en"}
             onClose={() => setLevelTarget(null)}
