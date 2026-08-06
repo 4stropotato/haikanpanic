@@ -773,7 +773,28 @@ export default function Workspace() {
     const world = view3d.screenToWorld(dxScreen, dyScreen);
     const shift = horizontalTo2D(world.x, world.z, mmPerPoint / pointStep);
     const wanted = { x: anchorBase.x + shift.x, y: anchorBase.y + shift.y };
-    const snapped = snapWorkspaceToGrid(wanted);                            // stay on the lattice
+    let snapped = snapWorkspaceToGrid(wanted);                              // stay on the lattice
+
+    // v2.95 Snap to what it lines up with. Two runs can share a plan
+    // position and differ only in height — the case you cannot judge by eye
+    // because a floor sits between them — so the drag settles onto another
+    // node's plan position when it comes close. Both are already on the
+    // lattice, so this never fights the grid rule.
+    const pxPerMm = 1 / (view3d.risePerPx || 1);
+    const els = nodeElevations(lines, mmPerPoint);
+    const mineEl = drag.elevationMm ?? 0;
+    const reach = 10 / zoom;
+    let bestSnap = null;
+    lines.forEach((line, i) => {
+      if (drag.members.has(i)) return;
+      for (const node of [line.start, line.end]) {
+        const theirEl = els.get(nodeKey(node)) ?? 0;
+        const target = { x: node.x, y: node.y + ((theirEl - mineEl) * pxPerMm) };
+        const d = Math.hypot(target.x - snapped.x, target.y - snapped.y);
+        if (d < reach && (!bestSnap || d < bestSnap.d)) bestSnap = { target, d };
+      }
+    });
+    if (bestSnap) snapped = bestSnap.target;
     const dx = snapped.x - anchorBase.x;
     const dy = snapped.y - anchorBase.y;
     // v2.32 Where the grabbed run has landed, so two pieces can be told
