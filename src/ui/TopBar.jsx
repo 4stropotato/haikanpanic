@@ -26,6 +26,7 @@ const translations = {
     move: "Move",
     undo: "Undo",
     redo: "Redo",
+    cancelDraw: "Cancel line",
     studio: "Studio",
     workshop: "Workshop",
     cutList: "Cut list",
@@ -52,6 +53,7 @@ const translations = {
     move: "移動",
     undo: "戻す",
     redo: "やり直し",
+    cancelDraw: "作図を中止",
     studio: "スタジオ",
     workshop: "作業場",
     cutList: "材料表",
@@ -95,6 +97,8 @@ export default function TopBar() {
     setEraseMode,
     moveMode,
     setMoveMode,
+    drawing,
+    cancelDraw,
     undo,
     redo,
     canUndo,
@@ -145,6 +149,12 @@ export default function TopBar() {
           1pt={mmPerPoint}mm
         </span>
       </div>
+
+      {drawing && (
+        <button className="draw-cancel" onClick={cancelDraw}>
+          ✕ {t.cancelDraw}
+        </button>
+      )}
 
       {/* v2.00 floating dock: only the actions used constantly while drawing */}
       <div className="dock">

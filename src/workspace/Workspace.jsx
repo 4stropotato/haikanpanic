@@ -51,7 +51,9 @@ export default function Workspace() {
   const [offset, setOffset] = useState({ x: 0, y: 0 });                      // [v1.09] pan offset
   const [lensPos, setLensPos] = useState({ x: 0, y: 0 });                    // [v1.08] magnifier lens position
   const [lastSnap, setLastSnap] = useState(null);                           // [v1.02] current snap point
-  const [startPoint, setStartPoint] = useState(null);                       // [v1.02] starting point for drawing
+  const [startPoint, setStartPoint] = useState(
+    () => (new URLSearchParams(window.location.search).has("drawing") ? { x: 0, y: 0 } : null),
+  );                                                                        // [v1.02] starting point for drawing
   const [lines, setLines] = useState(() => {                                // [v1.17] persisted line segments
     if (new URLSearchParams(window.location.search).has("demo")) {
       // v1.17+ deterministic sample sketch for tests/screenshots
@@ -79,7 +81,9 @@ export default function Workspace() {
     return Number.isFinite(stored) && stored > 0 ? stored : 100;
   });
   const [previewLine, setPreviewLine] = useState(null);                     // [v1.02] live preview line
-  const [readyToDraw, setReadyToDraw] = useState(false);                    // [v1.02] whether in draw mode
+  const [readyToDraw, setReadyToDraw] = useState(
+    () => new URLSearchParams(window.location.search).has("drawing"),
+  );                                                                        // [v1.02] whether in draw mode
   const [isHolding, setIsHolding] = useState(false);                        // [v1.11] track touch hold state for magnifier
   const [editMode, setEditMode] = useState(false);                          // v1.19+ tap segments to edit lengths
   const [editTarget, setEditTarget] = useState(() => {                      // v2.02 segment being edited
@@ -144,6 +148,12 @@ export default function Workspace() {
     viewRef.current = { zoom, offset };                                     // v2.12 keep the ref current
   }, [zoom, offset]);
 
+  useEffect(() => {                                                         // v2.22 Escape abandons the line
+    const onKey = (e) => { if (e.key === "Escape") cancelDraw(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   useEffect(() => {
     if (lastSnap) setLensPos(lastSnap);                                     // [v1.08] update magnifier position
   }, [lastSnap]);
@@ -204,6 +214,18 @@ export default function Workspace() {
     el?.addEventListener("wheel", handleWheel, { passive: false });
     return () => el?.removeEventListener("wheel", handleWheel);
   }, []);
+
+  // v2.22 Abandon a line that was started by accident. Double-tap already
+  // did this, but nothing on screen said so, so a stray tap left the app
+  // waiting for an end point with no obvious way out.
+  const cancelDraw = () => {
+    setStartPoint(null);
+    setPreviewLine(null);
+    setReadyToDraw(false);
+    pendingStart.current = null;
+    pendingEnd.current = null;
+    clearTimeout(confirmTapTimeout.current);
+  };
 
   // v2.17 Every edit goes through here so undo restores the whole sketch —
   // drawing, erasing, moving and spec changes alike — instead of only
@@ -457,12 +479,7 @@ export default function Workspace() {
     } else if (readyToDraw && startPoint) {
       tapCount.current++;
       setTimeout(() => {
-        if (tapCount.current === 2) {
-          setStartPoint(null);
-          setPreviewLine(null);
-          setReadyToDraw(false);
-          pendingEnd.current = null;
-        }
+        if (tapCount.current === 2) cancelDraw();                          // v2.22 same path
         tapCount.current = 0;
       }, 300);                                                         // [v1.04] double-tap cancel
     }
@@ -513,6 +530,8 @@ export default function Workspace() {
     setEraseMode,
     moveMode,                                                              // v2.16 move mode
     setMoveMode,
+    drawing: Boolean(startPoint && readyToDraw),                            // v2.22 line in progress
+    cancelDraw,
     undo,                                                                  // v2.17 history
     redo,
     canUndo: past.length > 0,

@@ -756,3 +756,29 @@ html, body, #root {
     padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px) + var(--kb, 0px));
   }
 }
+
+/* v2.22 cancel pill, shown only while a line is waiting for its end point */
+.draw-cancel {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+  z-index: 10002;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(248, 113, 113, 0.55);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  backdrop-filter: blur(12px);
+  color: #f87171;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+  animation: rise-in 0.16s ease;
+}
+.draw-cancel:active { transform: translateX(-50%) scale(0.96); }
+@keyframes rise-in { from { opacity: 0; transform: translate(-50%, 6px); } }
