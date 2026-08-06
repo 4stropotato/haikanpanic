@@ -155,6 +155,15 @@ export default function EditSheet({
                 {TONE_TEXT[lang === "jp" ? "jp" : "en"][item]}
               </button>
             ))}
+            <input
+              type="color"
+              className="tone-pick"
+              aria-label={t.tone}
+              value={typeof tone === "string" && tone.startsWith("#")
+                ? tone
+                : (TONE_COLOR[tone] ?? "#7cc4ff")}
+              onChange={(e) => setTone(e.target.value)}
+            />
           </div>
         </div>
 

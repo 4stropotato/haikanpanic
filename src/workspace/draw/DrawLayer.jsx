@@ -347,15 +347,11 @@ const DrawLayer = ({
       const right = ((width / 2) - offset.x) / zoom;
       const top = ((-height / 2) - offset.y) / zoom;
       const bottom = ((height / 2) - offset.y) / zoom;
+      const reach = (Math.hypot(width, height) / zoom);
       for (const guide of guides) {
         ctx.beginPath();
-        if (guide.axis === "x") {
-          ctx.moveTo(guide.at, top);
-          ctx.lineTo(guide.at, bottom);
-        } else {
-          ctx.moveTo(left, guide.at);
-          ctx.lineTo(right, guide.at);
-        }
+        ctx.moveTo(guide.at.x - (guide.dir.x * reach), guide.at.y - (guide.dir.y * reach));
+        ctx.lineTo(guide.at.x + (guide.dir.x * reach), guide.at.y + (guide.dir.y * reach));
         ctx.stroke();
       }
       ctx.restore();

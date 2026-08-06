@@ -525,6 +525,11 @@ html, body, #root {
   font-size: 0.9rem;
 }
 .seg-group { display: flex; gap: 6px; flex: 1; }
+.tone-pick {                                       /* v2.85 any colour the job needs */
+  width: 44px; height: 34px; padding: 2px; border-radius: 10px;
+  border: 1px solid var(--edge, rgba(255,255,255,0.16));
+  background: transparent;
+}
 .sheet-group {
   margin: 18px 0 6px;
   font-size: 0.7rem; font-weight: 800; letter-spacing: 0.14em;

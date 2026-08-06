@@ -35,7 +35,7 @@ import { segmentLengthMm, dropDegenerate } from "./utils/lengths";          // v
 import { viewport, observeViewport } from "./utils/viewport";               // v1.19+ tap coord conversion
 import {
   glPlaneGeometry, sizeFromHandle, insidePlane,
-  viewRect, clampHandle,                                                    // v2.62 reachable grips
+  viewRect, clampHandle, planeAxes,                                                    // v2.62 reachable grips
 } from "./utils/glPlane";                                                   // v2.09 datum plane
 import { pipeSpec } from "./data/jis";                                      // v2.82 the floor rule
 import GlSheet from "../ui/GlSheet";
@@ -428,19 +428,29 @@ export default function Workspace() {
   // a magnet — the lattice already owns snapping, and two things pulling at
   // the geometry would fight.
   const guidesFor = (points) => {
-    const tol = 4 / zoom;
+    const tol = 5 / zoom;
+    const axes = planeAxes(view);
+    // an isometric aligns along its own axes, not the screen's: the two
+    // ground directions and the vertical
+    const dirs = [axes.u, axes.v, { x: 0, y: 1 }];
     const found = [];
     for (const line of viewLines) {
       for (const node of [line.start, line.end]) {
         for (const p of points) {
-          if (Math.abs(p.x - node.x) < tol) found.push({ axis: "x", at: node.x });
-          if (Math.abs(p.y - node.y) < tol) found.push({ axis: "y", at: node.y });
+          const dx = p.x - node.x;
+          const dy = p.y - node.y;
+          for (const d of dirs) {
+            const len = Math.hypot(d.x, d.y) || 1;
+            // distance from the point to the line through the node
+            const off = Math.abs((dx * d.y) - (dy * d.x)) / len;
+            if (off < tol) found.push({ at: node, dir: { x: d.x / len, y: d.y / len } });
+          }
         }
       }
     }
     const seen = new Set();
     return found.filter((g) => {
-      const key = `${g.axis}${g.at.toFixed(1)}`;
+      const key = `${g.at.x.toFixed(1)},${g.at.y.toFixed(1)},${g.dir.x.toFixed(2)}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
