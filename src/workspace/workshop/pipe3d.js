@@ -575,15 +575,23 @@ export function projectedNodes(lines, mmPerPoint, options = {}) {
     raw.set(seg.key2, project(seg.p2));
   }
 
-  // anchor the projection on the sketch so the drawing stays where it was
-  const firstKey = key2D(lines[0].start);
-  const anchor = raw.get(firstKey);
-  if (!anchor) return out;
-  const dx = lines[0].start.x - anchor.x;
-  const dy = lines[0].start.y - anchor.y;
-  for (const [key, point] of raw) {
-    out.set(key, { x: point.x + dx, y: point.y + dy });
+  // v2.61 The projection needs a translation to sit where the sketch does.
+  // Deriving it from the first line every frame made that line special:
+  // dragging it slid the whole drawing, and the run then followed the sketch
+  // delta rather than the world, so the geometry was wrong once the view came
+  // back. The caller holds the translation steady across edits and only lets
+  // it be recomputed when the viewpoint itself changes.
+  let shift = options.translate;
+  if (!shift) {
+    const firstKey = key2D(lines[0].start);
+    const anchor = raw.get(firstKey);
+    if (!anchor) return out;
+    shift = { x: lines[0].start.x - anchor.x, y: lines[0].start.y - anchor.y };
   }
+  for (const [key, point] of raw) {
+    out.set(key, { x: point.x + shift.x, y: point.y + shift.y });
+  }
+  out.translate = shift;                      // so the caller can hold on to it
   return out;
 }
 

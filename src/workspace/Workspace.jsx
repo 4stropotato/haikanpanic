@@ -129,6 +129,8 @@ export default function Workspace() {
   const labelDrag = useRef(null);
   const panDrag = useRef(null);
   const zoomDrag = useRef(null);
+  const translate = useRef(null);           // v2.61 projection offset, per viewpoint
+  const viewStamp = useRef(null);
   const labelAnchors = useRef([]);          // v2.52 filled by DrawLayer after de-overlap
   const lastLabelTap = useRef({ index: -1, at: 0 });
   const [levelTarget, setLevelTarget] = useState(null);                     // v2.39 EL being typed
@@ -381,7 +383,18 @@ export default function Workspace() {
   const view3d = useMemo(() => viewDeltas(mmPerPoint, view), [mmPerPoint, view]);
 
   const projection = useMemo(
-    () => projectedNodes(lines, mmPerPoint, { view }),
+    () => {
+      // v2.61 One translation per viewpoint, held while the drawing is
+      // edited — otherwise moving a run drags every other run with it.
+      const stamp = `${view.yawDeg},${view.pitchDeg},${mmPerPoint}`;
+      if (viewStamp.current !== stamp) {
+        viewStamp.current = stamp;
+        translate.current = null;
+      }
+      const map = projectedNodes(lines, mmPerPoint, { view, translate: translate.current });
+      if (!translate.current && map.translate) translate.current = map.translate;
+      return map;
+    },
     [lines, mmPerPoint, view],
   );
   const homeView = Math.abs(view.yawDeg - ISO_YAW) < 0.5
@@ -684,7 +697,9 @@ export default function Workspace() {
     // v2.54 The drag happens in the view on screen; the drawing is stored in
     // sketch space. Reading it back through the viewpoint is what keeps a
     // pull to the right going right after the model has been turned.
-    const world = view3d.screenToWorld(point.x - drag.origin.x, point.y - drag.origin.y);
+    const dxScreen = point.x - drag.origin.x;
+    const dyScreen = point.y - drag.origin.y;
+    const world = view3d.screenToWorld(dxScreen, dyScreen);
     const shift = horizontalTo2D(world.x, world.z, mmPerPoint / pointStep);
     const wanted = { x: anchorBase.x + shift.x, y: anchorBase.y + shift.y };
     const snapped = snapWorkspaceToGrid(wanted);                            // stay on the lattice
