@@ -168,12 +168,34 @@ export const SelectIcon = () => (
   </svg>
 );
 
-// v2.46 turn-the-view icon
-export const TurnIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 12a9 9 0 0 1 15.5-6.2"/>
-    <polyline points="19 2 19 7 14 7"/>
-    <path d="M21 12a9 9 0 0 1-15.5 6.2"/>
-    <polyline points="5 22 5 17 10 17"/>
+// v2.47 view controls: turn either way, or look straight down
+export const TurnLeftIcon = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 12a9 9 0 1 0-3.2 6.9"/>
+    <polyline points="3 6 3 12 9 12"/>
+  </svg>
+);
+
+export const TurnRightIcon = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 12a9 9 0 1 1 3.2 6.9"/>
+    <polyline points="21 6 21 12 15 12"/>
+  </svg>
+);
+
+export const PlanIcon = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="4" y="8" width="16" height="12" rx="1.5"/>
+    <path d="M12 2v4"/>
+    <polyline points="9.5 4.5 12 6.5 14.5 4.5"/>
+  </svg>
+);
+
+// v2.48 free-orbit icon
+export const OrbitIcon = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <circle cx="12" cy="12" r="3.2"/>
+    <ellipse cx="12" cy="12" rx="10" ry="4.5"/>
+    <ellipse cx="12" cy="12" rx="4.5" ry="10"/>
   </svg>
 );

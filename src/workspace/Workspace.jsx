@@ -25,6 +25,7 @@ import {
 } from "./utils/geometry";                                                  // [v1.10] math utilities
 import {
   nodeElevations, jointAngles, projectedNodes, runMetrics,
+  ISO_YAW, ISO_PITCH,
 } from "./workshop/pipe3d";                                                // v2.16 freeze height on move
 import {
   findSegmentAt, setSegmentLength, connectedIndices, overlappingRuns,
@@ -145,7 +146,9 @@ export default function Workspace() {
   });
   const [showCutList, setShowCutList] = useState(() => new URLSearchParams(window.location.search).has("cutlist")); // v2.07 材料表 sheet
   const [showGL, setShowGL] = useState(true);                               // v2.07 GL/EL in 2D
-  const [view, setView] = useState({ yaw: 0, below: false });               // v2.46 look from elsewhere
+  const [view, setView] = useState({ yawDeg: ISO_YAW, pitchDeg: ISO_PITCH }); // v2.46 look from elsewhere
+  const [orbitMode, setOrbitMode] = useState(false);                        // v2.48 drag to turn
+  const orbitDrag = useRef(null);
   const [detail, setDetail] = useState(                                     // v2.33 full / normal / eco
     () => new URLSearchParams(window.location.search).get("detail")
       || localStorage.getItem("haikan-detail") || "normal",
@@ -183,6 +186,32 @@ export default function Workspace() {
   useEffect(() => {
     viewRef.current = { zoom, offset };                                     // v2.12 keep the ref current
   }, [zoom, offset]);
+
+  // v2.48 Drags follow the pointer even when it leaves the canvas, so a
+  // gesture is never dropped halfway.
+  useEffect(() => {
+    const onMove = (e) => {
+      if (orbitDrag.current) orbitMove(e.clientX, e.clientY);
+      else if (levelDrag.current) levelMove(e.clientY);
+      else if (pipeDrag.current) pipeMove(e.clientX, e.clientY);
+      else if (planeDrag.current) planeMove(e.clientX, e.clientY);
+      else if (marqueeRef.current) marqueeMove(e.clientX, e.clientY);
+    };
+    const onUp = () => {
+      if (marqueeRef.current) marqueeEnd();
+      orbitDrag.current = null;
+      levelDrag.current = null;
+      pipeDrag.current = null;
+      planeDrag.current = null;
+      setMoveReadout(null);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  });
 
   useEffect(() => {                                                         // v2.22 Escape abandons the line
     const onKey = (e) => { if (e.key === "Escape") cancelDraw(); };
@@ -307,7 +336,8 @@ export default function Workspace() {
     () => projectedNodes(lines, mmPerPoint, { view }),
     [lines, mmPerPoint, view],
   );
-  const homeView = view.yaw === 0 && !view.below;
+  const homeView = Math.abs(view.yawDeg - ISO_YAW) < 0.5
+    && Math.abs(view.pitchDeg - ISO_PITCH) < 0.5;
   const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
   const viewLines = useMemo(() => lines.map((line) => ({
     ...line,
@@ -420,6 +450,24 @@ export default function Workspace() {
       origin: point,
       base: lines.map((line) => ({ start: { ...line.start }, end: { ...line.end } })),
     };
+    return true;
+  };
+
+  // v2.48 Orbit: tap the turn control, then drag — sideways spins the view,
+  // up and down tips it. The same gesture a CAD viewport uses.
+  const orbitStart = (clientX, clientY) => {
+    if (!orbitMode) return false;
+    orbitDrag.current = { x: clientX, y: clientY, yaw: view.yawDeg, pitch: view.pitchDeg };
+    return true;
+  };
+
+  const orbitMove = (clientX, clientY) => {
+    const drag = orbitDrag.current;
+    if (!drag) return false;
+    setView({
+      yawDeg: drag.yaw + ((clientX - drag.x) * 0.4),
+      pitchDeg: Math.max(-89, Math.min(89, drag.pitch - ((clientY - drag.y) * 0.4))),
+    });
     return true;
   };
 
@@ -544,6 +592,11 @@ export default function Workspace() {
   };
 
   const handleTouchMove = (e) => {
+    if (orbitDrag.current && e.touches.length === 1) {
+      e.preventDefault();
+      orbitMove(e.touches[0].clientX, e.touches[0].clientY);
+      return;
+    }
     if (levelDrag.current && e.touches.length === 1) {
       e.preventDefault();
       levelMove(e.touches[0].clientY);
@@ -594,6 +647,9 @@ export default function Workspace() {
   };
 
   const handleTouchStart = (e) => {
+    if (e.touches.length === 1 && orbitStart(e.touches[0].clientX, e.touches[0].clientY)) {
+      return;                                                              // v2.48 turning the view
+    }
     if (e.touches.length === 1 && levelGrab(e.touches[0].clientX, e.touches[0].clientY)) {
       setPast((stack) => [...stack.slice(-49), lines]);                    // v2.38 one entry per drag
       setFuture([]);
@@ -616,6 +672,7 @@ export default function Workspace() {
   };
 
   const handleTouchEnd = () => {
+    if (orbitDrag.current) { orbitDrag.current = null; return; }
     if (levelDrag.current) { levelDrag.current = null; setMoveReadout(null); return; }
     if (pipeDrag.current) { pipeDrag.current = null; setMoveReadout(null); return; }
     if (planeDrag.current) { planeDrag.current = null; return; }
@@ -805,6 +862,8 @@ export default function Workspace() {
     view,                                                                  // v2.46 viewpoint
     setView,
     homeView,
+    orbitMode,                                                             // v2.48 drag to turn
+    setOrbitMode,
     showJointMarks,                                                        // v2.26 fitting circles
     setShowJointMarks,
     detail,                                                                // v2.33 display detail
@@ -825,17 +884,20 @@ export default function Workspace() {
         <div
           className="workspace"
           ref={workspaceRef}
-          onMouseDown={(e) => levelGrab(e.clientX, e.clientY)
+          onMouseDown={(e) => orbitStart(e.clientX, e.clientY)
+            || levelGrab(e.clientX, e.clientY)
             || pipeGrab(e.clientX, e.clientY)
             || planeGrab(e.clientX, e.clientY)
             || marqueeStart(e.clientX, e.clientY)}
           onMouseMove={(e) => {
-            if (levelDrag.current) levelMove(e.clientY);
+            if (orbitDrag.current) orbitMove(e.clientX, e.clientY);
+            else if (levelDrag.current) levelMove(e.clientY);
             else if (pipeDrag.current) pipeMove(e.clientX, e.clientY);
             else if (planeDrag.current) planeMove(e.clientX, e.clientY);
             else if (marqueeRef.current) marqueeMove(e.clientX, e.clientY);
           }}
           onMouseUp={() => {
+            orbitDrag.current = null;
             levelDrag.current = null;
             pipeDrag.current = null;
             setMoveReadout(null);

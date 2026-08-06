@@ -8,7 +8,7 @@
 
 import { useContext, useState, useEffect } from "react";
 import { WorkspaceContext } from "../workspace/WorkspaceContext";
-import { SunIcon, MoonIcon, GridIcon, CrosshairIcon, MagnifierIcon, RotateIcon, GlobeIcon, CheckIcon, SendToStudioIcon, PencilIcon, MoreIcon, CubeIcon, ListIcon, EraserIcon, MoveIcon, RedoIcon, PencilDrawIcon, SelectIcon, TurnIcon } from "./Icons";
+import { SunIcon, MoonIcon, GridIcon, CrosshairIcon, MagnifierIcon, RotateIcon, GlobeIcon, CheckIcon, SendToStudioIcon, PencilIcon, MoreIcon, CubeIcon, ListIcon, EraserIcon, MoveIcon, RedoIcon, PencilDrawIcon, SelectIcon, TurnLeftIcon, TurnRightIcon, PlanIcon, OrbitIcon } from "./Icons";
 import { buildStudioHandoff, encodeHandoff } from "../workspace/utils/handoff";
 
 const translations = {
@@ -26,7 +26,10 @@ const translations = {
     edit: "Edit",
     erase: "Erase",
     select: "Select",
-    viewTurn: "Turn view",
+    viewOrbit: "Orbit — drag to turn",
+    viewLeft: "Turn left",
+    viewRight: "Turn right",
+    viewPlan: "Plan view",
     viewBelow: "From below",
     viewHome: "Home view",
     viewing: "Viewing — tap to return",
@@ -67,7 +70,10 @@ const translations = {
     edit: "編集",
     erase: "消去",
     select: "選択",
-    viewTurn: "視点を回す",
+    viewOrbit: "自由回転 — ドラッグ",
+    viewLeft: "左に回す",
+    viewRight: "右に回す",
+    viewPlan: "平面図",
     viewBelow: "下から見る",
     viewHome: "標準視点",
     viewing: "閲覧中 — タップで戻る",
@@ -142,6 +148,8 @@ export default function TopBar() {
     view,
     setView,
     homeView,
+    orbitMode,
+    setOrbitMode,
     detail,
     setDetail,
     glEditPlane,
@@ -192,13 +200,6 @@ export default function TopBar() {
             <RedoIcon />
           </button>
           <button
-            className={"top-btn" + (homeView ? "" : " on")}
-            onClick={() => setView((v) => ({ ...v, yaw: (v.yaw + 1) % 4 }))}
-            aria-label={t.viewTurn}
-          >
-            <TurnIcon />
-          </button>
-          <button
             className={"top-btn" + (showGrid ? " on" : "")}
             onClick={() => setShowGrid((g) => !g)}
             aria-label={t.grid}
@@ -215,6 +216,45 @@ export default function TopBar() {
         </div>
       </div>
 
+      {/* v2.47 View controls sit with Workshop, under the top bar, the way
+          a CAD viewport keeps its orbit buttons together. */}
+      <div className="view-tools">
+        <button
+          className={"view-btn" + (orbitMode ? " on" : "")}
+          onClick={() => setOrbitMode(!orbitMode)}
+          aria-label={t.viewOrbit}
+        >
+          <OrbitIcon />
+        </button>
+        <button
+          className="view-btn"
+          onClick={() => setView((v) => ({ ...v, yawDeg: v.yawDeg - 90 }))}
+          aria-label={t.viewLeft}
+        >
+          <TurnLeftIcon />
+        </button>
+        <button
+          className="view-btn"
+          onClick={() => setView((v) => ({ ...v, yawDeg: v.yawDeg + 90 }))}
+          aria-label={t.viewRight}
+        >
+          <TurnRightIcon />
+        </button>
+        <button
+          className={"view-btn" + (Math.abs(view.pitchDeg) > 80 ? " on" : "")}
+          onClick={() => setView((v) => ({
+            ...v,
+            pitchDeg: v.pitchDeg > 80 ? -89 : (v.pitchDeg < -80 ? 35.264 : 89),
+          }))}
+          aria-label={t.viewPlan}
+        >
+          <PlanIcon />
+          <span className="view-tag">
+            {view.pitchDeg > 80 ? "TOP" : (view.pitchDeg < -80 ? "BTM" : "ISO")}
+          </span>
+        </button>
+      </div>
+
       {/* v2.25 Workshop lives on its own, off the crowded dock */}
       <button
         className="workshop-fab"
@@ -226,7 +266,7 @@ export default function TopBar() {
       </button>
 
       {!homeView && (
-        <button className="view-badge" onClick={() => setView({ yaw: 0, below: false })}>
+        <button className="view-badge" onClick={() => { setView({ yawDeg: 45, pitchDeg: 35.264 }); setOrbitMode(false); }}>
           {t.viewing}
         </button>
       )}
@@ -346,13 +386,7 @@ export default function TopBar() {
             <div className="sheet-hint">{t.detailNote}</div>
             <button
               className="sheet-btn"
-              onClick={() => setView((v) => ({ ...v, below: !v.below }))}
-            >
-              <CubeIcon /> <span>{t.viewBelow}</span> {view.below && <CheckIcon />}
-            </button>
-            <button
-              className="sheet-btn"
-              onClick={() => setView({ yaw: 0, below: false })}
+              onClick={() => setView({ yawDeg: 45, pitchDeg: 35.264 })}
               disabled={homeView}
             >
               <CrosshairIcon /> <span>{t.viewHome}</span>

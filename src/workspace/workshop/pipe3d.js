@@ -15,6 +15,9 @@ import { pointStep } from "../utils/constants";
 const EPS = 1e-6;
 const GASKET_MM = 3;            // JIS 10K non-asbestos sheet, per joint
 const ISO_UX = Math.cos(-Math.PI / 6);   // screen x of the +X ground axis
+export const ISO_YAW = 45;               // the isometric viewpoint
+export const ISO_PITCH = 35.264;
+const VIEW_K = 1 / Math.cos((ISO_PITCH * Math.PI) / 180);  // keeps the home view's scale
 
 const sub = (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
 const add = (a, b) => ({ x: a.x + b.x, y: a.y + b.y, z: a.z + b.z });
@@ -520,25 +523,25 @@ export function projectedNodes(lines, mmPerPoint, options = {}) {
   const segments = placeNodes(lines, mmPerPoint, 60);
   // v2.46 The viewpoint turns the world before it is projected, so the same
   // model can be read from the far side, or from above or below.
-  const yaw = ((options.view?.yaw ?? 0) % 4 + 4) % 4;
-  const below = Boolean(options.view?.below);
-  const turn = (p) => {
-    const { x, z } = p;
-    const spun = [
-      { x, z },
-      { x: -z, z: x },
-      { x: -x, z: -z },
-      { x: z, z: -x },
-    ][yaw];
-    return { x: spun.x, y: below ? -p.y : p.y, z: spun.z };
-  };
+  // v2.48 The viewpoint is a free orbit now: yaw turns the world, pitch
+  // tips it. The defaults are the true isometric angles, so the home view
+  // is exactly what it always was.
+  const yaw = ((options.view?.yawDeg ?? ISO_YAW) * Math.PI) / 180;
+  const pitch = ((options.view?.pitchDeg ?? ISO_PITCH) * Math.PI) / 180;
+  const cy = Math.cos(yaw);
+  const sy = Math.sin(yaw);
+  const cp = Math.cos(pitch);
+  const sp = Math.sin(pitch);
 
   const pxPerMm = pointStep / mmPerPoint;
-  const project = (raw) => {
-    const p = turn(raw);
+  // iso is the working view; top and bottom are the plan views a fitter
+  // reaches for when the run has to be read square-on
+  const project = (p) => {
+    const x = (p.x * cy) + (p.z * sy);
+    const z = (-p.x * sy) + (p.z * cy);
     return {
-      x: ISO_UX * (p.x + p.z) * pxPerMm,
-      y: ((0.5 * (p.z - p.x)) - p.y) * pxPerMm,
+      x: VIEW_K * x * pxPerMm,
+      y: VIEW_K * ((z * sp) - (p.y * cp)) * pxPerMm,
     };
   };
 
