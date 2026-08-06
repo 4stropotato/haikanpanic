@@ -244,3 +244,15 @@ export const TagIcon = () => (
     <circle cx="16.5" cy="7.5" r="1.4" />
   </svg>
 );
+
+// v2.87 Compass: a plan arrow that points where you are standing, so the
+// button says which way the model is facing instead of just "turn".
+export const CompassIcon = ({ deg = 0 }) => (
+  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+    strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="8.6" />
+    <g transform={`rotate(${deg} 12 12)`}>
+      <path d="M12 5.4 L14.6 13 L12 11.4 L9.4 13 Z" fill="currentColor" />
+    </g>
+  </svg>
+);

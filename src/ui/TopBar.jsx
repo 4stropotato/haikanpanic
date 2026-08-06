@@ -11,7 +11,7 @@ import { WorkspaceContext } from "../workspace/WorkspaceContext";
 import { HandIcon, ZoomIcon, ExpandIcon, ShrinkIcon } from "./Icons";                              // v2.58 one-handed drafting
 import { LABEL_FIELDS, LABEL_TEXT } from "../workspace/utils/labelFields"; // v2.51
 import { ISO_YAW, ISO_PITCH } from "../workspace/workshop/pipe3d";        // v2.55 the home tilt
-import { SunIcon, MoonIcon, GridIcon, CrosshairIcon, MagnifierIcon, RotateIcon, GlobeIcon, CheckIcon, SendToStudioIcon, PencilIcon, MoreIcon, CubeIcon, ListIcon, EraserIcon, MoveIcon, RedoIcon, PencilDrawIcon, SelectIcon, TurnLeftIcon, TurnRightIcon, OrbitIcon } from "./Icons";
+import { SunIcon, MoonIcon, GridIcon, CrosshairIcon, MagnifierIcon, RotateIcon, GlobeIcon, CheckIcon, SendToStudioIcon, PencilIcon, MoreIcon, CubeIcon, ListIcon, EraserIcon, MoveIcon, RedoIcon, PencilDrawIcon, SelectIcon, TurnLeftIcon, TurnRightIcon, OrbitIcon, CompassIcon } from "./Icons";
 import { buildStudioHandoff, encodeHandoff } from "../workspace/utils/handoff";
 
 const translations = {
@@ -31,6 +31,7 @@ const translations = {
     select: "Select",
     viewOrbit: "Orbit — drag to turn",
     viewLeft: "Turn left",
+    viewTurn: "Turn a quarter",
     viewRight: "Turn right",
     viewBelow: "From below",
     viewHome: "Home view",
@@ -92,6 +93,7 @@ const translations = {
     select: "選択",
     viewOrbit: "自由回転 — ドラッグ",
     viewLeft: "左に回す",
+    viewTurn: "90度回す",
     viewRight: "右に回す",
     viewBelow: "下から見る",
     viewHome: "標準視点",
@@ -281,19 +283,17 @@ export default function TopBar() {
         >
           <OrbitIcon />
         </button>
-        <button
-          className="view-btn"
-          onClick={() => setView((v) => ({ ...v, yawDeg: v.yawDeg - 90 }))}
-          aria-label={t.viewLeft}
-        >
-          <TurnLeftIcon />
-        </button>
+        {/* v2.87 One turn button, and it says where you are standing. Two
+            identical curved arrows told you nothing about the view; a
+            compass that points the way the model faces, with the angle
+            written under it, does. Free orbit is the button beside it. */}
         <button
           className="view-btn"
           onClick={() => setView((v) => ({ ...v, yawDeg: v.yawDeg + 90 }))}
-          aria-label={t.viewRight}
+          aria-label={t.viewTurn}
         >
-          <TurnRightIcon />
+          <CompassIcon deg={view.yawDeg - 45} />
+          <span className="view-tag">{Math.round(((view.yawDeg % 360) + 360) % 360)}°</span>
         </button>
         {/* v2.55 No plan button. An isometric already shows what rises and
             what drops, so a top or bottom view is a different drawing, not a
