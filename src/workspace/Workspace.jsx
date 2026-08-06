@@ -26,6 +26,7 @@ import {
 import {
   nodeElevations, jointAngles, projectedNodes, runMetrics,
   ISO_YAW, ISO_PITCH,
+  viewDeltas,                                                            // v2.54 drag in the view on screen
 } from "./workshop/pipe3d";                                                // v2.16 freeze height on move
 import {
   findSegmentAt, setSegmentLength, connectedIndices, overlappingRuns,
@@ -38,7 +39,9 @@ import {
 import GlSheet from "../ui/GlSheet";
 import LevelSheet from "../ui/LevelSheet";
 import AngleSheet from "../ui/AngleSheet";
+import { isoDeltaTo3D, horizontalTo2D } from "./utils/handoff"; // v2.53 plan angles
 import { loadDatums, saveDatums, makeDatum, datumFor } from "./utils/datums";
+import { loadLabelFields, LABEL_HOME } from "./utils/labelFields";                    // v2.51 label contents
 import { findJointAt, jointSettingOf } from "./utils/joints";               // v2.10 corner fittings
 import JointSheet from "../ui/JointSheet";
 import { zoomMin, zoomMax, pointStep } from "./utils/constants";                       // [v1.10] zoom range constants
@@ -112,6 +115,9 @@ export default function Workspace() {
   const [eraseMode, setEraseMode] = useState(false);                        // v2.08 tap a line to delete it
   const [moveMode, setMoveMode] = useState(() => new URLSearchParams(window.location.search).has("move")); // v2.16 drag runs across the ground
   const [selectMode, setSelectMode] = useState(false);                      // v2.37 its own tool
+  // v2.59 One dock slot holds both view gestures: a phone has no room for
+  // eight tools, and pan and zoom are the same job — moving the paper.
+  const [viewTool, setViewTool] = useState(null);                           // null | "pan" | "zoom"
   const [selection, setSelection] = useState([]);                           // v2.29 selected line indices
   const [marquee, setMarquee] = useState(null);                             // v2.29 rubber band box
   const [moveReadout, setMoveReadout] = useState(null);                     // v2.32 X / Y / EL while dragging
@@ -120,6 +126,11 @@ export default function Workspace() {
   const [future, setFuture] = useState([]);                                 // v2.17 redo stack
   const pipeDrag = useRef(null);
   const levelDrag = useRef(null);
+  const labelDrag = useRef(null);
+  const panDrag = useRef(null);
+  const zoomDrag = useRef(null);
+  const labelAnchors = useRef([]);          // v2.52 filled by DrawLayer after de-overlap
+  const lastLabelTap = useRef({ index: -1, at: 0 });
   const [levelTarget, setLevelTarget] = useState(null);                     // v2.39 EL being typed
   const [angleTarget, setAngleTarget] = useState(null);                     // v2.43 slope being typed
   const [jointTypes, setJointTypes] = useState(() => {                      // v2.10 corner fittings
@@ -153,6 +164,18 @@ export default function Workspace() {
     () => new URLSearchParams(window.location.search).get("detail")
       || localStorage.getItem("haikan-detail") || "normal",
   );
+  const [labelFields, setLabelFields] = useState(loadLabelFields);          // v2.51 label contents
+  const [labelAvoid, setLabelAvoid] = useState(                             // v2.56 keep labels apart
+    () => localStorage.getItem("haikan-label-avoid") !== "0",
+  );
+  const [labelFlat, setLabelFlat] = useState(                               // v2.57 directional or level
+    () => localStorage.getItem("haikan-label-flat") === "1",
+  );
+  const [elOffsets, setElOffsets] = useState(() => {                        // v2.57 moved EL callouts
+    try {
+      return JSON.parse(localStorage.getItem("haikan-el-offsets")) ?? {};
+    } catch { return {}; }                     // a stale value is not worth a crash
+  });
   const [showJointMarks, setShowJointMarks] = useState(                     // v2.26 L/T circles
     () => localStorage.getItem("haikan-joint-marks") !== "off",
   );
@@ -192,6 +215,9 @@ export default function Workspace() {
   useEffect(() => {
     const onMove = (e) => {
       if (orbitDrag.current) orbitMove(e.clientX, e.clientY);
+      else if (panDrag.current) panMove(e.clientX, e.clientY);
+      else if (zoomDrag.current) zoomMove(e.clientX, e.clientY);
+      else if (labelDrag.current) labelMove(e.clientX, e.clientY);
       else if (levelDrag.current) levelMove(e.clientY);
       else if (pipeDrag.current) pipeMove(e.clientX, e.clientY);
       else if (planeDrag.current) planeMove(e.clientX, e.clientY);
@@ -200,6 +226,9 @@ export default function Workspace() {
     const onUp = () => {
       if (marqueeRef.current) marqueeEnd();
       orbitDrag.current = null;
+      panDrag.current = null;
+      zoomDrag.current = null;
+      labelDrag.current = null;
       levelDrag.current = null;
       pipeDrag.current = null;
       planeDrag.current = null;
@@ -230,6 +259,22 @@ export default function Workspace() {
   useEffect(() => {
     localStorage.setItem("haikan-scale-mmpp", String(mmPerPoint));          // [v1.17] persist scale
   }, [mmPerPoint]);
+
+  useEffect(() => {
+    localStorage.setItem("haikan-label-fields", JSON.stringify(labelFields)); // v2.51 label contents
+  }, [labelFields]);
+
+  useEffect(() => {
+    localStorage.setItem("haikan-label-avoid", labelAvoid ? "1" : "0");     // v2.56
+  }, [labelAvoid]);
+
+  useEffect(() => {
+    localStorage.setItem("haikan-label-flat", labelFlat ? "1" : "0");       // v2.57
+  }, [labelFlat]);
+
+  useEffect(() => {
+    localStorage.setItem("haikan-el-offsets", JSON.stringify(elOffsets));   // v2.57
+  }, [elOffsets]);
 
   // v2.19 Fit a plane to the drawing once, when it is first created. After
   // that it holds its footprint, so drawing or dragging a pipe never moves
@@ -332,6 +377,9 @@ export default function Workspace() {
   // v2.40 The sketch is the input; the model is the truth; the drawing shows
   // the model. Once a run slopes, where it is drawn and where it can be
   // touched both have to come from the solved geometry, not the raw sketch.
+  // v2.54 the current viewpoint, as the two conversions a drag needs
+  const view3d = useMemo(() => viewDeltas(mmPerPoint, view), [mmPerPoint, view]);
+
   const projection = useMemo(
     () => projectedNodes(lines, mmPerPoint, { view }),
     [lines, mmPerPoint, view],
@@ -362,6 +410,126 @@ export default function Workspace() {
   // sideways drag should change. The elevation is frozen on the anchor line
   // at grab time, because an unfrozen piece takes its height from where it
   // sits on screen.
+  // v2.50 A label can be slid along its run and flipped to either side.
+  // v2.58 The hand tool. Drafting in the field is done one-handed — the
+  // other hand is on the tape — so sliding the sheet has to be a plain drag,
+  // not a two-finger gesture.
+  const panGrab = (clientX, clientY) => {
+    if (viewTool !== "pan") return false;
+    panDrag.current = { x: clientX, y: clientY, offset };
+    return true;
+  };
+
+  const panMove = (clientX, clientY) => {
+    const drag = panDrag.current;
+    if (!drag) return false;
+    setOffset({
+      x: drag.offset.x + (clientX - drag.x),
+      y: drag.offset.y + (clientY - drag.y),
+    });
+    return true;
+  };
+
+  // v2.59 Drag up to come closer, down to pull back, and the spot under the
+  // finger stays put — you zoom into what you were already looking at.
+  const zoomGrab = (clientX, clientY) => {
+    if (viewTool !== "zoom") return false;
+    zoomDrag.current = { y: clientY, anchorX: clientX, anchorY: clientY, zoom, offset };
+    return true;
+  };
+
+  const zoomMove = (clientX, clientY) => {
+    const drag = zoomDrag.current;
+    if (!drag) return false;
+    const next = Math.max(0.25, Math.min(6, drag.zoom * Math.exp((drag.y - clientY) * 0.006)));
+    const applied = next / drag.zoom;
+    const cx = viewport.w / 2;
+    const cy = viewport.h / 2;
+    setZoom(next);
+    setOffset({
+      x: ((drag.anchorX - cx) * (1 - applied)) + (drag.offset.x * applied),
+      y: ((drag.anchorY - cy) * (1 - applied)) + (drag.offset.y * applied),
+    });
+    return true;
+  };
+
+  const labelGrab = (clientX, clientY) => {
+    if (!moveMode || !lines.length) return false;
+    const point = toWorkspace(clientX, clientY);
+    for (const anchor of labelAnchors.current) {
+      if (Math.hypot(point.x - anchor.x, point.y - anchor.y) > 20 / zoom) continue;
+
+      // v2.52 A second tap on a label puts it back where it belongs, which
+      // is quicker than dragging it home by eye.
+      const now = Date.now();
+      const id = anchor.kind === "el" ? anchor.key : anchor.index;
+      const tap = lastLabelTap.current;
+      if (tap.index === id && now - tap.at < 400) {
+        lastLabelTap.current = { index: -1, at: 0 };
+        if (anchor.kind === "el") {
+          setElOffsets(({ [anchor.key]: gone, ...rest }) => rest);
+        } else {
+          commitLines(lines.map((line, i) => {
+            if (i !== anchor.index) return line;
+            const { label, ...rest } = line;
+            return rest;
+          }));
+        }
+        return true;
+      }
+      lastLabelTap.current = { index: id, at: now };
+
+      if (anchor.kind === "el") {
+        // an EL callout is annotation, not geometry: moving it is not an
+        // edit to the drawing, so it stays out of the undo stack
+        labelDrag.current = {
+          kind: "el",
+          key: anchor.key,
+          anchor,
+          origin: point,
+          place: elOffsets[anchor.key] ?? { along: anchor.homeAlong ?? 0.35, across: -5 },
+        };
+        return true;
+      }
+
+      setPast((stack) => [...stack.slice(-49), lines]);                    // v2.50 one entry per drag
+      setFuture([]);
+      labelDrag.current = {
+        index: anchor.index,
+        anchor,
+        origin: point,
+        place: lines[anchor.index].label ?? LABEL_HOME,
+      };
+      return true;
+    }
+    return false;
+  };
+
+  const labelMove = (clientX, clientY) => {
+    const drag = labelDrag.current;
+    if (!drag) return false;
+    const point = toWorkspace(clientX, clientY);
+    const dx = point.x - drag.origin.x;
+    const dy = point.y - drag.origin.y;
+    const { ux, uy, len, flip } = drag.anchor;
+    const along = drag.place.along + ((((dx * ux) + (dy * uy)) * flip) / len);
+    const across = drag.place.across + (((-dx * uy) + (dy * ux)) * flip * zoom);
+    if (drag.kind === "el") {
+      // the callout slides down its own leader and out to either side
+      const lead = drag.anchor;
+      const down = drag.place.along + (((dx * lead.leadX) + (dy * lead.leadY)) / len);
+      setElOffsets((map) => ({
+        ...map,
+        [drag.key]: { along: Math.max(-0.2, Math.min(1.2, down)), across },
+      }));
+      return true;
+    }
+    setLines(lines.map((line, i) => (i === drag.index
+      ? { ...line, label: { along: Math.max(-0.45, Math.min(0.45, along)), across } }
+      : line)));
+    return true;
+  };
+
   // v2.38 An endpoint in Move mode is a level handle: dragging it up or
   // down sets that node's elevation, which makes the run slope between two
   // known levels instead of forcing the whole chain to move.
@@ -413,8 +581,7 @@ export default function Workspace() {
   const levelMove = (clientY) => {
     const drag = levelDrag.current;
     if (!drag) return false;
-    const mmPerPx = mmPerPoint / pointStep;
-    const raw = drag.startEl + ((drag.startY - clientY) / zoom) * mmPerPx;
+    const raw = drag.startEl + ((drag.startY - clientY) / zoom) * view3d.risePerPx;
     const value = Math.round(raw / 10) * 10;
     const ref = datumFor(value, datums);
     setMoveReadout({
@@ -466,7 +633,9 @@ export default function Workspace() {
     if (!drag) return false;
     setView({
       yawDeg: drag.yaw + ((clientX - drag.x) * 0.4),
-      pitchDeg: Math.max(-89, Math.min(89, drag.pitch - ((clientY - drag.y) * 0.4))),
+      // v2.55 Hold the tilt short of straight down: at 90° every vertical
+      // run collapses to a dot, which is a plan view — a different drawing.
+      pitchDeg: Math.max(-80, Math.min(80, drag.pitch - ((clientY - drag.y) * 0.4))),
     });
     return true;
   };
@@ -512,10 +681,12 @@ export default function Workspace() {
     if (!drag) return false;
     const point = toWorkspace(clientX, clientY);
     const anchorBase = drag.base[drag.anchorIndex].start;
-    const wanted = {
-      x: anchorBase.x + (point.x - drag.origin.x),
-      y: anchorBase.y + (point.y - drag.origin.y),
-    };
+    // v2.54 The drag happens in the view on screen; the drawing is stored in
+    // sketch space. Reading it back through the viewpoint is what keeps a
+    // pull to the right going right after the model has been turned.
+    const world = view3d.screenToWorld(point.x - drag.origin.x, point.y - drag.origin.y);
+    const shift = horizontalTo2D(world.x, world.z, mmPerPoint / pointStep);
+    const wanted = { x: anchorBase.x + shift.x, y: anchorBase.y + shift.y };
     const snapped = snapWorkspaceToGrid(wanted);                            // stay on the lattice
     const dx = snapped.x - anchorBase.x;
     const dy = snapped.y - anchorBase.y;
@@ -597,6 +768,21 @@ export default function Workspace() {
       orbitMove(e.touches[0].clientX, e.touches[0].clientY);
       return;
     }
+    if (panDrag.current && e.touches.length === 1) {
+      e.preventDefault();
+      panMove(e.touches[0].clientX, e.touches[0].clientY);
+      return;
+    }
+    if (zoomDrag.current && e.touches.length === 1) {
+      e.preventDefault();
+      zoomMove(e.touches[0].clientX, e.touches[0].clientY);
+      return;
+    }
+    if (labelDrag.current && e.touches.length === 1) {
+      e.preventDefault();
+      labelMove(e.touches[0].clientX, e.touches[0].clientY);
+      return;
+    }
     if (levelDrag.current && e.touches.length === 1) {
       e.preventDefault();
       levelMove(e.touches[0].clientY);
@@ -650,6 +836,9 @@ export default function Workspace() {
     if (e.touches.length === 1 && orbitStart(e.touches[0].clientX, e.touches[0].clientY)) {
       return;                                                              // v2.48 turning the view
     }
+    if (e.touches.length === 1 && panGrab(e.touches[0].clientX, e.touches[0].clientY)) return;
+    if (e.touches.length === 1 && zoomGrab(e.touches[0].clientX, e.touches[0].clientY)) return;
+    if (e.touches.length === 1 && labelGrab(e.touches[0].clientX, e.touches[0].clientY)) return;
     if (e.touches.length === 1 && levelGrab(e.touches[0].clientX, e.touches[0].clientY)) {
       setPast((stack) => [...stack.slice(-49), lines]);                    // v2.38 one entry per drag
       setFuture([]);
@@ -673,6 +862,9 @@ export default function Workspace() {
 
   const handleTouchEnd = () => {
     if (orbitDrag.current) { orbitDrag.current = null; return; }
+    if (panDrag.current) { panDrag.current = null; return; }
+    if (zoomDrag.current) { zoomDrag.current = null; return; }
+    if (labelDrag.current) { labelDrag.current = null; return; }
     if (levelDrag.current) { levelDrag.current = null; setMoveReadout(null); return; }
     if (pipeDrag.current) { pipeDrag.current = null; setMoveReadout(null); return; }
     if (planeDrag.current) { planeDrag.current = null; return; }
@@ -699,6 +891,7 @@ export default function Workspace() {
   const handleClick = (e) => {
     if (!homeView) return;                                                 // v2.46 other views are for looking
     if (moveMode) return;                                                  // v2.16 drags, not taps
+    if (viewTool) return;                                                  // v2.58 the hand slides, never draws
     // v2.37 Select mode: a tap adds or removes one run from the selection.
     if (selectMode) {
       const point = {
@@ -733,23 +926,17 @@ export default function Workspace() {
         x: (e.clientX - (viewport.w / 2 + offset.x)) / zoom,
         y: (e.clientY - (viewport.h / 2 + offset.y)) / zoom,
       };
-      // v2.43 a sloped run's own label carries its angle; tapping there
-      // opens the slope rather than the pipe spec
+      // v2.43 a run's own label carries its angles; tapping there opens the
+      // rise and the plan turn rather than the pipe spec
       const metrics = runMetrics(lines, mmPerPoint, { jointTypes });
-      const near = findSegmentAt(point, viewLines, 24 / zoom);
-      if (near >= 0) {
-        const metric = metrics.get(near);
-        const mid = {
-          x: (viewLines[near].start.x + viewLines[near].end.x) / 2,
-          y: (viewLines[near].start.y + viewLines[near].end.y) / 2,
-        };
-        const onLabel = Math.hypot(point.x - mid.x, point.y - mid.y) < 34 / zoom;
-        if (onLabel && metric && Math.abs(metric.slopeDeg) > 0.4 && Math.abs(metric.slopeDeg) < 89.6) {
-          setAngleTarget({ index: near, metric });
-          return;
-        }
+      // v2.54 A label may have been dragged well clear of its run, so it is
+      // looked for on its own before anything is tested against the pipe.
+      const spot = labelAnchors.current
+        .find((a) => a.index >= 0 && Math.hypot(point.x - a.x, point.y - a.y) < 30 / zoom);
+      if (spot) {
+        setAngleTarget({ index: spot.index, metric: metrics.get(spot.index) });
+        return;
       }
-
       // v2.39 the height callout is editable where it is written
       const level = levelLabelAt(point);
       if (level) { setLevelTarget(level); return; }
@@ -843,6 +1030,8 @@ export default function Workspace() {
     setEraseMode,
     moveMode,                                                              // v2.16 move mode
     setMoveMode,
+    viewTool,                                                              // v2.59 pan / zoom
+    setViewTool,
     selectMode,                                                            // v2.37 selection tool
     setSelectMode: (on) => { setSelectMode(on); if (!on) setSelection([]); },
     currentSpec,                                                           // v2.31 spec for new pipes
@@ -864,6 +1053,12 @@ export default function Workspace() {
     homeView,
     orbitMode,                                                             // v2.48 drag to turn
     setOrbitMode,
+    labelFields,                                                           // v2.51 label contents
+    setLabelFields,
+    labelAvoid,                                                            // v2.56 keep labels apart
+    setLabelAvoid,
+    labelFlat,                                                             // v2.57 label orientation
+    setLabelFlat,
     showJointMarks,                                                        // v2.26 fitting circles
     setShowJointMarks,
     detail,                                                                // v2.33 display detail
@@ -885,19 +1080,29 @@ export default function Workspace() {
           className="workspace"
           ref={workspaceRef}
           onMouseDown={(e) => orbitStart(e.clientX, e.clientY)
+            || panGrab(e.clientX, e.clientY)
+            || zoomGrab(e.clientX, e.clientY)
+            || labelGrab(e.clientX, e.clientY)
             || levelGrab(e.clientX, e.clientY)
             || pipeGrab(e.clientX, e.clientY)
             || planeGrab(e.clientX, e.clientY)
             || marqueeStart(e.clientX, e.clientY)}
           onMouseMove={(e) => {
             if (orbitDrag.current) orbitMove(e.clientX, e.clientY);
-            else if (levelDrag.current) levelMove(e.clientY);
+            else if (panDrag.current) panMove(e.clientX, e.clientY);
+            else if (zoomDrag.current) zoomMove(e.clientX, e.clientY);
+            else if (labelDrag.current) labelMove(e.clientX, e.clientY);
+      else if (levelDrag.current) levelMove(e.clientY);
             else if (pipeDrag.current) pipeMove(e.clientX, e.clientY);
             else if (planeDrag.current) planeMove(e.clientX, e.clientY);
             else if (marqueeRef.current) marqueeMove(e.clientX, e.clientY);
           }}
           onMouseUp={() => {
             orbitDrag.current = null;
+            panDrag.current = null;
+            zoomDrag.current = null;
+      zoomDrag.current = null;
+            labelDrag.current = null;
             levelDrag.current = null;
             pipeDrag.current = null;
             setMoveReadout(null);
@@ -926,6 +1131,11 @@ export default function Workspace() {
             moveMode={moveMode}
             jointTypes={jointTypes}
             showJointMarks={showJointMarks}
+            labelFields={labelFields}
+            labelAvoid={labelAvoid}
+            labelFlat={labelFlat}
+            elOffsets={elOffsets}
+            onLabelLayout={(list) => { labelAnchors.current = list; }}
             selection={selection}
             marquee={marquee}
           />
@@ -991,13 +1201,40 @@ export default function Workspace() {
             slopeDeg={angleTarget.metric.slopeDeg}
             lang={localStorage.getItem("haikan-lang") === "jp" ? "jp" : "en"}
             onClose={() => setAngleTarget(null)}
-            onApply={({ horizontalMm, riseMm }) => {
+            onApply={({ horizontalMm, riseMm, planTurnDeg }) => {
               if (!(horizontalMm > 0)) { setAngleTarget(null); return; }
               const els = nodeElevations(lines, mmPerPoint);
-              const startEl = els.get(nodeKey(lines[angleTarget.index].start)) ?? 0;
-              commitLines(lines.map((line, i) => (i === angleTarget.index
+              const target = lines[angleTarget.index];
+              const startEl = els.get(nodeKey(target.start)) ?? 0;
+              let next = lines.map((line, i) => (i === angleTarget.index
                 ? { ...line, lengthMm: horizontalMm, elev2Mm: startEl + riseMm }
-                : line)));
+                : line));
+
+              // v2.53 A turn in plan moves the far end off the six drawn
+              // directions. Whatever hangs off that end travels with it, or
+              // the swing would tear the run apart at the joint.
+              const d = isoDeltaTo3D(target.end.x - target.start.x, target.end.y - target.start.y);
+              if (planTurnDeg && Math.abs(d[2]) < 0.9) {
+                const th = (planTurnDeg * Math.PI) / 180;
+                const cos = Math.cos(th);
+                const sin = Math.sin(th);
+                const wx = d[0];
+                const wz = -d[1];
+                const p = horizontalTo2D(
+                  ((wx * cos) - (wz * sin)) * horizontalMm,
+                  ((wx * sin) + (wz * cos)) * horizontalMm,
+                  mmPerPoint / pointStep,
+                );
+                const newEnd = { x: target.start.x + p.x, y: target.start.y + p.y };
+                const same = (a, b) => Math.hypot(a.x - b.x, a.y - b.y) < 0.001;
+                next = next.map((line) => {
+                  const out = { ...line };
+                  if (same(out.start, target.end)) out.start = newEnd;
+                  if (same(out.end, target.end)) out.end = newEnd;
+                  return out;
+                });
+              }
+              commitLines(next);
               setAngleTarget(null);
             }}
           />
@@ -1126,6 +1363,7 @@ export default function Workspace() {
             glOffsetMm={primary?.offsetMm ?? 0}
             jointTypes={jointTypes}
             detail={detail}
+            labelFlat={labelFlat}
             onEditSegment={setEditTarget}
             onClose={() => setShowWorkshop(false)}
           />

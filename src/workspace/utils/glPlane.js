@@ -48,6 +48,7 @@ export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
       // the drawing may show this node slanted; the datum must follow it
       const drawn = projection?.get(key) ?? point;
       nodes.push({
+        key,                                  // v2.57 so a callout can be moved and remembered
         point: drawn,
         // the drop equals the elevation, so leader length reads as height
         ground: { x: drawn.x, y: drawn.y + (elevation * pxPerMm) },

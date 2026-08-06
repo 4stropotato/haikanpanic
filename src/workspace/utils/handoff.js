@@ -5,6 +5,7 @@
 
 const HANDOFF_VERSION = "0.1.0";
 const EPS = 1e-6;
+export const ISO_UX = Math.cos(-Math.PI / 6);   // screen x of the +X ground axis
 
 // v1.16+ The 6 legal screen directions map to signed 3D axes.
 // Screen y grows downward, so "up" on screen is -PI/2.
@@ -32,6 +33,30 @@ export function isoDirectionTo3D(dxs, dys) {
     }
   }
   return best.v;
+}
+
+// v2.53 The six iso directions are the drawing's convention, not a limit on
+// the pipe. Inverting the projection turns any sketched direction into a real
+// horizontal one, so a 45° branch in plan is as expressible as a rise — and
+// on the six axes this returns exactly what the snapping table returned.
+export function isoDeltaTo3D(dxs, dys) {
+  const len = Math.hypot(dxs, dys);
+  if (len < EPS) return [0, 0, 0];
+  // a run drawn straight up or down the screen is the vertical pipe: that
+  // one direction is the drawing's own, and no plan angle can mean it
+  if (Math.abs(dxs) < 0.02 * Math.abs(dys)) return [0, 0, dys < 0 ? 1 : -1];
+  const x = (dxs / (2 * ISO_UX)) - dys;
+  const y = -((dxs / (2 * ISO_UX)) + dys);
+  const norm = Math.hypot(x, y);
+  return [x / norm, y / norm, 0];
+}
+
+// The way back: a horizontal world delta in mm, as sketch points.
+export function horizontalTo2D(xMm, zMm, scale) {
+  return {
+    x: (ISO_UX * (xMm + zMm)) / scale,
+    y: ((zMm - xMm) / 2) / scale,
+  };
 }
 
 function samePoint(a, b) {

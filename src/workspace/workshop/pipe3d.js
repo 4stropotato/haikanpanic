@@ -4,7 +4,7 @@
 //   elbows    = JIS long-radius bends (swept arc, R = 1.5 x nominal)
 //   reducers  = concentric cones, auto-detected where the size changes
 // Everything is mm. The renderer only draws what this returns.
-import { isoDirectionTo3D } from "../utils/handoff";
+import { isoDeltaTo3D, ISO_UX } from "../utils/handoff";
 import { segmentLengthMm } from "../utils/lengths";
 import {
   pipeSpec, nominalInch, flangeSpec, wallThickness, massPerMetre, material, teeCentreToEnd,
@@ -14,9 +14,8 @@ import { pointStep } from "../utils/constants";
 
 const EPS = 1e-6;
 const GASKET_MM = 3;            // JIS 10K non-asbestos sheet, per joint
-const ISO_UX = Math.cos(-Math.PI / 6);   // screen x of the +X ground axis
 export const ISO_YAW = 45;               // the isometric viewpoint
-export const ISO_PITCH = 35.264;
+export const ISO_PITCH = (Math.atan(Math.SQRT1_2) * 180) / Math.PI;  // exact isometric tilt
 const VIEW_K = 1 / Math.cos((ISO_PITCH * Math.PI) / 180);  // keeps the home view's scale
 
 const sub = (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
@@ -73,7 +72,7 @@ function placeNodes(lines, mmPerPoint, defaultOd) {
     // a zero-length line is a stray tap, not a pipe; it would otherwise add
     // a phantom leg at its corner and turn an elbow into a tee
     if (Math.hypot(line.end.x - line.start.x, line.end.y - line.start.y) < EPS) continue;
-    const d = isoDirectionTo3D(line.end.x - line.start.x, line.end.y - line.start.y);
+    const d = isoDeltaTo3D(line.end.x - line.start.x, line.end.y - line.start.y);
     const lengthMm = line.lengthMm ?? segmentLengthMm(line, mmPerPoint);
     const startKey = key2D(line.start);
     const endKey = key2D(line.end);
@@ -517,6 +516,31 @@ export function jointAngles(lines, mmPerPoint, options = {}) {
 // v2.40 Where each sketch node ends up once the model is solved, projected
 // back to the isometric. A run between two levels then draws at a slant
 // instead of staying locked to one of the six axes.
+// v2.54 Turning the view must not turn the drawing's maths. A drag is read
+// in whatever perspective is on screen and handed back in sketch space, so
+// pulling a run to the right always sends it right — from any viewpoint.
+export function viewDeltas(mmPerPoint, view = {}) {
+  const yaw = ((view.yawDeg ?? ISO_YAW) * Math.PI) / 180;
+  const pitch = ((view.pitchDeg ?? ISO_PITCH) * Math.PI) / 180;
+  const cy = Math.cos(yaw);
+  const sy = Math.sin(yaw);
+  const cp = Math.cos(pitch);
+  const sp = Math.sin(pitch);
+  const k = VIEW_K * (pointStep / mmPerPoint);
+
+  // the horizontal half of the projection is a 2x2 turn, so it inverts
+  const screenToWorld = (sx, sy2) => {
+    const a = sx / k;
+    const b = Math.abs(sp) > 1e-6 ? sy2 / (k * sp) : 0;
+    return { x: (a * cy) - (b * sy), z: (a * sy) + (b * cy) };
+  };
+
+  // straight-down views flatten height away; hold the sketch scale there
+  // rather than divide by nothing
+  const risePerPx = Math.abs(cp) > 1e-3 ? 1 / (k * cp) : mmPerPoint / pointStep;
+  return { screenToWorld, risePerPx };
+}
+
 export function projectedNodes(lines, mmPerPoint, options = {}) {
   const out = new Map();
   if (!lines.length) return out;

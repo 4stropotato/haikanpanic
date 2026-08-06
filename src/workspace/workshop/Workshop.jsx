@@ -47,9 +47,30 @@ function makeLabel(text, tone = "size") {
   return sprite;
 }
 
+// v2.57 The directional label: the same text on a plane that lies along the
+// pipe. A sprite always squares up to the screen, which is the traditional
+// reading; this one is set on the run the way text is lettered on a drawn
+// isometric, and turns about the pipe axis to stay legible.
+function makeAxisLabel(text, tone, axis) {
+  const sprite = makeLabel(text, tone);
+  const mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(1, 1),
+    new THREE.MeshBasicMaterial({
+      map: sprite.material.map,
+      transparent: true,
+      depthTest: false,
+      side: THREE.DoubleSide,
+    }),
+  );
+  mesh.renderOrder = 10;
+  mesh.userData.aspect = sprite.userData.aspect;
+  mesh.userData.axis = axis.clone().normalize();
+  return mesh;
+}
+
 export default function Workshop({
   lines, mmPerPoint, glOffsetMm = 0, jointTypes = {}, detail = "normal",
-  onEditSegment, onClose,
+  labelFlat = false, onEditSegment, onClose,
 }) {
   const hostRef = useRef(null);
   const apiRef = useRef(null);
@@ -142,6 +163,14 @@ export default function Workshop({
       return sprite;
     };
 
+    // one call site for both readings, so every label answers the setting
+    const addLabel = (text, tone, position, axis = null) => addSprite(
+      (labelFlat || !axis || axis.lengthSq() < 1e-9)
+        ? makeLabel(text, tone)
+        : makeAxisLabel(text, tone, axis),
+      position,
+    );
+
     for (const run of model.runs) {
       const mesh = addTube(run.p1, run.p2, run.od, run.od, steel, { lineIndex: run.lineIndex });
       if (mesh) pickable.push(mesh);
@@ -164,9 +193,10 @@ export default function Workshop({
         const sch = full && run.schedule && run.schedule !== run.materialId
           ? ` ${run.schedule}` : "";
         const size = run.nominalA ? `${run.nominalA}A${grade}${sch}` : "pipe";
-        const label = makeLabel(`${size} · ${run.lengthMm}${slopeText}`);
-        addSprite(label, mid.clone().add(perp));
-        dimObjects.push(label);
+        dimObjects.push(addLabel(
+          `${size} · ${run.lengthMm}${slopeText}`, "size", mid.clone().add(perp),
+          V(run.p2).sub(V(run.p1)),
+        ));
       }
     }
 
@@ -274,9 +304,11 @@ export default function Workshop({
       line.computeLineDistances();
       group.add(line);
       dimObjects.push(line);
-      const label = makeLabel(`EL +${elevation}`, "elev");
-      addSprite(label, new THREE.Vector3(point.x, point.y * 0.5, point.z));
-      dimObjects.push(label);
+      dimObjects.push(addLabel(
+        `EL +${elevation}`, "elev",
+        new THREE.Vector3(point.x, point.y * 0.5, point.z),
+        new THREE.Vector3(0, 1, 0),
+      ));
     }
 
     const camera = new THREE.PerspectiveCamera(
@@ -478,6 +510,24 @@ export default function Workshop({
       for (const { sprite } of sprites) {
         const height = distance * 0.018;
         sprite.scale.set(height * (sprite.userData.aspect || 4), height, 1);
+        const axis = sprite.userData.axis;
+        if (!axis) continue;
+        // spin about the pipe so the face is as square to the camera as the
+        // axis allows, and never let it read upside down
+        const toEye = camera.position.clone().sub(sprite.position);
+        const normal = toEye.sub(axis.clone().multiplyScalar(toEye.dot(axis)));
+        if (normal.lengthSq() < 1e-9) continue;
+        normal.normalize();
+        // reading direction is decided in the camera's own frame: projecting
+        // a direction as if it were a point gives a meaningless answer
+        const x = axis.clone();
+        if (axis.clone().transformDirection(camera.matrixWorldInverse).x < 0) x.negate();
+        const y = normal.clone().cross(x).normalize();
+        sprite.matrixAutoUpdate = false;
+        sprite.matrix.makeBasis(x, y, normal);
+        sprite.matrix.scale(sprite.scale);
+        sprite.matrix.setPosition(sprite.position);
+        sprite.matrixWorldNeedsUpdate = true;
       }
       renderer.render(scene, camera);
       if (debugRef.current) {

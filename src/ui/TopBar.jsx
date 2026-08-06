@@ -8,7 +8,10 @@
 
 import { useContext, useState, useEffect } from "react";
 import { WorkspaceContext } from "../workspace/WorkspaceContext";
-import { SunIcon, MoonIcon, GridIcon, CrosshairIcon, MagnifierIcon, RotateIcon, GlobeIcon, CheckIcon, SendToStudioIcon, PencilIcon, MoreIcon, CubeIcon, ListIcon, EraserIcon, MoveIcon, RedoIcon, PencilDrawIcon, SelectIcon, TurnLeftIcon, TurnRightIcon, PlanIcon, OrbitIcon } from "./Icons";
+import { HandIcon, ZoomIcon } from "./Icons";                              // v2.58 one-handed drafting
+import { LABEL_FIELDS, LABEL_TEXT } from "../workspace/utils/labelFields"; // v2.51
+import { ISO_YAW, ISO_PITCH } from "../workspace/workshop/pipe3d";        // v2.55 the home tilt
+import { SunIcon, MoonIcon, GridIcon, CrosshairIcon, MagnifierIcon, RotateIcon, GlobeIcon, CheckIcon, SendToStudioIcon, PencilIcon, MoreIcon, CubeIcon, ListIcon, EraserIcon, MoveIcon, RedoIcon, PencilDrawIcon, SelectIcon, TurnLeftIcon, TurnRightIcon, OrbitIcon } from "./Icons";
 import { buildStudioHandoff, encodeHandoff } from "../workspace/utils/handoff";
 
 const translations = {
@@ -29,7 +32,6 @@ const translations = {
     viewOrbit: "Orbit — drag to turn",
     viewLeft: "Turn left",
     viewRight: "Turn right",
-    viewPlan: "Plan view",
     viewBelow: "From below",
     viewHome: "Home view",
     viewing: "Viewing — tap to return",
@@ -51,6 +53,15 @@ const translations = {
     detailEco: "Eco",
     detailNote: "Eco drops 3D labels and lightens the model.",
     more: "More",
+    hand: "Hand",
+    zoomTool: "Zoom",
+    labels: "Run labels",
+    labelNote: "Tap a label with Move to slide it; double-tap to send it home.",
+    labelAvoid: "Keep labels apart",
+    labelStyle: "Label angle",
+    labelAlong: "Along the line",
+    labelLevel: "Horizontal",
+    labelStyleNote: "Horizontal is the traditional reading; along the line keeps a busy sketch clear.",
     scale: "Scale: 1 pt =",
     clear: "Clear all",
     clearConfirm: "Delete all lines?",
@@ -73,7 +84,6 @@ const translations = {
     viewOrbit: "自由回転 — ドラッグ",
     viewLeft: "左に回す",
     viewRight: "右に回す",
-    viewPlan: "平面図",
     viewBelow: "下から見る",
     viewHome: "標準視点",
     viewing: "閲覧中 — タップで戻る",
@@ -95,6 +105,15 @@ const translations = {
     detailEco: "軽量",
     detailNote: "軽量は3Dの表記を省き、モデルを軽くします。",
     more: "その他",
+    hand: "移動",
+    zoomTool: "拡大",
+    labels: "配管ラベル",
+    labelNote: "移動ツールでラベルをドラッグ、ダブルタップで元の位置へ。",
+    labelAvoid: "ラベルの重なりを避ける",
+    labelStyle: "ラベルの向き",
+    labelAlong: "線に沿う",
+    labelLevel: "水平",
+    labelStyleNote: "水平が従来の読み方。線に沿わせると図面が混みません。",
     scale: "縮尺: 1 pt =",
     clear: "全消去",
     clearConfirm: "全ての線を削除しますか？",
@@ -131,6 +150,7 @@ export default function TopBar() {
     setEraseMode,
     moveMode,
     setMoveMode,
+    viewTool, setViewTool,
     selectMode,
     setSelectMode,
     drawing,
@@ -156,7 +176,8 @@ export default function TopBar() {
     setGlEditPlane,
     setShowGlSheet,
     currentSpec,
-    setShowSpecSheet
+    setShowSpecSheet,
+    labelFields, setLabelFields, labelAvoid, setLabelAvoid, labelFlat, setLabelFlat,
   } = useContext(WorkspaceContext);
 
   const [showSheet, setShowSheet] = useState(() => new URLSearchParams(window.location.search).has("more"));
@@ -240,19 +261,10 @@ export default function TopBar() {
         >
           <TurnRightIcon />
         </button>
-        <button
-          className={"view-btn" + (Math.abs(view.pitchDeg) > 80 ? " on" : "")}
-          onClick={() => setView((v) => ({
-            ...v,
-            pitchDeg: v.pitchDeg > 80 ? -89 : (v.pitchDeg < -80 ? 35.264 : 89),
-          }))}
-          aria-label={t.viewPlan}
-        >
-          <PlanIcon />
-          <span className="view-tag">
-            {view.pitchDeg > 80 ? "TOP" : (view.pitchDeg < -80 ? "BTM" : "ISO")}
-          </span>
-        </button>
+        {/* v2.55 No plan button. An isometric already shows what rises and
+            what drops, so a top or bottom view is a different drawing, not a
+            viewpoint of this one — straight down it collapses a standpipe to
+            a dot. Turning the model is the whole of what this needs. */}
       </div>
 
       {/* v2.25 Workshop lives on its own, off the crowded dock */}
@@ -280,15 +292,15 @@ export default function TopBar() {
       {/* v2.00 floating dock: only the actions used constantly while drawing */}
       <div className="dock">
         <button
-          className={"dock-btn" + (!editMode && !eraseMode && !moveMode ? " glow" : "")}
-          onClick={() => { setEditMode(false); setEraseMode(false); setMoveMode(false); setSelectMode(false); }}
+          className={"dock-btn" + (!editMode && !eraseMode && !moveMode && !selectMode && !viewTool ? " glow" : "")}
+          onClick={() => { setEditMode(false); setEraseMode(false); setMoveMode(false); setSelectMode(false); setViewTool(null); }}
         >
           <PencilDrawIcon />
           <span>{t.draw}</span>
         </button>
         <button
           className={"dock-btn" + (editMode ? " glow" : "")}
-          onClick={() => { setEditMode(!editMode); setEraseMode(false); setMoveMode(false); setSelectMode(false); }}
+          onClick={() => { setEditMode(!editMode); setViewTool(null); setEraseMode(false); setMoveMode(false); setSelectMode(false); }}
           disabled={!lines.length}
         >
           <PencilIcon />
@@ -296,7 +308,7 @@ export default function TopBar() {
         </button>
         <button
           className={"dock-btn" + (eraseMode ? " danger-glow" : "")}
-          onClick={() => { setEraseMode(!eraseMode); setEditMode(false); setMoveMode(false); setSelectMode(false); }}
+          onClick={() => { setEraseMode(!eraseMode); setViewTool(null); setEditMode(false); setMoveMode(false); setSelectMode(false); }}
           disabled={!lines.length}
         >
           <EraserIcon />
@@ -305,7 +317,7 @@ export default function TopBar() {
         <button
           className={"dock-btn" + (selectMode ? " glow" : "")}
           onClick={() => {
-            setSelectMode(!selectMode);
+            setSelectMode(!selectMode); setViewTool(null);
             setEditMode(false);
             setEraseMode(false);
             setMoveMode(false);
@@ -317,11 +329,23 @@ export default function TopBar() {
         </button>
         <button
           className={"dock-btn" + (moveMode ? " glow" : "")}
-          onClick={() => { setMoveMode(!moveMode); setEditMode(false); setEraseMode(false); setSelectMode(false); }}
+          onClick={() => { setMoveMode(!moveMode); setViewTool(null); setEditMode(false); setEraseMode(false); setSelectMode(false); }}
           disabled={!lines.length}
         >
           <MoveIcon />
           <span>{t.move}</span>
+        </button>
+        {/* v2.59 Hand and Zoom share one slot: tap to slide the sheet, tap
+            again to scale it, tap once more to put the tool down. */}
+        <button
+          className={"dock-btn" + (viewTool ? " glow" : "")}
+          onClick={() => {
+            setViewTool(viewTool === "pan" ? "zoom" : (viewTool === "zoom" ? null : "pan"));
+            setEditMode(false); setEraseMode(false); setMoveMode(false); setSelectMode(false);
+          }}
+        >
+          {viewTool === "zoom" ? <ZoomIcon /> : <HandIcon />}
+          <span>{viewTool === "zoom" ? t.zoomTool : t.hand}</span>
         </button>
         <button className="dock-btn" onClick={() => setShowSheet(true)}>
           <MoreIcon />
@@ -386,10 +410,47 @@ export default function TopBar() {
             <div className="sheet-hint">{t.detailNote}</div>
             <button
               className="sheet-btn"
-              onClick={() => setView({ yawDeg: 45, pitchDeg: 35.264 })}
+              onClick={() => setView({ yawDeg: ISO_YAW, pitchDeg: ISO_PITCH })}
               disabled={homeView}
             >
               <CrosshairIcon /> <span>{t.viewHome}</span>
+            </button>
+            {/* v2.51 A label says only what this job needs it to say. */}
+            <div className="sheet-row">
+              <span>{t.labels}</span>
+              <div className="seg-group wrap">
+                {LABEL_FIELDS.map((field) => (
+                  <button
+                    key={field}
+                    className={"seg-btn" + (labelFields[field] ? " on" : "")}
+                    onClick={() => setLabelFields((f) => ({ ...f, [field]: !f[field] }))}
+                  >
+                    {LABEL_TEXT[lang === "jp" ? "jp" : "en"][field]}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="sheet-row">
+              <span>{t.labelStyle}</span>
+              <div className="seg-group">
+                <button
+                  className={"seg-btn" + (labelFlat ? "" : " on")}
+                  onClick={() => setLabelFlat(false)}
+                >
+                  {t.labelAlong}
+                </button>
+                <button
+                  className={"seg-btn" + (labelFlat ? " on" : "")}
+                  onClick={() => setLabelFlat(true)}
+                >
+                  {t.labelLevel}
+                </button>
+              </div>
+            </div>
+            <div className="sheet-hint">{t.labelStyleNote}</div>
+            <div className="sheet-hint">{t.labelNote}</div>
+            <button className="sheet-btn" onClick={() => setLabelAvoid(!labelAvoid)}>
+              <PencilIcon /> <span>{t.labelAvoid}</span> {labelAvoid && <CheckIcon />}
             </button>
             <button className="sheet-btn" onClick={() => setShowJointMarks(!showJointMarks)}>
               <PencilIcon /> <span>{t.jointMarks}</span> {showJointMarks && <CheckIcon />}

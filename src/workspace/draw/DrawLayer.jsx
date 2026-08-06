@@ -13,30 +13,48 @@ import { overlappingRuns } from "../utils/editLength";          // v2.41 two pip
 import { glPlaneGeometry } from "../utils/glPlane";              // v2.09 GL/FL datum plane
 import { nodeElevations, runMetrics } from "../workshop/pipe3d"; // v2.24 slope from elevations
 import { sketchJoints, jointTypeOf, JOINT_MARK } from "../utils/joints"; // v2.10 corner fittings
-import { datumFor } from "../utils/datums";                      // v2.38 which level a height is read from
+import { datumFor } from "../utils/datums";
+import { LABEL_DEFAULT, LABEL_HOME } from "../utils/labelFields";      // v2.51 what a label says                      // v2.38 which level a height is read from
 
 export { segmentLengthMm } from "../utils/lengths";   // v2.05 moved to pure module
 
 // v1.17+ Label text honors an override: schematic mode can claim any true
 // length regardless of drawn length (label is authoritative, per DRAW2 spec).
-function labelFor(line, mmPerPoint, elevations, metric) {
+function labelFor(line, mmPerPoint, elevations, metric, fields = LABEL_DEFAULT) {
   // a sloped run is longer than the horizontal it was typed as, and that
   // extra is rarely a round number — which is exactly what has to be cut
   const sloped = metric && Math.abs(metric.slopeDeg) > 0.4 && Math.abs(metric.slopeDeg) < 89.6;
   const mm = sloped ? metric.trueLengthMm : (line.lengthMm ?? segmentLengthMm(line, mmPerPoint));
-  let text = `${mm}mm`;
+  const parts = [];
+  if (fields.length) parts.push(`${mm}mm`);
   if (line.spec) {
     const { a, conn, material, schedule } = line.spec;
-    const grade = material && material !== "SGP" ? ` ${material.replace("TP", "")}` : "";
-    const sch = schedule && schedule !== "SGP" ? ` ${schedule}` : "";
-    text += `  ${a}A${grade}${sch} ${conn}`;
+    const bits = [];
+    if (fields.size) bits.push(`${a}A`);
+    if (fields.sch) {
+      if (material && material !== "SGP") bits.push(material.replace("TP", ""));
+      if (schedule && schedule !== "SGP") bits.push(schedule);
+    }
+    if (fields.joint && conn) bits.push(conn);
+    if (bits.length) parts.push(bits.join(" "));
   }
   // v2.24 A run whose ends sit at different levels is sloped; the angle is
   // what a fitter needs, and it is invisible in a 6-direction sketch.
-  if (sloped) {
-    text += `  ∠${Math.abs(metric.slopeDeg)}°${metric.riseMm > 0 ? "↑" : "↓"}${Math.abs(metric.riseMm)}`;
+  if (sloped && fields.angle) parts.push(`∠${Math.abs(metric.slopeDeg)}°`);
+  if (sloped && fields.rise) {
+    parts.push(`${metric.riseMm > 0 ? "↑" : "↓"}${Math.abs(metric.riseMm)}`);
   }
-  return text;
+  // v2.51 The run's own elevations, for when the leaders are turned off.
+  if (fields.el && elevations) {
+    const key = (n) => `${n.x.toFixed(3)},${n.y.toFixed(3)}`;
+    const a = elevations.get(key(line.start));
+    const b = elevations.get(key(line.end));
+    const show = (v) => `${v >= 0 ? "+" : ""}${Math.round(v)}`;
+    if (Number.isFinite(a) && Number.isFinite(b)) {
+      parts.push(a === b ? `EL${show(a)}` : `EL${show(a)}→${show(b)}`);
+    }
+  }
+  return parts.join("  ");
 }
 
 const DrawLayer = ({
@@ -44,6 +62,8 @@ const DrawLayer = ({
   showGL = true, glEditPlane = false,
   jointTypes = {}, datums = [], activeDatum = -1, showJointMarks = true,
   selection = [], marquee = null, moveMode = false, projection = null,
+  labelFields = LABEL_DEFAULT, labelAvoid = true, onLabelLayout = null,
+  elOffsets = {}, labelFlat = false,
 }) => { // [v1.09] Accept zoom and offset for scaling
   const canvasRef = useRef(null);                                 // [v1.02] Canvas DOM reference
   const { w: vpW, h: vpH } = useViewport();                       // v1.18+ re-render on resize
@@ -77,25 +97,87 @@ const DrawLayer = ({
 
     const elevationsForLabels = lines.length ? nodeElevations(lines, mmPerPoint) : null;
     const metrics = lines.length ? runMetrics(lines, mmPerPoint) : null;
-    // v1.17+ Length label beside a segment's midpoint, offset perpendicular
-    // so it never sits on the line. Halo keeps it readable over the grid.
-    const drawLabel = (line) => {
+    // v2.49 A run's label rides along the run, the way dimension text does
+    // on a drawn isometric: set on the line's own angle and lifted clear of
+    // it, so a busy sketch reads as annotated pipes rather than loose text.
+    // v2.52 Two labels that would land on top of each other are pushed
+    // apart along their own runs' normals — an unreadable label is worse
+    // than one sitting a little further out.
+    const layout = [];
+    const obstacles = [];      // v2.52 EL callouts are text too — labels dodge them
+    const elLayout = [];       // v2.57 the callouts a finger can pick up
+    const placeLabel = (line, index) => {
+      const dx = line.end.x - line.start.x;
+      const dy = line.end.y - line.start.y;
+      const len = Math.hypot(dx, dy);
+      if (len < pointStep * 0.5) return;
+
+      // never upside down: a run heading left is lettered from its far end
+      let angle = Math.atan2(dy, dx);
+      let flip = 1;
+      if (angle > Math.PI / 2 || angle < -Math.PI / 2) {
+        angle += Math.PI;
+        flip = -1;
+      }
+
+      const text = labelFor(line, mmPerPoint, elevationsForLabels, metrics?.get(index), labelFields);
+      if (!text) return;
+
+      const place = line.label ?? LABEL_HOME;
+      ctx.font = `${12 / zoom}px system-ui, sans-serif`;
+      const w = ctx.measureText(text).width;
+      const h = 14 / zoom;
+      const ux = Math.cos(angle);
+      const uy = Math.sin(angle);
       const mx = (line.start.x + line.end.x) / 2;
       const my = (line.start.y + line.end.y) / 2;
-      const len = Math.hypot(line.end.x - line.start.x, line.end.y - line.start.y);
-      if (len < pointStep * 0.5) return;
-      const nx = -(line.end.y - line.start.y) / len;
-      const ny = (line.end.x - line.start.x) / len;
-      const off = 11 / zoom;
+
+      // the text box, turned the way the text will be, as a screen extent
+      const tx = labelFlat ? 1 : ux;
+      const ty = labelFlat ? 0 : uy;
+      const hw = (Math.abs(tx) * w + Math.abs(ty) * h) / 2;
+      const hh = (Math.abs(ty) * w + Math.abs(tx) * h) / 2;
+
+      const at = (across) => ({
+        x: mx + (ux * place.along * len * flip) - (uy * (across / zoom) * flip),
+        y: my + (uy * place.along * len * flip) + (ux * (across / zoom) * flip),
+      });
+
+      let across = place.across;
+      let spot = at(across);
+      const clashes = (p, other) => Math.abs(p.x - other.x) < hw + other.hw
+        && Math.abs(p.y - other.y) < hh + other.hh;
+      const hits = (p) => layout.some((o) => clashes(p, o)) || obstacles.some((o) => clashes(p, o));
+      for (let step = 1; labelAvoid && step <= 8 && hits(spot); step += 1) {
+        // walk outward on the side the label already prefers, then the other
+        const push = Math.ceil(step / 2) * (h * zoom + 4);
+        across = place.across + (step % 2 === 1 ? push : -push) * Math.sign(place.across || -1);
+        spot = at(across);
+      }
+
+      layout.push({ index, x: spot.x, y: spot.y, hw, hh, text, angle, flip, ux, uy, len });
+    };
+
+    const drawLabel = (entry) => {
+      ctx.save();
+      ctx.translate(entry.x, entry.y);
+      // v2.57 directional text rides the run; traditional text stays level
+      if (!labelFlat) ctx.rotate(entry.angle);
       ctx.font = `${12 / zoom}px system-ui, sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.lineWidth = 3 / zoom;
       ctx.strokeStyle = isDark ? "rgba(15,20,27,0.85)" : "rgba(255,255,255,0.85)";
       ctx.fillStyle = isDark ? "#7cc4ff" : "#1d6fb8";
-      const text = labelFor(line, mmPerPoint, elevationsForLabels, metrics?.get(lines.indexOf(line)));
-      ctx.strokeText(text, mx + nx * off, my + ny * off);
-      ctx.fillText(text, mx + nx * off, my + ny * off);
+      ctx.strokeText(entry.text, 0, 0);
+      ctx.fillText(entry.text, 0, 0);
+      ctx.restore();
+      if (moveMode) {
+        ctx.beginPath();
+        ctx.arc(entry.x, entry.y, 4 / zoom, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(124,196,255,0.55)";
+        ctx.fill();
+      }
     };
 
     // v2.19 Datum planes. A job has several levels, so every datum in the
@@ -144,7 +226,7 @@ const DrawLayer = ({
           ctx.lineWidth = 1 / zoom;
           ctx.font = `bold ${12 / zoom}px system-ui, sans-serif`;
           ctx.fillStyle = "#f5ba66";
-          ctx.textAlign = "right";
+          ctx.textAlign = "center";
           ctx.textBaseline = "middle";
           for (const node of nodes) {
             if (Math.abs(node.ground.y - node.point.y) < 2) continue;
@@ -152,13 +234,49 @@ const DrawLayer = ({
             ctx.moveTo(node.point.x, node.point.y);
             ctx.lineTo(node.ground.x, node.ground.y);
             ctx.stroke();
+            // v2.56 The callout rides its own leader, the way a run label
+            // rides its pipe: set on the leader's angle and lifted off it, so
+            // the height reads beside the drop line instead of across it.
             const ref = datumFor(node.elevation, datums);
             const rel = Math.round(node.elevation - ref.offsetMm);
-            ctx.fillText(
-              `${ref.name} ${rel >= 0 ? "+" : ""}${rel}`,
-              node.point.x - (14 / zoom),
-              node.point.y + (16 / zoom),
-            );
+            const callout = `${ref.name} ${rel >= 0 ? "+" : ""}${rel}`;
+            const ldx = node.ground.x - node.point.x;
+            const ldy = node.ground.y - node.point.y;
+            const llen = Math.hypot(ldx, ldy) || 1;
+            let la = Math.atan2(ldy, ldx);
+            if (la > Math.PI / 2 || la < -Math.PI / 2) la += Math.PI;
+            const lux = Math.cos(la);
+            const luy = Math.sin(la);
+            // a third of the way down the drop by default, clear of the
+            // fitting mark; the fitter can slide it anywhere from there
+            const place = elOffsets[node.key]
+              ?? { along: Math.min(0.35, (90 / zoom) / llen), across: -5 };
+            const along = place.along * llen;
+            const cross = place.across / zoom;
+            const cx = node.point.x + ((ldx / llen) * along) - (luy * cross);
+            const cy = node.point.y + ((ldy / llen) * along) + (lux * cross);
+            ctx.save();
+            ctx.translate(cx, cy);
+            // v2.57 traditional callouts stay horizontal whatever the leader
+            // does; directional ones lie along it
+            if (!labelFlat) ctx.rotate(la);
+            ctx.fillText(callout, 0, 0);
+            ctx.restore();
+            const cw = ctx.measureText(callout).width;
+            const ch = 14 / zoom;
+            const turn = labelFlat ? { x: 1, y: 0 } : { x: lux, y: luy };
+            obstacles.push({
+              x: cx,
+              y: cy,
+              hw: ((Math.abs(turn.x) * cw) + (Math.abs(turn.y) * ch)) / 2,
+              hh: ((Math.abs(turn.y) * cw) + (Math.abs(turn.x) * ch)) / 2,
+            });
+            elLayout.push({
+              kind: "el", key: node.key, x: cx, y: cy, len: llen, flip: 1,
+              homeAlong: place.along,
+              ux: labelFlat ? 1 : lux, uy: labelFlat ? 0 : luy,
+              leadX: ldx / llen, leadY: ldy / llen,
+            });
           }
           ctx.restore();
         }
@@ -219,7 +337,12 @@ const DrawLayer = ({
     });
     ctx.strokeStyle = isDark ? "white" : "black";
     ctx.lineWidth = 2 / zoom;
-    for (const line of lines) drawLabel(line);                    // v1.17+ labels above lines
+    lines.forEach(placeLabel);                                    // v2.52 lay out, then keep apart
+    for (const entry of layout) drawLabel(entry);                 // v1.17+ labels ride the runs
+    onLabelLayout?.([
+      ...layout.map(({ index, x, y, ux, uy, len, flip }) => ({ index, x, y, ux, uy, len, flip })),
+      ...elLayout,
+    ]);
 
     // v2.10 corner fittings: L / S / T / W so the choice is visible on the
     // drawing, the way a fitter marks up an isometric by hand.
@@ -250,7 +373,9 @@ const DrawLayer = ({
       ctx.setLineDash([6 / zoom, 4 / zoom]);                      // [v1.10] Dash length adjusts with zoom
       ctx.stroke();
       ctx.setLineDash([]);                                        // [v1.02] Reset to solid line
-      drawLabel(preview);                                         // v1.17+ live length while drawing
+      const before = layout.length;                               // v1.17+ live length while drawing
+      placeLabel(preview, -1);
+      for (let i = before; i < layout.length; i += 1) drawLabel(layout[i]);
     }
 
     // v2.38 Level handles. You cannot grab what you cannot see: while Move

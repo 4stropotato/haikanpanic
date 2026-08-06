@@ -490,6 +490,11 @@ html, body, #root {
   font-size: 0.9rem;
 }
 .seg-group { display: flex; gap: 6px; flex: 1; }
+.sheet-title-sub {                                 /* v2.53 section inside a sheet */
+  font-size: 13px; font-weight: 600; opacity: 0.62;
+  margin: 14px 0 2px; letter-spacing: 0.02em;
+}
+.seg-group.wrap { flex-wrap: wrap; justify-content: flex-end; }  /* v2.51 label fields */
 .seg-btn {
   flex: 1;
   min-height: 40px;

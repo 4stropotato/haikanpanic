@@ -199,3 +199,24 @@ export const OrbitIcon = () => (
     <ellipse cx="12" cy="12" rx="4.5" ry="10"/>
   </svg>
 );
+
+// v2.58 Hand: pans the sheet the way you would slide paper on a bench.
+export const HandIcon = () => (
+  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+    strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V11" />
+    <path d="M12 11V4.5a1.5 1.5 0 0 1 3 0V11" />
+    <path d="M15 11V6.5a1.5 1.5 0 0 1 3 0V13" />
+    <path d="M9 11V9.5a1.5 1.5 0 0 0-3 0V14c0 3.3 2.7 6 6 6h1a6 6 0 0 0 6-6" />
+  </svg>
+);
+
+// v2.59 Zoom: the same lens as the magnifier, marked as a scale control.
+export const ZoomIcon = () => (
+  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+    strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="10.5" cy="10.5" r="6.5" />
+    <path d="M15.5 15.5 L21 21" />
+    <path d="M7.5 10.5h6M10.5 7.5v6" />
+  </svg>
+);
