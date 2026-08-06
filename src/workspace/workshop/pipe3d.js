@@ -165,6 +165,14 @@ export function buildPipeModel(lines, mmPerPoint, options = {}) {
     }
   }
 
+  // v2.40 A lifted endpoint makes the run slope, so every direction has to
+  // come from the actual geometry. Keeping the sketch's iso axis here left
+  // elbows reading 90 degrees and flanges standing plumb on a sloping pipe.
+  for (const seg of segments) {
+    const v = sub(seg.p2, seg.p1);
+    if (len(v) > EPS) seg.dir = norm(v);
+  }
+
   // v2.09 the datum can sit below the lowest pipe, which lifts the whole
   // model in 3D exactly as the 2D plane offset shows it.
   const lift = (Number.isFinite(minY) ? -minY : 0) + (options.glOffsetMm ?? 0);
@@ -494,6 +502,48 @@ export function jointAngles(lines, mmPerPoint, options = {}) {
         nominalA: tee.nominalA,
       });
     }
+  }
+  return out;
+}
+
+// v2.40 Where each sketch node ends up once the model is solved, projected
+// back to the isometric. A run between two levels then draws at a slant
+// instead of staying locked to one of the six axes.
+export function projectedNodes(lines, mmPerPoint, options = {}) {
+  const out = new Map();
+  if (!lines.length) return out;
+  const segments = placeNodes(lines, mmPerPoint, 60);
+
+  const overrides = new Map();
+  for (const line of lines) {
+    if (Number.isFinite(line.elev1Mm)) overrides.set(key2D(line.start), line.elev1Mm);
+    if (Number.isFinite(line.elev2Mm)) overrides.set(key2D(line.end), line.elev2Mm);
+  }
+  for (const seg of segments) {
+    if (overrides.has(seg.key1)) seg.p1.y = overrides.get(seg.key1);
+    if (overrides.has(seg.key2)) seg.p2.y = overrides.get(seg.key2);
+  }
+
+  const pxPerMm = pointStep / mmPerPoint;
+  const project = (p) => ({
+    x: ISO_UX * (p.x + p.z) * pxPerMm,
+    y: ((0.5 * (p.z - p.x)) - p.y) * pxPerMm,
+  });
+
+  const raw = new Map();
+  for (const seg of segments) {
+    raw.set(seg.key1, project(seg.p1));
+    raw.set(seg.key2, project(seg.p2));
+  }
+
+  // anchor the projection on the sketch so the drawing stays where it was
+  const firstKey = key2D(lines[0].start);
+  const anchor = raw.get(firstKey);
+  if (!anchor) return out;
+  const dx = lines[0].start.x - anchor.x;
+  const dy = lines[0].start.y - anchor.y;
+  for (const [key, point] of raw) {
+    out.set(key, { x: point.x + dx, y: point.y + dy });
   }
   return out;
 }

@@ -30,7 +30,7 @@ export function isoCoords(point, cx, cy) {
 // on a platform — so planes are a list. `plane` is one entry of that list.
 export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
   const {
-    sizeMm = 0, sizeVMm = 0, offsetMm = 0, center = null,
+    sizeMm = 0, sizeVMm = 0, offsetMm = 0, center = null, projection = null,
   } = plane;
   if (!lines.length) return null;
 
@@ -45,10 +45,12 @@ export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
       if (seen.has(key)) continue;
       seen.add(key);
       const elevation = (elevations.get(key) ?? 0) + offsetMm;
+      // the drawing may show this node slanted; the datum must follow it
+      const drawn = projection?.get(key) ?? point;
       nodes.push({
-        point,
+        point: drawn,
         // the drop equals the elevation, so leader length reads as height
-        ground: { x: point.x, y: point.y + (elevation * pxPerMm) },
+        ground: { x: drawn.x, y: drawn.y + (elevation * pxPerMm) },
         elevation,
       });
     }

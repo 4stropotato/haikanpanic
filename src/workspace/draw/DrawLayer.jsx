@@ -44,7 +44,7 @@ const DrawLayer = ({
   lines, preview, isDark, zoom, offset, mmPerPoint = 10,
   showGL = true, glEditPlane = false,
   jointTypes = {}, datums = [], activeDatum = -1, showJointMarks = true,
-  selection = [], marquee = null, moveMode = false,
+  selection = [], marquee = null, moveMode = false, projection = null,
 }) => { // [v1.09] Accept zoom and offset for scaling
   const canvasRef = useRef(null);                                 // [v1.02] Canvas DOM reference
   const { w: vpW, h: vpH } = useViewport();                       // v1.18+ re-render on resize
@@ -102,7 +102,7 @@ const DrawLayer = ({
     // list is drawn; the first one is primary and carries the EL leaders.
     if (showGL && lines.length && datums.length) {
       datums.forEach((datum, datumIdx) => {
-        const plane = glPlaneGeometry(lines, mmPerPoint, datum);
+        const plane = glPlaneGeometry(lines, mmPerPoint, { ...datum, projection });
         if (!plane) return;
         const { corners, edges, nodes } = plane;
         const active = datumIdx === activeDatum;
@@ -295,7 +295,7 @@ const DrawLayer = ({
     ctx.restore();                                                // [v1.10] End transform block
   }, [lines, preview, isDark, zoom, offset, mmPerPoint, showGL, glEditPlane,
       jointTypes, datums, activeDatum, showJointMarks,
-      selection, marquee, moveMode, vpW, vpH]);   // [v1.10] Redraw on zoom or pan
+      selection, marquee, moveMode, projection, vpW, vpH]);   // [v1.10] Redraw on zoom or pan
 
   return (
     <canvas

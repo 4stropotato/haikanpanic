@@ -10,7 +10,7 @@
 // [v1.11] Magnifier modes (auto/follow/center) and hold state tracking
 // [v1.15] Endpoint snapping - snap to existing line endpoints (green elbow indicator)
 
-import { useRef, useState, useEffect } from "react";                         // [v1.01] React hooks
+import { useRef, useState, useEffect, useMemo } from "react";                         // [v1.01] React hooks
 import IsoGrid from "./grid/IsoGrid";                                       // [v1.10] isometric grid module
 import DrawLayer from "./draw/DrawLayer";                                   // [v1.02] line drawing layer
 import SnapOverlay from "./snap/SnapOverlay";                               // [v1.01] snapping crosshair overlay
@@ -23,7 +23,7 @@ import { WorkspaceContext } from "./WorkspaceContext";                      // [
 import {
   snapToAllowedAngle, snapToNearestGrid, snapWorkspaceToGrid,
 } from "./utils/geometry";                                                  // [v1.10] math utilities
-import { nodeElevations, jointAngles } from "./workshop/pipe3d";            // v2.16 freeze height on move
+import { nodeElevations, jointAngles, projectedNodes } from "./workshop/pipe3d"; // v2.16 freeze height on move
 import {
   findSegmentAt, setSegmentLength, connectedIndices,
 } from "./utils/editLength";                                                // v1.19+ tap-to-edit lengths
@@ -68,7 +68,13 @@ export default function Workspace() {
       return [
         { start: a, end: b, lengthMm: 620, spec: { a: 100, conn: "BW", flange: "start" } },
         { start: b, end: c, lengthMm: 1500, spec: { a: 100, conn: "BW" } },
-        { start: c, end: d, lengthMm: 800, spec: { a: 50, conn: "BW", flange: "end", material: "SUS304TP", schedule: "Sch10S" } },
+        {
+          start: c,
+          end: d,
+          lengthMm: 800,
+          spec: { a: 50, conn: "BW", flange: "end", material: "SUS304TP", schedule: "Sch10S" },
+          ...(new URLSearchParams(window.location.search).has("slope") ? { elev2Mm: 1400 } : {}),
+        },
       ];
     }
     try {
@@ -281,6 +287,20 @@ export default function Workspace() {
     y: (clientY - (viewport.h / 2 + offset.y)) / zoom,
   });
 
+  // v2.40 The sketch is the input; the model is the truth; the drawing shows
+  // the model. Once a run slopes, where it is drawn and where it can be
+  // touched both have to come from the solved geometry, not the raw sketch.
+  const projection = useMemo(
+    () => projectedNodes(lines, mmPerPoint),
+    [lines, mmPerPoint],
+  );
+  const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
+  const viewLines = useMemo(() => lines.map((line) => ({
+    ...line,
+    start: projection.get(nodeKey(line.start)) ?? line.start,
+    end: projection.get(nodeKey(line.end)) ?? line.end,
+  })), [lines, projection]);
+
   const jointInfo = (key) => jointAngles(lines, mmPerPoint, { jointTypes }).get(key);
 
   const primary = datums[0];
@@ -307,9 +327,10 @@ export default function Workspace() {
     const base = primary?.offsetMm ?? 0;
     for (let i = 0; i < lines.length; i += 1) {
       for (const which of [1, 2]) {
-        const node = which === 1 ? lines[i].start : lines[i].end;
+        const sketchNode = which === 1 ? lines[i].start : lines[i].end;
+        const key = nodeKey(sketchNode);
+        const node = projection.get(key) ?? sketchNode;
         if (Math.hypot(point.x - node.x, point.y - node.y) > reach) continue;
-        const key = `${node.x.toFixed(3)},${node.y.toFixed(3)}`;
         levelDrag.current = {
           index: i,
           which,
@@ -330,10 +351,11 @@ export default function Workspace() {
     const reach = 26 / zoom;
     for (let i = 0; i < lines.length; i += 1) {
       for (const which of [1, 2]) {
-        const node = which === 1 ? lines[i].start : lines[i].end;
+        const sketchNode = which === 1 ? lines[i].start : lines[i].end;
+        const key = nodeKey(sketchNode);
+        const node = projection.get(key) ?? sketchNode;
         const label = { x: node.x - (30 / zoom), y: node.y + (16 / zoom) };
         if (Math.hypot(point.x - label.x, point.y - label.y) > reach) continue;
-        const key = `${node.x.toFixed(3)},${node.y.toFixed(3)}`;
         const el = (els.get(key) ?? 0) + base;
         if (Math.abs(el) < 1 && which === 1) continue;
         return { index: i, which, el };
@@ -361,7 +383,7 @@ export default function Workspace() {
   const pipeGrab = (clientX, clientY) => {
     if (!moveMode || !lines.length) return false;
     const point = toWorkspace(clientX, clientY);
-    const index = findSegmentAt(point, lines, 22 / zoom);
+    const index = findSegmentAt(point, viewLines, 22 / zoom);
     if (index < 0) return false;
     setPast((stack) => [...stack.slice(-49), lines]);                       // one entry per drag
     setFuture([]);
@@ -605,7 +627,7 @@ export default function Workspace() {
         x: (e.clientX - (viewport.w / 2 + offset.x)) / zoom,
         y: (e.clientY - (viewport.h / 2 + offset.y)) / zoom,
       };
-      const index = findSegmentAt(point, lines, 24 / zoom);
+      const index = findSegmentAt(point, viewLines, 24 / zoom);
       if (index >= 0) {
         setSelection((current) => (current.includes(index)
           ? current.filter((i) => i !== index)
@@ -621,7 +643,7 @@ export default function Workspace() {
         x: (e.clientX - (viewport.w / 2 + offset.x)) / zoom,
         y: (e.clientY - (viewport.h / 2 + offset.y)) / zoom,
       };
-      const index = findSegmentAt(point, lines, 24 / zoom);
+      const index = findSegmentAt(point, viewLines, 24 / zoom);
       if (index >= 0) commitLines(lines.filter((_, i) => i !== index));
       return;
     }
@@ -638,9 +660,9 @@ export default function Workspace() {
       if (level) { setLevelTarget(level); return; }
 
       // a corner is a fitting decision; the run behind it is a pipe spec
-      const joint = findJointAt(point, lines, 18 / zoom);       // v2.20 corners stay reachable
+      const joint = findJointAt(point, viewLines, 18 / zoom);       // v2.20 corners stay reachable
       if (joint) { setJointTarget(joint); return; }
-      const index = findSegmentAt(point, lines, 24 / zoom);
+      const index = findSegmentAt(point, viewLines, 24 / zoom);
       if (index >= 0) { setEditTarget(index); return; }                     // v2.02 open spec sheet
       // nothing drawn under the tap: whichever datum covers this spot owns it
       if (showGL) {
@@ -786,7 +808,8 @@ export default function Workspace() {
         >
           <IsoGrid show={showGrid} zoom={zoom} offset={offset} />
           <DrawLayer
-            lines={lines}
+            lines={viewLines}
+            projection={projection}
             preview={previewLine}
             isDark={darkMode}
             zoom={zoom}
