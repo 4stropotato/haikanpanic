@@ -35,7 +35,7 @@ import { segmentLengthMm, dropDegenerate } from "./utils/lengths";          // v
 import { viewport, observeViewport } from "./utils/viewport";               // v1.19+ tap coord conversion
 import {
   glPlaneGeometry, sizeFromHandle, insidePlane,
-  viewRect, clampHandle, planeAxes,                                                    // v2.62 reachable grips
+  viewRect, clampHandle, planeAxes, isoCoords,                                                    // v2.62 reachable grips
 } from "./utils/glPlane";                                                   // v2.09 datum plane
 import { pipeSpec } from "./data/jis";                                      // v2.82 the floor rule
 import GlSheet from "../ui/GlSheet";
@@ -790,15 +790,36 @@ export default function Workspace() {
     const pxPerMm = 1 / (view3d.risePerPx || 1);
     const els = nodeElevations(lines, mmPerPoint);
     const mineEl = drag.elevationMm ?? 0;
-    const reach = 10 / zoom;
+    const reach = 16 / zoom;
     let bestSnap = null;
+    // v2.97 Either end of the run in hand can be the one that lines up, so
+    // both are offered — otherwise only the start ever snapped and a run
+    // dragged by its far end never settled onto anything.
+    const anchorLine = drag.base[drag.anchorIndex];
+    const ends = [
+      { at: snapped, via: { x: 0, y: 0 } },
+      {
+        at: {
+          x: snapped.x + (anchorLine.end.x - anchorLine.start.x),
+          y: snapped.y + (anchorLine.end.y - anchorLine.start.y),
+        },
+        via: {
+          x: -(anchorLine.end.x - anchorLine.start.x),
+          y: -(anchorLine.end.y - anchorLine.start.y),
+        },
+      },
+    ];
     lines.forEach((line, i) => {
       if (drag.members.has(i)) return;
       for (const node of [line.start, line.end]) {
         const theirEl = els.get(nodeKey(node)) ?? 0;
         const target = { x: node.x, y: node.y + ((theirEl - mineEl) * pxPerMm) };
-        const d = Math.hypot(target.x - snapped.x, target.y - snapped.y);
-        if (d < reach && (!bestSnap || d < bestSnap.d)) bestSnap = { target, d };
+        for (const end of ends) {
+          const d = Math.hypot(target.x - end.at.x, target.y - end.at.y);
+          if (d < reach && (!bestSnap || d < bestSnap.d)) {
+            bestSnap = { target: { x: target.x + end.via.x, y: target.y + end.via.y }, d };
+          }
+        }
       }
     });
     if (bestSnap) snapped = bestSnap.target;
@@ -848,6 +869,10 @@ export default function Workspace() {
       const at = clampHandle(target, plane.cx, plane.cy, rect);
       if (Math.hypot(point.x - at.x, point.y - at.y) >= grabRadius) return false;
       setDatumIndex(index);
+      // v2.97 A grip pulls its own side. Sizing from the centre grew both
+      // edges at once, so a floor could never be extended in one direction
+      // only — the opposite edge is held and the centre follows.
+      const local = isoCoords(target, plane.cx, plane.cy, plane.axes);
       planeDrag.current = {
         mode: "resize",
         index,
@@ -855,6 +880,10 @@ export default function Workspace() {
         cx: plane.cx,
         cy: plane.cy,
         axes: plane.axes,
+        halfU: plane.halfU,
+        halfV: plane.halfV,
+        signA: Math.sign(local.a) || 1,
+        signB: Math.sign(local.b) || 1,
         slack: { x: target.x - point.x, y: target.y - point.y },
       };
       return true;
@@ -889,11 +918,28 @@ export default function Workspace() {
       const at = drag.slack
         ? { x: point.x + drag.slack.x, y: point.y + drag.slack.y }
         : point;
-      const size = sizeFromHandle(at, drag.cx, drag.cy, mmPerPoint, drag.axis, drag.axes);
+      const here = isoCoords(at, drag.cx, drag.cy, drag.axes);
+      const scale = mmPerPoint / pointStep;
       const patch = { fitted: true };
-      if (size.u != null) patch.sizeMm = size.u;
-      if (size.v != null) patch.sizeVMm = size.v;
-      patchDatum(drag.index ?? datumIndex, patch);
+      const shift = { a: 0, b: 0 };
+      const pull = (now, sign, half, key) => {
+        // the far edge stays where it is; this one goes where the finger is
+        const fixed = -sign * half;
+        const size = Math.max(Math.abs(now - fixed), pointStep);
+        // size is already the full extent here — the old helper doubled a
+        // half-extent, which would have made every plane twice as big
+        patch[key] = Math.round((size / (pointStep / mmPerPoint)) / 50) * 50;
+        return ((now + fixed) / 2);
+      };
+      if (drag.axis !== "v") shift.a = pull(here.a, drag.signA, drag.halfU, "sizeMm");
+      if (drag.axis !== "u") shift.b = pull(here.b, drag.signB, drag.halfV, "sizeVMm");
+      patchDatum(drag.index ?? datumIndex, {
+        ...patch,
+        center: {
+          x: drag.cx + (drag.axes.u.x * shift.a) + (drag.axes.v.x * shift.b),
+          y: drag.cy + (drag.axes.u.y * shift.a) + (drag.axes.v.y * shift.b),
+        },
+      });
       // v2.65 A datum is a floor, and a floor is quoted by its span and its
       // area — the number the job actually needs while you drag.
       const target = datums[drag.index ?? datumIndex];
