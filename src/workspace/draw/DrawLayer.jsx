@@ -265,19 +265,6 @@ const DrawLayer = ({
           ctx.restore();
 
           for (const node of nodes) {
-            // v2.91 A run standing level with this datum is the thing worth
-            // pointing out — the height matches, so the two read as one
-            // level on site. Marked where it is true, with no drag needed.
-            if (Math.abs(node.elevation - datum.offsetMm) < 1) {
-              ctx.save();
-              ctx.beginPath();
-              ctx.arc(node.point.x, node.point.y, 13 / zoom, 0, Math.PI * 2);
-              ctx.strokeStyle = "#ff5ea8";
-              ctx.lineWidth = 2 / zoom;
-              ctx.setLineDash([5 / zoom, 4 / zoom]);
-              ctx.stroke();
-              ctx.restore();
-            }
             if (Math.abs(node.ground.y - node.point.y) < 2) continue;
             ctx.beginPath();
             ctx.moveTo(node.point.x, node.point.y);
