@@ -525,6 +525,12 @@ html, body, #root {
   font-size: 0.9rem;
 }
 .seg-group { display: flex; gap: 6px; flex: 1; }
+.sheet-group {
+  margin: 18px 0 6px;
+  font-size: 0.7rem; font-weight: 800; letter-spacing: 0.14em;
+  text-transform: uppercase; opacity: 0.5;
+}
+.sheet-group:first-of-type { margin-top: 6px; }
 .sheet-title-sub {                                 /* v2.53 section inside a sheet */
   font-size: 13px; font-weight: 600; opacity: 0.62;
   margin: 14px 0 2px; letter-spacing: 0.02em;
@@ -786,11 +792,15 @@ html, body, #root {
     padding: calc(8px + env(safe-area-inset-top, 0px)) 14px 0;
   }
   .sheet-handle { display: none; }
+  /* v2.73 The actions sit at the foot of the sheet, where a phone user
+     looks for them. They were moved to a header when the on-screen keyboard
+     hid them and the sheet read as frozen; the sheet is now pinned above the
+     keyboard by --kb, so the foot stays reachable and stops looking odd. */
   .sheet-actions {
-    order: -1;
-    padding: 4px 0 12px;
-    border-top: none;
-    border-bottom: 1px solid color-mix(in srgb, var(--border-2) 55%, transparent);
+    padding: 10px 0 calc(10px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid color-mix(in srgb, var(--border-2) 55%, transparent);
+    border-bottom: none;
+    background: var(--panel);
   }
   .sheet-scroll {
     padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px) + var(--kb, 0px));

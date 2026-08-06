@@ -57,6 +57,11 @@ const translations = {
     detailEco: "Eco",
     detailNote: "Eco drops 3D labels and lightens the model.",
     more: "More",
+    gDrawing: "Drawing",
+    gLabels: "Labels",
+    gView: "View",
+    gDatums: "Datums",
+    gApp: "App",
     hand: "Hand",
     zoomTool: "Zoom",
     labels: "Run labels",
@@ -109,6 +114,11 @@ const translations = {
     detailEco: "軽量",
     detailNote: "軽量は3Dの表記を省き、モデルを軽くします。",
     more: "その他",
+    gDrawing: "図面",
+    gLabels: "ラベル",
+    gView: "表示",
+    gDatums: "基準面",
+    gApp: "アプリ",
     hand: "移動",
     zoomTool: "拡大",
     labels: "配管ラベル",
@@ -372,6 +382,7 @@ export default function TopBar() {
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <div className="sheet-scroll">
             <div className="sheet-handle" />
+            <div className="sheet-group">{t.gDrawing}</div>
             <div className="sheet-row">
               <span>{t.scale}</span>
               <input
@@ -428,6 +439,7 @@ export default function TopBar() {
             >
               <CrosshairIcon /> <span>{t.viewHome}</span>
             </button>
+            <div className="sheet-group">{t.gLabels}</div>
             {/* v2.51 A label says only what this job needs it to say. */}
             <div className="sheet-row">
               <span>{t.labels}</span>
@@ -465,18 +477,21 @@ export default function TopBar() {
             <button className="sheet-btn" onClick={() => setLabelAvoid(!labelAvoid)}>
               <PencilIcon /> <span>{t.labelAvoid}</span> {labelAvoid && <CheckIcon />}
             </button>
+            <div className="sheet-group">{t.gView}</div>
             <button className="sheet-btn" onClick={() => setShowJointMarks(!showJointMarks)}>
               <PencilIcon /> <span>{t.jointMarks}</span> {showJointMarks && <CheckIcon />}
             </button>
             <button className="sheet-btn" onClick={() => setShowGL(!showGL)}>
               <GridIcon /> <span>{t.glRef}</span> {showGL && <CheckIcon />}
             </button>
+            <div className="sheet-group">{t.gDatums}</div>
             <button
               className="sheet-btn"
               onClick={() => { setShowSheet(false); setShowGlSheet(true); }}
             >
               <PencilIcon /> <span>{t.glEdit}</span>
             </button>
+            <div className="sheet-group">{t.gApp}</div>
             <button className="sheet-btn" onClick={sendToStudio}>
               <SendToStudioIcon /> <span>{t.studio}</span>
             </button>
