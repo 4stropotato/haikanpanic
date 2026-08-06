@@ -451,22 +451,24 @@ export default function Workspace() {
   // v2.74 Fit the whole drawing on screen, centred so the origin marker and
   // the view turn about the same point the drawing is set out from.
   const fitToView = () => {
-    if (!viewLines.length) { setZoom(1); setOffset({ x: 0, y: 0 }); return; }
-    let x1 = Infinity; let y1 = Infinity; let x2 = -Infinity; let y2 = -Infinity;
+    // v2.75 The origin is the centre of the sheet, so bringing the drawing
+    // home means putting the red dot in the middle of the screen and pulling
+    // back far enough to see everything around it — not centring the
+    // drawing's own bounding box, which would leave the dot off to one side.
+    setOffset({ x: 0, y: 0 });
+    if (!viewLines.length) { setZoom(1); return; }
+    let rx = 0;
+    let ry = 0;
     for (const line of viewLines) {
       for (const pt of [line.start, line.end]) {
-        x1 = Math.min(x1, pt.x); y1 = Math.min(y1, pt.y);
-        x2 = Math.max(x2, pt.x); y2 = Math.max(y2, pt.y);
+        rx = Math.max(rx, Math.abs(pt.x));
+        ry = Math.max(ry, Math.abs(pt.y));
       }
     }
-    const w = Math.max(x2 - x1, 1);
-    const h = Math.max(y2 - y1, 1);
-    const next = Math.max(0.25, Math.min(3, Math.min(
-      (viewport.w * 0.78) / w,
-      (viewport.h * 0.55) / h,
-    )));
-    setZoom(next);
-    setOffset({ x: -((x1 + x2) / 2) * next, y: -((y1 + y2) / 2) * next });
+    setZoom(Math.max(0.25, Math.min(3, Math.min(
+      (viewport.w * 0.42) / Math.max(rx, 1),
+      (viewport.h * 0.30) / Math.max(ry, 1),
+    ))));
   };
 
   const zoomGrab = (clientX, clientY) => {
