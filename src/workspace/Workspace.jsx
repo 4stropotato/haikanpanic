@@ -190,6 +190,9 @@ export default function Workspace() {
   const [glEditPlane, setGlEditPlane] = useState(false);                    // v2.09 drag handles on
   const planeDrag = useRef(null);
   const [immersive, setImmersive] = useState(false);                        // v2.66 3D with no chrome
+  const [showDrop, setShowDrop] = useState(                                 // v2.96 projection to datum
+    () => localStorage.getItem("haikan-drop") !== "0",
+  );
   const [showDims, setShowDims] = useState(true);                           // v2.64 3D dimension labels
   const [showWorkshop, setShowWorkshop] = useState(() => new URLSearchParams(window.location.search).has("workshop")); // v2.02 3D view toggle (?workshop=1 for tests)
   const [snappedEndpoint, setSnappedEndpoint] = useState(null);             // [v1.15] currently snapped endpoint
@@ -278,6 +281,10 @@ export default function Workspace() {
   useEffect(() => {
     localStorage.setItem("haikan-label-flat", labelFlat ? "1" : "0");       // v2.57
   }, [labelFlat]);
+
+  useEffect(() => {
+    localStorage.setItem("haikan-drop", showDrop ? "1" : "0");              // v2.96
+  }, [showDrop]);
 
   useEffect(() => {
     localStorage.setItem("haikan-el-offsets", JSON.stringify(elOffsets));   // v2.57
@@ -1218,6 +1225,8 @@ export default function Workspace() {
     setShowWorkshop,
     immersive,                                                             // v2.66 chrome-free 3D
     setImmersive,
+    showDrop,                                                              // v2.96 projection to datum
+    setShowDrop,
     showDims,                                                              // v2.64 3D dimension labels
     setShowDims,
     setShowCutList,                                                        // v2.07 材料表
@@ -1305,6 +1314,7 @@ export default function Workspace() {
             // control, which is why the plane never seemed resizable.
             activeDatum={showGlSheet || moveMode || glEditPlane ? datumIndex : -1}
             gripAll={moveMode || glEditPlane}
+            showDrop={showDrop}
             view={view}
             glEditPlane={glEditPlane || moveMode}
             selectMode={selectMode}

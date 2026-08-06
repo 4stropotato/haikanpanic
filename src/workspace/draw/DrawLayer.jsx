@@ -73,7 +73,7 @@ const DrawLayer = ({
   jointTypes = {}, datums = [], activeDatum = -1, showJointMarks = true,
   selection = [], datumSel = [], marquee = null, moveMode = false, projection = null,
   labelFields = LABEL_DEFAULT, labelAvoid = true, onLabelLayout = null,
-  elOffsets = {}, labelFlat = false, gripAll = false, view = null,
+  elOffsets = {}, labelFlat = false, gripAll = false, view = null, showDrop = true,
 }) => { // [v1.09] Accept zoom and offset for scaling
   const canvasRef = useRef(null);                                 // [v1.02] Canvas DOM reference
   const { w: vpW, h: vpH } = useViewport();                       // v1.18+ re-render on resize
@@ -248,6 +248,7 @@ const DrawLayer = ({
           // v2.94 Only where there is floor beneath it: a run off the edge of
           // the datum has nothing to stand on, and drawing a curtain there
           // would claim a relationship that is not real.
+          if (showDrop) {
           ctx.save();
           const drop = (pt) => {
             const el = elevationsForLabels?.get(`${pt.x.toFixed(3)},${pt.y.toFixed(3)}`) ?? 0;
@@ -282,6 +283,7 @@ const DrawLayer = ({
             ctx.stroke();
           }
           ctx.restore();
+          }
 
           for (const node of nodes) {
             if (Math.abs(node.ground.y - node.point.y) < 2) continue;

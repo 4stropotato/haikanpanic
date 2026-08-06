@@ -44,6 +44,7 @@ const translations = {
     studio: "Studio",
     workshop: "Workshop",
     dims: "3D dimensions",
+    drop: "Drop to floor",
     full: "Full screen",
     exitFull: "Show controls",
     exitWorkshop: "Close 3D",
@@ -176,7 +177,7 @@ export default function TopBar() {
     canUndo,
     canRedo,
     showWorkshop, setShowWorkshop,
-    showDims, setShowDims,
+    showDims, setShowDims, showDrop, setShowDrop,
     immersive, setImmersive,
     setShowCutList,
     showGL,
@@ -497,6 +498,9 @@ export default function TopBar() {
               <PencilIcon /> <span>{t.labelAvoid}</span> {labelAvoid && <CheckIcon />}
             </button>
             <div className="sheet-group">{t.gView}</div>
+            <button className="sheet-btn" onClick={() => setShowDrop(!showDrop)}>
+              <GridIcon /> <span>{t.drop}</span> {showDrop && <CheckIcon />}
+            </button>
             <button className="sheet-btn" onClick={() => setShowJointMarks(!showJointMarks)}>
               <PencilIcon /> <span>{t.jointMarks}</span> {showJointMarks && <CheckIcon />}
             </button>
