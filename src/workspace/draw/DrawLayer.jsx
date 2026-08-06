@@ -233,11 +233,12 @@ const DrawLayer = ({
 
         if (datumIdx === 0) {
           ctx.save();
-          ctx.strokeStyle = "rgba(245,186,102,0.45)";
+          // v2.90 The leaders belong to their datum, so they take its colour
+          ctx.strokeStyle = `rgba(${tint},0.45)`;
           ctx.setLineDash([6 / zoom, 5 / zoom]);
           ctx.lineWidth = 1 / zoom;
           ctx.font = `bold ${12 / zoom}px system-ui, sans-serif`;
-          ctx.fillStyle = "#f5ba66";
+          ctx.fillStyle = `rgb(${tint})`;
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
           for (const node of nodes) {
