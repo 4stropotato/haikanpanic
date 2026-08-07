@@ -202,9 +202,10 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
       const needUp = Math.max(4, (spanV || pointStep * 8) / pointStep);
       let cell = pointStep;
       while ((cell / pointStep) * n < need) cell *= 2;
-      // pulling back into the box: the ground opens from the sketch's own
-      // cell to the box's, rather than arriving at it
-      cell = pointStep + ((cell - pointStep) * blend);
+      // v3.89 Pulling back, not moving in. Opening the cell out made the
+      // grid read as a zoom TOWARDS the work; the box shows more of the job,
+      // so it starts wide and closes to its own cell as it settles.
+      cell *= 1 + (2 * (1 - blend));
       const at = (a, b, c) => ({
         x: mid.x + ((step.u.x * a) + (step.v.x * b) + (step.w.x * c)) * (cell / pointStep),
         y: mid.y + ((step.u.y * a) + (step.v.y * b) + (step.w.y * c)) * (cell / pointStep),
