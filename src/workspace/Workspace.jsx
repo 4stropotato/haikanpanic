@@ -192,6 +192,12 @@ export default function Workspace() {
   // v3.02 Surfaces only. Setting out a floor means dragging grips that sit
   // among the pipes, and one missed grab moves a run instead. This locks
   // everything but the datums.
+  // v3.12 Surface view. A floor plan crowded with pipe is hard to set out
+  // from, and a pipe run is hard to read through three slabs — so either can
+  // be taken off the sheet without losing it.
+  const [showPipes, setShowPipes] = useState(
+    () => localStorage.getItem("haikan-show-pipes") !== "0",
+  );
   const [surfaceOnly, setSurfaceOnly] = useState(false);
   // v3.08 Height only. Raising a whole pipeline is a routine change — the
   // run stays where it is on plan and only its level moves — and doing it
@@ -299,6 +305,10 @@ export default function Workspace() {
   useEffect(() => {
     localStorage.setItem("haikan-show-gl", showGL ? "1" : "0");             // v3.03
   }, [showGL]);
+
+  useEffect(() => {
+    localStorage.setItem("haikan-show-pipes", showPipes ? "1" : "0");       // v3.12
+  }, [showPipes]);
 
   useEffect(() => {
     // v3.01 The fitting marks read their setting from storage but nothing
@@ -1426,6 +1436,8 @@ export default function Workspace() {
     glEditPlane,
     setGlEditPlane,
     setShowGlSheet,
+    showPipes,                                                             // v3.12 surface view
+    setShowPipes,
     surfaceOnly,                                                           // v3.02 lock everything but datums
     setSurfaceOnly,
     heightMode,                                                            // v3.08 lift only
@@ -1494,6 +1506,7 @@ export default function Workspace() {
             activeDatum={showGlSheet || moveMode || glEditPlane || surfaceOnly ? datumIndex : -1}
             gripAll={moveMode || glEditPlane || surfaceOnly}
             showDrop={showDrop}
+            showPipes={showPipes}
             view={view}
             glEditPlane={glEditPlane || moveMode}
             selectMode={selectMode}
@@ -1756,6 +1769,7 @@ export default function Workspace() {
             detail={detail}
             labelFlat={labelFlat}
             showDims={showDims}
+            showPipes={showPipes}
             immersive={immersive}
             onToggleDims={() => setShowDims((d) => !d)}
             onToggleImmersive={() => setImmersive((v) => !v)}

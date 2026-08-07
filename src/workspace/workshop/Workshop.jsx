@@ -71,7 +71,7 @@ function makeAxisLabel(text, tone, axis) {
 
 export default function Workshop({
   lines, mmPerPoint, glOffsetMm = 0, jointTypes = {}, detail = "normal",
-  labelFlat = false, showDims = true, immersive = false,
+  labelFlat = false, showDims = true, showPipes = true, immersive = false,
   onToggleDims, onToggleImmersive, onEditSegment, onClose,
 }) {
   const hostRef = useRef(null);
@@ -492,6 +492,14 @@ export default function Workshop({
         applyCamera();
       },
       setDims: (visible) => { for (const obj of dimObjects) obj.visible = visible; },
+      // v3.14 Surface view in 3D as well: the solids stand down and the
+      // annotation stays, so the room can be read without the pipe in it.
+      setPipes: (visible) => {
+        const labels = new Set(sprites.map((s) => s.sprite));
+        for (const child of group.children) {
+          if (!labels.has(child)) child.visible = visible;
+        }
+      },
     };
 
     const topElement = () => {
@@ -586,6 +594,10 @@ export default function Workshop({
   useEffect(() => {
     apiRef.current?.setDims(showDims);
   }, [showDims]);
+
+  useEffect(() => {
+    apiRef.current?.setPipes(showPipes);
+  }, [showPipes]);
 
   return (
     <div className="workshop">

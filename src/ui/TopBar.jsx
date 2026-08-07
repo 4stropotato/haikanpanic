@@ -46,6 +46,7 @@ const translations = {
     dims: "3D dimensions",
     drop: "Drop to floor",
     surfaces: "Edit surfaces only",
+    pipes: "Show pipes",
     full: "Full screen",
     exitFull: "Show controls",
     exitWorkshop: "Close 3D",
@@ -197,7 +198,7 @@ export default function TopBar() {
     glEditPlane,
     setGlEditPlane,
     setShowGlSheet,
-    surfaceOnly, setSurfaceOnly, heightMode, setHeightMode,
+    surfaceOnly, setSurfaceOnly, heightMode, setHeightMode, showPipes, setShowPipes,
     currentSpec,
     setShowSpecSheet,
     labelFields, setLabelFields, labelAvoid, setLabelAvoid, labelFlat, setLabelFlat,
@@ -518,6 +519,9 @@ export default function TopBar() {
             </button>
             <button className="sheet-btn" onClick={() => setShowJointMarks(!showJointMarks)}>
               <PencilIcon /> <span>{t.jointMarks}</span> {showJointMarks && <CheckIcon />}
+            </button>
+            <button className="sheet-btn" onClick={() => setShowPipes(!showPipes)}>
+              <PencilDrawIcon /> <span>{t.pipes}</span> {showPipes && <CheckIcon />}
             </button>
             <button className="sheet-btn" onClick={() => setShowGL(!showGL)}>
               <GridIcon /> <span>{t.glRef}</span> {showGL && <CheckIcon />}

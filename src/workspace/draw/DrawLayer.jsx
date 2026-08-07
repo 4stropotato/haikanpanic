@@ -74,6 +74,7 @@ const DrawLayer = ({
   selection = [], datumSel = [], marquee = null, moveMode = false, projection = null,
   labelFields = LABEL_DEFAULT, labelAvoid = true, onLabelLayout = null,
   elOffsets = {}, labelFlat = false, gripAll = false, view = null, showDrop = true,
+  showPipes = true,
 }) => { // [v1.09] Accept zoom and offset for scaling
   const canvasRef = useRef(null);                                 // [v1.02] Canvas DOM reference
   const { w: vpW, h: vpH } = useViewport();                       // v1.18+ re-render on resize
@@ -392,7 +393,7 @@ const DrawLayer = ({
 
     const selected = new Set(selection);
     const stacked = overlappingRuns(lines);
-    lines.forEach((line, index) => {
+    if (showPipes) lines.forEach((line, index) => {
       const on = selected.has(index);
       // two runs sharing a grid line read as one pipe, so they are called out
       const clash = stacked.has(index);
@@ -418,7 +419,7 @@ const DrawLayer = ({
     ctx.lineWidth = 1.5 / zoom;
     ctx.stroke();
 
-    lines.forEach(placeLabel);                                    // v2.52 lay out, then keep apart
+    if (showPipes) lines.forEach(placeLabel);                                    // v2.52 lay out, then keep apart
     for (const entry of layout) drawLabel(entry);                 // v1.17+ labels ride the runs
     onLabelLayout?.([
       ...layout.map(({ index, x, y, ux, uy, len, flip }) => ({ index, x, y, ux, uy, len, flip })),
@@ -427,7 +428,7 @@ const DrawLayer = ({
 
     // v2.10 corner fittings: L / S / T / W so the choice is visible on the
     // drawing, the way a fitter marks up an isometric by hand.
-    for (const joint of showJointMarks ? sketchJoints(lines) : []) {
+    for (const joint of (showJointMarks && showPipes) ? sketchJoints(lines) : []) {
       const type = jointTypeOf(joint, lines, jointTypes);
       const r = 9 / zoom;
       ctx.beginPath();
@@ -506,7 +507,13 @@ const DrawLayer = ({
     ctx.restore();                                                // [v1.10] End transform block
   }, [lines, preview, isDark, zoom, offset, mmPerPoint, showGL, glEditPlane,
       jointTypes, datums, activeDatum, showJointMarks,
-      selection, marquee, moveMode, projection, vpW, vpH]);   // [v1.10] Redraw on zoom or pan
+      selection, marquee, moveMode, projection, vpW, vpH,
+      // v3.13 Everything the drawing reads has to be listed, or the canvas
+      // holds a stale frame and the switch that changed it looks broken.
+      // Several settings added since v2.51 were missing here, which is why
+      // some of them appeared to do nothing until an unrelated redraw.
+      labelFields, labelAvoid, labelFlat, elOffsets, showDrop, showPipes,
+      datumSel, gripAll, view]);   // [v1.10] Redraw on zoom or pan
 
   return (
     <canvas
