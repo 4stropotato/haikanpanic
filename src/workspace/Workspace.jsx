@@ -746,6 +746,12 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
   // known levels instead of forcing the whole chain to move.
   const levelGrab = (clientX, clientY) => {
     if (surfaceOnly) return false;                                         // v3.02 surfaces only
+    // v3.51 With a ground axis locked, the end handle stands down. The lock
+    // is about carrying the run somewhere, not about pulling one end of it:
+    // grabbing an end under "along 30" stretched the pipe to 3500 instead of
+    // moving it, which is the opposite of what a lock is for. Held on "up
+    // and down" the end handle is still the right tool, so it keeps that.
+    if (heightMode && (lockAxis === "u" || lockAxis === "v")) return false;
     if (!moveMode || !lines.length) return false;
     const point = toWorkspace(clientX, clientY);
     const reach = 26 / zoom;
@@ -809,40 +815,6 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
     const drag = levelDrag.current;
     if (!drag) return false;
 
-    // v3.49 An end dragged under a horizontal axis lock travels along that
-    // axis. The end handle is a level handle first, so it answered only in
-    // height — with "along 30" chosen the finger moved sideways and the pipe
-    // still went up, which is not what the lock says it will do.
-    if (heightMode && (lockAxis === "u" || lockAxis === "v")) {
-      const axes = planeAxes(view);
-      const dir = lockAxis === "u" ? axes.u : axes.v;
-      const len = Math.hypot(dir.x, dir.y) || 1;
-      const dx = ((clientX ?? drag.startX) - drag.startX) / zoom;
-      const dy = (clientY - drag.startY) / zoom;
-      const raw = ((dx * dir.x) + (dy * dir.y)) / (len * len);
-      const along = Math.round(raw / pointStep) * pointStep;
-      const moved = drag.which === 1 ? "start" : "end";
-      setLines(lines.map((line, i) => {
-        if (i !== drag.index) return line;
-        const next = {
-          ...line,
-          [moved]: {
-            x: drag.base[moved].x + (dir.x * along),
-            y: drag.base[moved].y + (dir.y * along),
-          },
-        };
-        // v3.50 The run is re-measured from where its ends now are. Clearing
-        // the length outright left the run without one at all, so anything
-        // that reads it had to fall back on the drawing — which is how a pipe
-        // nobody had fixed still behaved as though its length were being
-        // argued over.
-        next.lengthMm = line.fixed
-          ? line.lengthMm
-          : segmentLengthMm(next, mmPerPoint);
-        return next;
-      }));
-      return true;
-    }
     const raw = drag.startEl + ((drag.startY - clientY) / zoom) * view3d.risePerPx;
     const value = Math.round(raw / 10) * 10;
     const ref = datumFor(value, datums);
