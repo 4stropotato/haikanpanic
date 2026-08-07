@@ -139,9 +139,10 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
       // box from every angle. Decomposing the on-screen bounds into the box
       // axes blew up whenever those axes closed on each other, which is why
       // the grid sometimes grew for no reason.
-      let need = Math.max(6, (span || pointStep * 8) / pointStep);
-      // and tall enough for the highest thing on the sheet
-      if (bounds) need = Math.max(need, Math.abs(bounds.y2 - bounds.y1) / pointStep);
+      // v3.39 The span already carries the job's height, measured in world
+      // terms — nothing here may reach for the projected bounds again, or
+      // the box starts resizing as you tilt.
+      const need = Math.max(6, (span || pointStep * 8) / pointStep);
       let cell = pointStep;
       while ((cell / pointStep) * n < need) cell *= 2;
       const at = (a, b, c) => ({
@@ -162,9 +163,13 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
       // direction of the projection, (-sy*cp, sp, cy*cp), and the far side
       // is its negative. Flipping it wholesale kept the ceiling when looking
       // down from above, which is plainly wrong, so the sign stands.
-      const away = { x: Math.sin(yaw) * Math.cos(pitch),
+      // v3.40 Which two walls stand behind the drawing is a question about
+      // the bearing alone. Scaling them by cos(pitch) let the pair swap as
+      // the view crossed under the floor, so the corner jumped when you
+      // ducked beneath — the magnitude is what matters, not the side.
+      const away = { x: Math.sin(yaw) * Math.abs(Math.cos(pitch)),
         y: -Math.sin(pitch),
-        z: -Math.cos(yaw) * Math.cos(pitch) };
+        z: -Math.cos(yaw) * Math.abs(Math.cos(pitch)) };
       // v3.30 A face seen almost edge-on has all its lines land on top of
       // one another: not a grid but a solid band across the drawing, which
       // is what "the grid blocks the front" was. Keeping it only once it is

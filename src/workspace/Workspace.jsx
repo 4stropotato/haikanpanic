@@ -490,8 +490,22 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
       take({ x: 0, y: toPx(bottomMm) });
       take({ x: 0, y: toPx(topMm) });
     }
-    if (!Number.isFinite(x1)) return pointStep * 8;
-    return Math.max(pointStep * 4, Math.max(x2 - x1, y2 - y1) / 2);
+    // v3.39 Height counted in the world too. Taking it from the projected
+    // bounds put the view back into the box's size — and near a level view
+    // that extent collapses, so the box shrank as you tilted. Elevations and
+    // surface feet are the same numbers from every angle.
+    let low = 0;
+    let high = 0;
+    const els = lines.length ? nodeElevations(lines, mmPerPoint) : new Map();
+    for (const el of els.values()) { low = Math.min(low, el); high = Math.max(high, el); }
+    for (const datum of datums) {
+      const { bottomMm, topMm } = planeVerticalExtent(datum);
+      low = Math.min(low, bottomMm);
+      high = Math.max(high, topMm);
+    }
+    const tall = ((high - low) * pointStep) / mmPerPoint;
+    if (!Number.isFinite(x1)) return Math.max(pointStep * 8, tall / 2);
+    return Math.max(pointStep * 4, (x2 - x1) / 2, (y2 - y1) / 2, tall / 2);
   }, [lines, datums, mmPerPoint]);
 
   const sketchBounds = useMemo(() => {
