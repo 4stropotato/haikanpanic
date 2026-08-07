@@ -1489,7 +1489,7 @@ export default function Workspace() {
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
-          <IsoGrid show={showGrid} zoom={zoom} offset={offset} />
+          <IsoGrid show={showGrid} zoom={zoom} offset={offset} view={view} />
           <DrawLayer
             lines={viewLines}
             projection={projection}

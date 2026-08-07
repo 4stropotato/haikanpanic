@@ -5,10 +5,11 @@
 // [v1.10] Centralized grid math via constants, slope calculation via tan30
 
 import { useEffect, useRef } from "react";                          // [v1.10] React hook for lifecycle
-import { dx, tan30 } from "../utils/constants";          // [v1.10] Centralized grid constants
+import { dx, pointStep } from "../utils/constants";      // [v1.10] Centralized grid constants
+import { planeAxes } from "../utils/glPlane";           // v3.15 the grid follows the view
 import { useViewport } from "../utils/viewport";                   // v1.18+ live workspace size
 
-const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 } }) => {  // [v1.09] Accept zoom and offset props
+const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null }) => {  // [v1.09] Accept zoom and offset props
   const canvasRef = useRef(null);
   const { w: vpW, h: vpH } = useViewport();                          // v1.18+ re-render on resize                                  // [v1.0] Reference to canvas element
 
@@ -49,27 +50,43 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 } }) => {  // [v1.09] A
       ctx.stroke();
     };
 
-    for (let i = Math.floor(xa / dx) - 1; i <= Math.ceil(xb / dx) + 1; i += 1) {
-      drawLine(i * dx, ya, i * dx, yb, i % 5 === 0);
-    }
+    // v3.15 The grid is the world lattice seen from where you stand, not a
+    // fixed pattern on the glass. Drawn the old way it kept its 30 degrees
+    // while the pipes reprojected, so the moment you left the home view the
+    // drawing no longer sat on its own grid — which is what "it does not
+    // align" was. The three families run along the same axes the datum plane
+    // and the snapping use, so everything agrees at any angle.
+    const axes = planeAxes(view);
+    const step = { u: { x: axes.u.x * pointStep, y: axes.u.y * pointStep },
+      v: { x: axes.v.x * pointStep, y: axes.v.y * pointStep },
+      w: { x: 0, y: pointStep } };
+    const reach = Math.hypot(xb - xa, yb - ya) * 1.5;
 
-    // slanted families: y = ±tan30 * (x - i*dx); param t = x ∓ y/tan30
-    for (const sign of [1, -1]) {
-      const t1 = xa - (sign * ya) / tan30;
-      const t2 = xa - (sign * yb) / tan30;
-      const t3 = xb - (sign * ya) / tan30;
-      const t4 = xb - (sign * yb) / tan30;
-      const tMin = Math.min(t1, t2, t3, t4);
-      const tMax = Math.max(t1, t2, t3, t4);
-      for (let i = Math.floor(tMin / dx) - 1; i <= Math.ceil(tMax / dx) + 1; i += 1) {
-        const xAtYa = (i * dx) + ((sign * ya) / tan30);
-        const xAtYb = (i * dx) + ((sign * yb) / tan30);
-        drawLine(xAtYa, ya, xAtYb, yb, i % 10 === 0);
+    const family = (dir, along, boldEvery) => {
+      const n = { x: -dir.y, y: dir.x };
+      const nl = Math.hypot(n.x, n.y);
+      if (nl < 1e-9) return;
+      const spacing = ((along.x * n.x) + (along.y * n.y)) / nl;
+      if (Math.abs(spacing) < 0.5) return;                  // edge-on: no family to draw
+      const cast = [[xa, ya], [xb, ya], [xa, yb], [xb, yb]]
+        .map(([x, y]) => ((x * n.x) + (y * n.y)) / nl / spacing);
+      const lo = Math.floor(Math.min(...cast)) - 1;
+      const hi = Math.ceil(Math.max(...cast)) + 1;
+      if (hi - lo > 400) return;                            // too dense to be readable
+      for (let k = lo; k <= hi; k += 1) {
+        const px = along.x * k;
+        const py = along.y * k;
+        drawLine(px - (dir.x * reach), py - (dir.y * reach),
+          px + (dir.x * reach), py + (dir.y * reach), k % boldEvery === 0);
       }
-    }
+    };
+
+    family(step.w, step.u, 10);            // uprights
+    family(step.u, step.w, 10);            // one ground direction
+    family(step.v, step.w, 10);            // the other
 
     ctx.restore();
-  }, [show, zoom, offset, vpW, vpH]);                                       // [v1.09] Redraw on zoom/pan/show change
+  }, [show, zoom, offset, vpW, vpH, view]);                                       // [v1.09] Redraw on zoom/pan/show change
 
   return (
     <canvas
