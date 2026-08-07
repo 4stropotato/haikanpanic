@@ -322,6 +322,20 @@ export default function Workspace() {
     localStorage.setItem("haikan-show-gl", showGL ? "1" : "0");             // v3.03
   }, [showGL]);
 
+  // v3.92 A datum set to follow the work sits on the lowest thing drawn. Draw
+  // a run downward and the ground was left floating above it, which is not
+  // something a ground line does — it is the level you measure from, so it
+  // goes where the bottom of the job is.
+  useEffect(() => {
+    if (!lines.length) return;
+    const els = [...nodeElevations(lines, mmPerPoint).values()];
+    if (!els.length) return;
+    const low = Math.round(Math.min(...els));
+    setDatums((list) => (list.some((d) => d.autoLow && d.offsetMm !== low)
+      ? list.map((d) => (d.autoLow ? { ...d, offsetMm: low } : d))
+      : list));
+  }, [lines, mmPerPoint]);
+
   useEffect(() => {
     localStorage.setItem("haikan-show-pipes", showPipes ? "1" : "0");       // v3.12
   }, [showPipes]);

@@ -13,6 +13,7 @@ const TEXT = {
     colour: "Colour",
     kind: "Surface",
     rename: "Label",
+    autoLow: "Sit on the lowest run",
     floor: "Floor",
     wall: "Wall",
     ceiling: "Ceiling",
@@ -49,6 +50,7 @@ const TEXT = {
     colour: "色",
     kind: "面の種類",
     rename: "表示名",
+    autoLow: "最下部に合わせる",
     floor: "床",
     wall: "壁",
     ceiling: "天井",
@@ -299,6 +301,10 @@ export default function GlSheet({
               <button className="sheet-btn" onClick={onRefit}>{t.reset}</button>
             </>
           )}
+
+          <button className="sheet-btn" onClick={() => onChange({ autoLow: !plane.autoLow })}>
+            <span>{t.autoLow}</span> {plane.autoLow ? "✓" : ""}
+          </button>
 
           {!isPrimary && (
             <button className="sheet-btn" onClick={onMakePrimary}>{t.makePrimary}</button>
