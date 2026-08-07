@@ -12,7 +12,7 @@ const TEXT = {
     title: "Run angle",
     slope: "Rise",
     plan: "Turn in plan",
-    planNote: "Swings the far end off the drawing's six directions. The length is held.",
+    planNote: "Swings the far end off the drawing's six directions. Hold the run and the pipe becomes the hypotenuse, exactly as it does for a rise.",
     angle: "Angle",
     keep: "Hold",
     keepRun: "Run",
@@ -29,7 +29,7 @@ const TEXT = {
     title: "配管角度",
     slope: "勾配",
     plan: "平面角",
-    planNote: "図面の6方向から先端を振ります。管長はそのまま。",
+    planNote: "図面の6方向から先端を振ります。水平を固定すれば管は斜辺になります — 勾配と同じ考え方。",
     angle: "角度",
     keep: "固定",
     keepRun: "水平",
@@ -151,6 +151,7 @@ export default function AngleSheet({
               horizontalMm: Math.max(1, Math.round(nextHorizontal)),
               riseMm: Math.round(nextRise),
               planTurnDeg: Number(planText) || 0,
+              hold,
             })}
           >
             {t.apply}

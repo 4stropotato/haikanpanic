@@ -1845,7 +1845,7 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
             slopeDeg={angleTarget.metric.slopeDeg}
             lang={localStorage.getItem("haikan-lang") === "jp" ? "jp" : "en"}
             onClose={() => setAngleTarget(null)}
-            onApply={({ horizontalMm, riseMm, planTurnDeg }) => {
+            onApply={({ horizontalMm, riseMm, planTurnDeg, hold }) => {
               if (!(horizontalMm > 0)) { setAngleTarget(null); return; }
               const els = nodeElevations(lines, mmPerPoint);
               const target = lines[angleTarget.index];
@@ -1853,9 +1853,12 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
               // v3.46 A fixed run is a spool already made, or stock that
               // cannot be shortened: swinging it changes where its far end
               // lands, never how long it is.
+              const turnRad = ((planTurnDeg || 0) * Math.PI) / 180;
               const held = target.fixed
                 ? (target.lengthMm ?? horizontalMm)
-                : horizontalMm;
+                : (planTurnDeg && hold !== "length"
+                  ? Math.round(horizontalMm / Math.max(Math.abs(Math.cos(turnRad)), 0.1))
+                  : horizontalMm);
               let next = lines.map((line, i) => (i === angleTarget.index
                 ? { ...line, lengthMm: held, elev2Mm: startEl + riseMm }
                 : line));
@@ -1870,9 +1873,19 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
                 const sin = Math.sin(th);
                 const wx = d[0];
                 const wz = -d[1];
+                // v3.56 A turn works the way a rise does. Holding the run
+                // keeps the perpendicular — the distance the pipe has to
+                // cover — and the pipe itself becomes the hypotenuse, so it
+                // gets longer. Holding the length swings a pipe already cut
+                // and it reaches less far. The turn had no such choice: the
+                // length was always kept, which is only one of the two cases
+                // a fitter meets.
+                const reach = hold === "length"
+                  ? horizontalMm
+                  : horizontalMm / Math.max(Math.abs(cos), 0.1);
                 const p = horizontalTo2D(
-                  ((wx * cos) - (wz * sin)) * horizontalMm,
-                  ((wx * sin) + (wz * cos)) * horizontalMm,
+                  ((wx * cos) - (wz * sin)) * reach,
+                  ((wx * sin) + (wz * cos)) * reach,
                   mmPerPoint / pointStep,
                 );
                 const newEnd = { x: target.start.x + p.x, y: target.start.y + p.y };
