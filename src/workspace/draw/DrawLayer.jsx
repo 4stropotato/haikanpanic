@@ -74,7 +74,7 @@ const DrawLayer = ({
   selection = [], datumSel = [], marquee = null, moveMode = false, projection = null,
   labelFields = LABEL_DEFAULT, labelAvoid = true, onLabelLayout = null,
   elOffsets = {}, labelFlat = false, gripAll = false, view = null, showDrop = true,
-  showPipes = true,
+  showPipes = true, stacked: stackedFromSketch = null,
 }) => { // [v1.09] Accept zoom and offset for scaling
   const canvasRef = useRef(null);                                 // [v1.02] Canvas DOM reference
   const { w: vpW, h: vpH } = useViewport();                       // v1.18+ re-render on resize
@@ -392,7 +392,7 @@ const DrawLayer = ({
     }
 
     const selected = new Set(selection);
-    const stacked = overlappingRuns(lines);
+    const stacked = stackedFromSketch ?? overlappingRuns(lines);
     if (showPipes) lines.forEach((line, index) => {
       const on = selected.has(index);
       // two runs sharing a grid line read as one pipe, so they are called out
@@ -512,7 +512,7 @@ const DrawLayer = ({
       // holds a stale frame and the switch that changed it looks broken.
       // Several settings added since v2.51 were missing here, which is why
       // some of them appeared to do nothing until an unrelated redraw.
-      labelFields, labelAvoid, labelFlat, elOffsets, showDrop, showPipes,
+      labelFields, labelAvoid, labelFlat, elOffsets, showDrop, showPipes, stackedFromSketch,
       datumSel, gripAll, view]);   // [v1.10] Redraw on zoom or pan
 
   return (

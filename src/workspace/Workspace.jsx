@@ -485,7 +485,13 @@ export default function Workspace() {
   }, [viewLines, lines, datums, showGL, mmPerPoint, projection, view]);
 
 
-  const stackedCount = useMemo(() => overlappingRuns(viewLines).size, [viewLines]);
+  // v3.26 Two runs sharing a grid line is a fact about the sketch, not about
+  // the view. Read from the projected lines it fired from any turned view —
+  // and from straight above it always fires, because a run at EL 0 and one
+  // at EL 2000 must overlap when seen from overhead. That is the projection
+  // doing its job, not a mistake to warn about.
+  const stacked = useMemo(() => overlappingRuns(lines), [lines]);
+  const stackedCount = stacked.size;
 
   const jointInfo = (key) => jointAngles(lines, mmPerPoint, { jointTypes }).get(key);
 
@@ -1564,6 +1570,7 @@ export default function Workspace() {
             moveMode={moveMode}
             jointTypes={jointTypes}
             showJointMarks={showJointMarks}
+            stacked={stacked}
             labelFields={labelFields}
             labelAvoid={labelAvoid}
             labelFlat={labelFlat}
