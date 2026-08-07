@@ -837,6 +837,14 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
         x: drag.base[moving].x + (dir.x * along),
         y: drag.base[moving].y + (dir.y * along),
       };
+      // v3.54 The run itself has to lie on the grid. Moving the end along a
+      // 30 degree axis followed that axis faithfully, but the pipe left
+      // behind ran at 60 degrees — a direction an isometric does not have.
+      // The end is swung onto the nearest of the drawing's six directions,
+      // so the run always lands on a grid line and the drag chooses which
+      // one it lands on.
+      const legal = snapToAllowedAngle(anchor, at);
+      at = legal.end;
       const line0 = lines[drag.index];
       if (line0?.fixed) {
         // hold the reach: swing the end round rather than lengthen the pipe
