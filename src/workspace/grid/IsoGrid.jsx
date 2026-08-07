@@ -156,27 +156,38 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
       const away = { x: Math.sin(yaw) * Math.cos(pitch),
         y: -Math.sin(pitch),
         z: -Math.cos(yaw) * Math.cos(pitch) };
-      const facing = (nx, ny, nz) => ((nx * away.x) + (ny * away.y) + (nz * away.z)) > 0;
+      // v3.30 A face seen almost edge-on has all its lines land on top of
+      // one another: not a grid but a solid band across the drawing, which
+      // is what "the grid blocks the front" was. Keeping it only once it is
+      // properly turned towards you, and fading it as it closes up, means a
+      // face leaves quietly instead of smearing.
+      const lookAt = (nx, ny, nz) => (nx * away.x) + (ny * away.y) + (nz * away.z);
+      const OPEN = 0.22;
+      const facing = (nx, ny, nz) => lookAt(nx, ny, nz) > OPEN;
+      const fade = (nx, ny, nz) => Math.min(1, (lookAt(nx, ny, nz) - OPEN) / 0.35);
       const h = n;
 
       // the two ground-parallel faces
       for (const [c, ny] of [[0, -1], [-h, 1]]) {
         if (!facing(0, ny, 0)) continue;
+        const d = fade(0, ny, 0) * (c === 0 ? 1 : 0.6);
         for (let i = -h; i <= h; i += 1) {
-          seg(at(i, -h, c), at(i, h, c), strong(i), c === 0 ? 1 : 0.5);
-          seg(at(-h, i, c), at(h, i, c), strong(i), c === 0 ? 1 : 0.5);
+          seg(at(i, -h, c), at(i, h, c), strong(i), d);
+          seg(at(-h, i, c), at(h, i, c), strong(i), d);
         }
       }
       // the four uprights
       for (const [b, nz] of [[-h, -1], [h, 1]]) {
         if (!facing(0, 0, nz)) continue;
-        for (let i = -h; i <= h; i += 1) seg(at(i, b, 0), at(i, b, -h), strong(i), 0.45);
-        for (let c = 0; c <= h; c += 1) seg(at(-h, b, -c), at(h, b, -c), strong(c), 0.45);
+        const d = fade(0, 0, nz) * 0.45;
+        for (let i = -h; i <= h; i += 1) seg(at(i, b, 0), at(i, b, -h), strong(i), d);
+        for (let c = 0; c <= h; c += 1) seg(at(-h, b, -c), at(h, b, -c), strong(c), d);
       }
       for (const [a, nx] of [[-h, -1], [h, 1]]) {
         if (!facing(nx, 0, 0)) continue;
-        for (let i = -h; i <= h; i += 1) seg(at(a, i, 0), at(a, i, -h), strong(i), 0.45);
-        for (let c = 0; c <= h; c += 1) seg(at(a, -h, -c), at(a, h, -c), strong(c), 0.45);
+        const d = fade(nx, 0, 0) * 0.45;
+        for (let i = -h; i <= h; i += 1) seg(at(a, i, 0), at(a, i, -h), strong(i), d);
+        for (let c = 0; c <= h; c += 1) seg(at(a, -h, -c), at(a, h, -c), strong(c), d);
       }
     }
 
