@@ -804,9 +804,46 @@ export default function Workspace() {
     const dxScreen = point.x - drag.origin.x;
     const dyScreen = point.y - drag.origin.y;
 
-    // v3.08 In height mode the drag is read as elevation and nothing else,
-    // so a pipeline goes up without wandering off its setting-out.
+    // v3.09 Axis lock. Holding Move arms it; the first real movement picks
+    // which of the drawing's three directions the drag belongs to — up the
+    // screen is height, the other two are the ground axes — and it stays on
+    // that one. A pipeline goes up, or along one axis, without wandering.
     if (heightMode) {
+      const axes = planeAxes(view);
+      if (!drag.lock && Math.hypot(dxScreen, dyScreen) > 6 / zoom) {
+        const cast = [
+          { name: "up", dir: { x: 0, y: 1 } },
+          { name: "u", dir: axes.u },
+          { name: "v", dir: axes.v },
+        ].map((a) => {
+          const len = Math.hypot(a.dir.x, a.dir.y) || 1;
+          return { ...a, along: Math.abs(((dxScreen * a.dir.x) + (dyScreen * a.dir.y)) / len) };
+        });
+        drag.lock = cast.reduce((best, a) => (a.along > best.along ? a : best)).name;
+      }
+      if (!drag.lock) return true;
+
+      if (drag.lock !== "up") {
+        const dir = drag.lock === "u" ? axes.u : axes.v;
+        const len = Math.hypot(dir.x, dir.y) || 1;
+        const along = ((dxScreen * dir.x) + (dyScreen * dir.y)) / (len * len);
+        const anchorBase2 = drag.base[drag.anchorIndex].start;
+        const want = { x: anchorBase2.x + (dir.x * along), y: anchorBase2.y + (dir.y * along) };
+        const put = snapWorkspaceToGrid(want);
+        const sx = put.x - anchorBase2.x;
+        const sy = put.y - anchorBase2.y;
+        setLines(lines.map((line, i) => {
+          if (!drag.members.has(i)) return line;
+          const base = drag.base[i];
+          return {
+            ...line,
+            start: { x: base.start.x + sx, y: base.start.y + sy },
+            end: { x: base.end.x + sx, y: base.end.y + sy },
+          };
+        }));
+        return true;
+      }
+
       const rise = Math.round((-dyScreen * view3d.risePerPx) / 10) * 10;
       const els = nodeElevations(drag.baseLines ?? lines, mmPerPoint);
       setLines(lines.map((line, i) => {

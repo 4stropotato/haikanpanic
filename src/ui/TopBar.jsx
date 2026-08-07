@@ -207,8 +207,8 @@ export default function TopBar() {
   const [lang, setLang] = useState(detectLanguage);
   // v2.74 A second tap on a tool asks it to do its whole job at once:
   // Select takes everything, Move brings the drawing back to the middle.
-  // v3.07 Taps in quick succession ask for more each time: two takes
-  // everything, three narrows it to the pipes alone.
+  // v3.07 Taps in quick succession widen the reach: two takes the runs,
+  // three takes the surfaces with them.
   const lastDock = useRef({ name: "", at: 0, count: 0 });
   const holdTimer = useRef(null);
   const multiTap = (name, actions) => {
@@ -360,7 +360,7 @@ export default function TopBar() {
         <button
           className={"dock-btn" + (selectMode ? " glow" : "")}
           onClick={() => {
-            if (multiTap("select", { 2: selectAll, 3: selectRuns })) return;
+            if (multiTap("select", { 2: selectRuns, 3: selectAll })) return;
             if (selectMode) clearSelection();          // v2.76 second tap empties it
             setSelectMode(!selectMode); setViewTool(null);
             setEditMode(false);
