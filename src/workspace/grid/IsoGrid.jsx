@@ -9,7 +9,7 @@ import { dx, pointStep } from "../utils/constants";      // [v1.10] Centralized 
 import { planeAxes } from "../utils/glPlane";           // v3.15 the grid follows the view
 import { useViewport } from "../utils/viewport";                   // v1.18+ live workspace size
 
-const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null }) => {  // [v1.09] Accept zoom and offset props
+const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds = null }) => {  // [v1.09] Accept zoom and offset props
   const canvasRef = useRef(null);
   const { w: vpW, h: vpH } = useViewport();                          // v1.18+ re-render on resize                                  // [v1.0] Reference to canvas element
 
@@ -112,22 +112,36 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null }) => { 
       // Three bounded planes meeting at the origin say all of XYZ and stay
       // quiet, which is how a CAD viewport does it. The box is sized to the
       // view so it neither disappears nor swamps the drawing.
-      const span = Math.min(Math.hypot(xb - xa, yb - ya) * 0.42, pointStep * 40);
+      // v3.22 The box belongs where the work is. Built at the origin it sat
+      // off in a corner of the sheet with the drawing somewhere else — a
+      // reference to nothing. It is centred on the drawing's own extent and
+      // sized to cover it, so the ground lies under the pipes and the
+      // uprights stand behind them.
+      const mid = bounds
+        ? { x: (bounds.x1 + bounds.x2) / 2, y: (bounds.y1 + bounds.y2) / 2 }
+        : { x: 0, y: 0 };
+      const spread = bounds
+        ? Math.hypot(bounds.x2 - bounds.x1, bounds.y2 - bounds.y1) * 0.75
+        : pointStep * 10;
+      const span = Math.max(pointStep * 4, Math.min(spread, pointStep * 40));
       const n = Math.max(4, Math.min(16, Math.round(span / pointStep)));
       const at = (a, b, c) => ({
-        x: (step.u.x * a) + (step.v.x * b) + (step.w.x * c),
-        y: (step.u.y * a) + (step.v.y * b) + (step.w.y * c),
+        x: mid.x + (step.u.x * a) + (step.v.x * b) + (step.w.x * c),
+        y: mid.y + (step.u.y * a) + (step.v.y * b) + (step.w.y * c),
       });
       const seg = (p1, p2, bold, dim) => drawLine(p1.x, p1.y, p2.x, p2.y, bold, dim);
       const strong = (i) => i % 5 === 0;
-      for (let i = 0; i <= n; i += 1) {
-        // the ground, and the two uprights that meet it at the origin
-        seg(at(i, 0, 0), at(i, n, 0), strong(i), 1);
-        seg(at(0, i, 0), at(n, i, 0), strong(i), 1);
-        seg(at(i, 0, 0), at(i, 0, -n), strong(i), 0.5);
-        seg(at(0, 0, -i), at(n, 0, -i), strong(i), 0.5);
-        seg(at(0, i, 0), at(0, i, -n), strong(i), 0.5);
-        seg(at(0, 0, -i), at(0, n, -i), strong(i), 0.5);
+      const h = n;
+      for (let i = -h; i <= h; i += 1) {
+        // the ground under the work, and the two walls behind it
+        seg(at(i, -h, 0), at(i, h, 0), strong(i), 1);
+        seg(at(-h, i, 0), at(h, i, 0), strong(i), 1);
+        seg(at(i, -h, 0), at(i, -h, -h), strong(i), 0.45);
+        seg(at(-h, i, 0), at(-h, i, -h), strong(i), 0.45);
+      }
+      for (let c = 0; c <= h; c += 1) {
+        seg(at(-h, -h, -c), at(h, -h, -c), strong(c), 0.45);
+        seg(at(-h, -h, -c), at(-h, h, -c), strong(c), 0.45);
       }
     }
 

@@ -37,7 +37,7 @@ import {
   glPlaneGeometry, sizeFromHandle, insidePlane,
   viewRect, clampHandle, planeAxes, isoCoords,                                                    // v2.62 reachable grips
 } from "./utils/glPlane";                                                   // v2.09 datum plane
-import { pipeSpec } from "./data/jis";                                      // v2.82 the floor rule
+import { pipeSpec, material } from "./data/jis";                                      // v2.82 the floor rule
 import GlSheet from "../ui/GlSheet";
 import LevelSheet from "../ui/LevelSheet";
 import AngleSheet from "../ui/AngleSheet";
@@ -102,11 +102,23 @@ export default function Workspace() {
   );                                                                        // [v1.02] whether in draw mode
   const [isHolding, setIsHolding] = useState(false);                        // [v1.11] track touch hold state for magnifier
   const [editMode, setEditMode] = useState(false);                          // v1.19+ tap segments to edit lengths
+  // v3.23 A drawn run carries a spec from the start. It defaulted to none,
+  // so a new sketch had pipes with no size at all — and turning the Size
+  // label on showed nothing, because there was nothing to show. The sheet
+  // already claimed "100A SGP BW" as the default; now the data agrees.
   const [currentSpec, setCurrentSpec] = useState(() => {                    // v2.31 spec for new pipes
+    const fallback = {
+      a: 100,
+      conn: "BW",
+      flange: "none",
+      material: "SGP",
+      schedule: material("SGP").defaultSchedule,
+      gap: material("SGP").gap,
+    };
     try {
-      return JSON.parse(localStorage.getItem("haikan-spec-v1")) ?? null;
+      return JSON.parse(localStorage.getItem("haikan-spec-v1")) ?? fallback;
     } catch {
-      return null;
+      return fallback;
     }
   });
   const [showSpecSheet, setShowSpecSheet] = useState(false);
@@ -449,6 +461,21 @@ export default function Workspace() {
     end: projection.get(nodeKey(line.end)) ?? line.end,
   })), [lines, projection]);
 
+  // v3.22 Where the drawing actually sits, so the turned grid can be built
+  // around it instead of around the origin.
+  const sketchBounds = useMemo(() => {
+    if (!viewLines.length) return null;
+    let x1 = Infinity; let y1 = Infinity; let x2 = -Infinity; let y2 = -Infinity;
+    for (const line of viewLines) {
+      for (const pt of [line.start, line.end]) {
+        x1 = Math.min(x1, pt.x); y1 = Math.min(y1, pt.y);
+        x2 = Math.max(x2, pt.x); y2 = Math.max(y2, pt.y);
+      }
+    }
+    return { x1, y1, x2, y2 };
+  }, [viewLines]);
+
+
   const stackedCount = useMemo(() => overlappingRuns(viewLines).size, [viewLines]);
 
   const jointInfo = (key) => jointAngles(lines, mmPerPoint, { jointTypes }).get(key);
@@ -743,7 +770,9 @@ export default function Workspace() {
   // v2.48 Orbit: tap the turn control, then drag — sideways spins the view,
   // up and down tips it. The same gesture a CAD viewport uses.
   const orbitStart = (clientX, clientY) => {
-    if (!orbitMode) return false;
+    // v3.21 The hand and the zoom outrank the orbit. Armed, the orbit took
+    // every drag, so the sheet could not be slid once the view was turned.
+    if (!orbitMode || viewTool) return false;
     orbitDrag.current = { x: clientX, y: clientY, yaw: view.yawDeg, pitch: view.pitchDeg };
     return true;
   };
@@ -753,9 +782,12 @@ export default function Workspace() {
     if (!drag) return false;
     setView({
       yawDeg: drag.yaw + ((clientX - drag.x) * 0.4),
-      // v2.55 Hold the tilt short of straight down: at 90° every vertical
-      // run collapses to a dot, which is a plan view — a different drawing.
-      pitchDeg: Math.max(-80, Math.min(80, drag.pitch - ((clientY - drag.y) * 0.4))),
+      // v3.24 No stops. The tilt was clamped because at 90 degrees every
+      // vertical run collapses to a dot and the drawing stops making sense —
+      // but refusing to go there is worse than going there and saying so.
+      // The compass names the viewpoint, so straight down, straight up and
+      // upside down are all reachable and all legible.
+      pitchDeg: drag.pitch - ((clientY - drag.y) * 0.4),
     });
     return true;
   };
@@ -1213,7 +1245,11 @@ export default function Workspace() {
   };
 
   const handleClick = (e) => {
-    if (!homeView) return;                                                 // v2.46 other views are for looking
+    // v3.21 A turned view used to be read-only, because the drawing did not
+    // sit on its grid there and nothing could be aimed at. It does now, and
+    // every hit test already runs against the projected lines — so editing,
+    // erasing and selecting work from any angle. Drawing is converted back
+    // through the viewpoint below.
     if (moveMode) return;                                                  // v2.16 drags, not taps
     if (viewTool) return;                                                  // v2.58 the hand slides, never draws
     if (surfaceOnly) return;                                               // v3.02 surfaces only
@@ -1309,6 +1345,12 @@ export default function Workspace() {
       }
       return;
     }
+    // v3.21 Drawing still wants the home view. Editing only has to hit what
+    // is already on screen, but a new run has to be created on the lattice —
+    // and the snap chain (allowed angle, then nearest grid) still works in
+    // screen terms. Routing that through the viewpoint is the next step;
+    // until then a new line is placed where its geometry is unambiguous.
+    if (!homeView) return;
     if (!("ontouchstart" in window || navigator.maxTouchPoints > 0)) return;
 
     if (!readyToDraw && pendingStart.current) {
@@ -1489,7 +1531,7 @@ export default function Workspace() {
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
-          <IsoGrid show={showGrid} zoom={zoom} offset={offset} view={view} />
+          <IsoGrid show={showGrid} zoom={zoom} offset={offset} view={view} bounds={sketchBounds} />
           <DrawLayer
             lines={viewLines}
             projection={projection}

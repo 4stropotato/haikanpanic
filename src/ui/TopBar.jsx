@@ -301,7 +301,18 @@ export default function TopBar() {
           aria-label={t.viewTurn}
         >
           <CompassIcon deg={view.yawDeg - 45} />
-          <span className="view-tag">{Math.round(((view.yawDeg % 360) + 360) % 360)}°</span>
+          {/* v3.24 With the orbit unclamped the tilt matters as much as the
+              bearing: straight down is a plan, straight up is a soffit, and
+              past the vertical you are reading the drawing from behind. */}
+          <span className="view-tag">
+            {(() => {
+              const p = ((view.pitchDeg % 360) + 360) % 360;
+              if (p > 85 && p < 95) return "TOP";
+              if (p > 265 && p < 275) return "BTM";
+              if (p > 95 && p < 265) return `${Math.round(((view.yawDeg % 360) + 360) % 360)}°↑`;
+              return `${Math.round(((view.yawDeg % 360) + 360) % 360)}°`;
+            })()}
+          </span>
         </button>
         {/* v2.55 No plan button. An isometric already shows what rises and
             what drops, so a top or bottom view is a different drawing, not a
