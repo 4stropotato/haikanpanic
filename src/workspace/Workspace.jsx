@@ -824,21 +824,14 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
     // length is fixed pivots about its far end instead of stretching — a
     // spool already cut swings, it does not grow.
     if (heightMode && (lockAxis === "u" || lockAxis === "v")) {
-      // v3.57 The end travels on the run's own axes, the same pair the body
-      // uses: "along" is the line the pipe already lies on, so moving the end
-      // simply lengthens or shortens it — always a legal direction, and no
-      // jumping. Forcing the end onto the nearest of the six made it hop from
-      // one grid direction to the next instead of sliding.
+      // v3.58 Both buttons are grid lines, fixed — the two 30 degree
+      // directions the drawing is built on, which is what they say on the
+      // face of them. Making them relative to the pipe (its own line, and
+      // the other) meant "along 30" no longer pointed along 30, and the
+      // movement read as arbitrary. A run already lying on the chosen line
+      // grows and shrinks along it; one lying across it steps sideways.
       const axes = planeAxes(view);
-      const b0 = drag.base;
-      const own = { x: b0.end.x - b0.start.x, y: b0.end.y - b0.start.y };
-      const ownLen = Math.hypot(own.x, own.y) || 1;
-      const unit = { x: own.x / ownLen, y: own.y / ownLen };
-      const other = Math.abs((unit.x * axes.u.x) + (unit.y * axes.u.y))
-        > Math.abs((unit.x * axes.v.x) + (unit.y * axes.v.y))
-        ? axes.v
-        : axes.u;
-      const dir = lockAxis === "u" ? unit : other;
+      const dir = lockAxis === "u" ? axes.u : axes.v;
       const len = Math.hypot(dir.x, dir.y) || 1;
       const dx = ((clientX ?? drag.startX) - drag.startX) / zoom;
       const dy = (clientY - drag.startY) / zoom;
@@ -1036,19 +1029,7 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
       if (!drag.lock) return true;
 
       if (drag.lock !== "up") {
-        // v3.55 "Along" is the run's own line, not a global direction. A
-        // fitter sliding a spool moves it up and down the line it already
-        // lies on — that is the yellow line drawn over the sketch, the pipe's
-        // own axis extended. "Across" is then the ground axis it is not on.
-        const base0 = drag.base[drag.anchorIndex];
-        const own = { x: base0.end.x - base0.start.x, y: base0.end.y - base0.start.y };
-        const ownLen = Math.hypot(own.x, own.y) || 1;
-        const unit = { x: own.x / ownLen, y: own.y / ownLen };
-        const other = Math.abs((unit.x * axes.u.x) + (unit.y * axes.u.y))
-          > Math.abs((unit.x * axes.v.x) + (unit.y * axes.v.y))
-          ? axes.v
-          : axes.u;
-        const dir = drag.lock === "u" ? unit : other;
+        const dir = drag.lock === "u" ? axes.u : axes.v;
         const len = Math.hypot(dir.x, dir.y) || 1;
         // v3.47 Snap along the axis, not to the nearest point on the sheet.
         // Placing the run on the chosen axis and then snapping in two
