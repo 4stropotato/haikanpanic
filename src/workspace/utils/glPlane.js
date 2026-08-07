@@ -64,18 +64,17 @@ export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
   // v3.02 A ceiling is a floor seen from underneath: the same horizontal
   // plane, and the drop to it simply goes up because the run sits below it.
   // The arithmetic already handles that, so it needs no case of its own.
-  const pxPerMm = pointStep / mmPerPoint;
-  const upPerMm = pxPerMm * VIEW_K
-    * Math.cos(((view?.pitchDeg ?? ISO_PITCH) * Math.PI) / 180);
   const wall = kind === "wall";
   const along = facing === "v" ? ground.v : ground.u;
   const away = facing === "v" ? ground.u : ground.v;
   // v3.73 A wall turns over with everything else. Its vertical was pinned
   // to the page rather than to the world, so once the view passed the
   // horizon the runs inverted and the wall stayed the right way up.
-  const axes = wall ? { u: along, v: { x: 0, y: (upPerMm < 0 ? -1 : 1) } } : ground;
+  const upSign = Math.cos(((view?.pitchDeg ?? ISO_PITCH) * Math.PI) / 180) < 0 ? -1 : 1;
+  const axes = wall ? { u: along, v: { x: 0, y: upSign } } : ground;
   if (!lines.length) return null;
 
+  const pxPerMm = pointStep / mmPerPoint;
   // v3.74 A millimetre of height is not a millimetre on the page once the
   // view is turned — it is VIEW_K * cos(pitch) of one. Dropping nodes to the
   // datum with the flat scale put the plane at the wrong level and laid
@@ -86,6 +85,8 @@ export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
   // pushed it the wrong way from underneath, and the level a pipe reported
   // depended on which side you were watching from. Height cannot depend on
   // where you stand.
+  const upPerMm = pxPerMm * VIEW_K
+    * Math.cos(((view?.pitchDeg ?? ISO_PITCH) * Math.PI) / 180);
   const elevations = nodeElevations(lines, mmPerPoint);
 
   const nodes = [];

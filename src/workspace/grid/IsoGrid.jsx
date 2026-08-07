@@ -9,7 +9,7 @@ import { dx, pointStep } from "../utils/constants";      // [v1.10] Centralized 
 import { planeAxes, isoCoords } from "../utils/glPlane"; // v3.15 the grid follows the view
 import { useViewport } from "../utils/viewport";                   // v1.18+ live workspace size
 
-const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds = null, span = 0, spanV = 0, isDark = true, orbiting = false }) => {  // [v1.09] Accept zoom and offset props
+const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds = null, span = 0, spanV = 0, isDark = true }) => {  // [v1.09] Accept zoom and offset props
   const canvasRef = useRef(null);
   const { w: vpW, h: vpH } = useViewport();                          // v1.18+ re-render on resize                                  // [v1.0] Reference to canvas element
 
@@ -112,16 +112,8 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
       Math.abs((((((view?.yawDeg ?? 45) - 45) % 90) + 135) % 90) - 45),
       45,
     ) + Math.abs((view?.pitchDeg ?? 35.264) - 35.264);
-    // v3.81 Orbit decides, not the angle. Blending on how far the view had
-    // strayed from home meant that steering back through 45/35 brought the
-    // isometric grid back for a moment — while you were still orbiting. The
-    // tool you are holding is what the grid answers to; the angle only fades
-    // it in as you first leave.
-    // v3.82 In orbit the isometric grid is gone, full stop. Blending it out
-    // only partway left it drawn underneath the box at every middling angle,
-    // which is what kept bringing it back.
-    const blend = orbiting ? 1 : 0;
-    const turned = orbiting;
+    const blend = Math.min(1, Math.max(0, (offHome - 1) / 20));
+    const turned = !!view && !(onQuarter && levelPitch);
     // v3.19 Three families are a lattice, and a lattice is what reads as
     // depth. Dropping the uprights when the view turned left a single flat
     // sheet — correct as a floor, but flat, and a turned view is exactly
@@ -251,7 +243,7 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
     }
 
     ctx.restore();
-  }, [show, zoom, offset, vpW, vpH, view, bounds, span, spanV, isDark, orbiting]);                                       // [v1.09] Redraw on zoom/pan/show change
+  }, [show, zoom, offset, vpW, vpH, view, bounds, span]);                                       // [v1.09] Redraw on zoom/pan/show change
 
   return (
     <canvas

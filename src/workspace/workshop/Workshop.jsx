@@ -70,8 +70,8 @@ function makeAxisLabel(text, tone, axis) {
 }
 
 export default function Workshop({
-  lines, mmPerPoint, glOffsetMm = 0, jointTypes = {}, datums = [], detail = "normal",
-  labelFlat = false, showDims = true, showPipes = true, immersive = false, view = null,
+  lines, mmPerPoint, glOffsetMm = 0, jointTypes = {}, detail = "normal",
+  labelFlat = false, showDims = true, showPipes = true, immersive = false,
   onToggleDims, onToggleImmersive, onEditSegment, onClose,
 }) {
   const hostRef = useRef(null);
@@ -165,26 +165,6 @@ export default function Workshop({
     };
 
     // one call site for both readings, so every label answers the setting
-    // v3.80 The surfaces are part of the room, so they are drawn in it: each
-    // datum as a grid at its own level, in its own colour, the size it was
-    // set out to be.
-    for (const datum of datums) {
-      if (datum.continuous) continue;
-      const w = Math.max(datum.sizeMm ?? 0, 1000);
-      const d = Math.max(datum.sizeVMm ?? 0, 1000);
-      const colour = new THREE.Color(datum.color ?? "#f5ba66");
-      const grid = new THREE.GridHelper(Math.max(w, d), 12, colour, colour);
-      grid.material.transparent = true;
-      grid.material.opacity = 0.28;
-      if (datum.kind === "wall") {
-        grid.rotation.z = Math.PI / 2;
-        grid.position.set(0, (datum.vMm ?? 0) + (d / 2), datum.offsetMm ?? 0);
-      } else {
-        grid.position.set(0, datum.offsetMm ?? 0, 0);
-      }
-      group.add(grid);
-    }
-
     const addLabel = (text, tone, position, axis = null) => addSprite(
       (labelFlat || !axis || axis.lengthSq() < 1e-9)
         ? makeLabel(text, tone)
@@ -341,14 +321,10 @@ export default function Workshop({
     const homeTarget = target.clone();
 
     // --- hand-written orbit camera ---
-    // v3.80 Open where the sketch is standing. Workshop always began at its
-    // own fixed corner, so turning the drawing round and then stepping into
-    // 3D put you somewhere else entirely — the two views are of one model and
-    // should agree about where you are looking from.
     const state = {
       radius: Math.max(modelSize * 1.35, 900),
-      theta: ((view?.yawDeg ?? 45) * Math.PI) / 180,
-      phi: ((90 - (view?.pitchDeg ?? 35.264)) * Math.PI) / 180,
+      theta: Math.PI * 0.25,
+      phi: Math.PI * 0.36,
     };
     const homeState = { ...state };
     const applyCamera = () => {
