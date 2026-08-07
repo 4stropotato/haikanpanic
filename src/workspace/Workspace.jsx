@@ -2176,6 +2176,8 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
             mmPerPoint={mmPerPoint}
             glOffsetMm={primary?.offsetMm ?? 0}
             jointTypes={jointTypes}
+            datums={datums}
+            view={view}
             detail={detail}
             labelFlat={labelFlat}
             showDims={showDims}
