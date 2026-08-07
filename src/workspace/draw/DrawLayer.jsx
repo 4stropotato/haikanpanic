@@ -74,7 +74,7 @@ const DrawLayer = ({
   selection = [], datumSel = [], marquee = null, moveMode = false, projection = null,
   labelFields = LABEL_DEFAULT, labelAvoid = true, onLabelLayout = null,
   elOffsets = {}, labelFlat = false, gripAll = false, view = null, showDrop = true,
-  showPipes = true, stacked: stackedFromSketch = null,
+  showPipes = true, stacked: stackedFromSketch = null, sketchLines = null,
 }) => { // [v1.09] Accept zoom and offset for scaling
   const canvasRef = useRef(null);                                 // [v1.02] Canvas DOM reference
   const { w: vpW, h: vpH } = useViewport();                       // v1.18+ re-render on resize
@@ -106,8 +106,13 @@ const DrawLayer = ({
     ctx.lineCap = "round";                                        // [v1.08] Smooth end caps
     ctx.lineJoin = "round";                                       // [v1.08] Smooth joins
 
-    const elevationsForLabels = lines.length ? nodeElevations(lines, mmPerPoint) : null;
-    const metrics = lines.length ? runMetrics(lines, mmPerPoint) : null;
+    // v3.41 A run's length, its rise and its angle are facts about the pipe,
+    // not about where you are standing. Taken from the drawn lines they were
+    // read off the projection, so turning the view rewrote every dimension on
+    // the sheet. They come from the sketch, which does not move.
+    const geom = sketchLines ?? lines;
+    const elevationsForLabels = geom.length ? nodeElevations(geom, mmPerPoint) : null;
+    const metrics = geom.length ? runMetrics(geom, mmPerPoint) : null;
     // v2.49 A run's label rides along the run, the way dimension text does
     // on a drawn isometric: set on the line's own angle and lifted clear of
     // it, so a busy sketch reads as annotated pipes rather than loose text.
@@ -131,7 +136,9 @@ const DrawLayer = ({
         flip = -1;
       }
 
-      const text = labelFor(line, mmPerPoint, elevationsForLabels, metrics?.get(index), labelFields);
+      // the label reads the sketch; only its position comes from the view
+      const text = labelFor(geom[index] ?? line, mmPerPoint, elevationsForLabels,
+        metrics?.get(index), labelFields);
       if (!text) return;
 
       const place = line.label ?? LABEL_HOME;
@@ -513,6 +520,7 @@ const DrawLayer = ({
       // Several settings added since v2.51 were missing here, which is why
       // some of them appeared to do nothing until an unrelated redraw.
       labelFields, labelAvoid, labelFlat, elOffsets, showDrop, showPipes, stackedFromSketch,
+      sketchLines,
       datumSel, gripAll, view]);   // [v1.10] Redraw on zoom or pan
 
   return (

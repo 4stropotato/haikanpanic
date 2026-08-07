@@ -1631,6 +1631,7 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
             jointTypes={jointTypes}
             showJointMarks={showJointMarks}
             stacked={stacked}
+            sketchLines={lines}
             labelFields={labelFields}
             labelAvoid={labelAvoid}
             labelFlat={labelFlat}
