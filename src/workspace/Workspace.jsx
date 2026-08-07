@@ -752,9 +752,11 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
     // end of the segment, so a tap just past it found nothing at all and the
     // end stopped working. It hands the drag to the run instead. Held on up
     // and down the end handle is still the right tool, so it keeps that.
-    if (heightMode && (lockAxis === "u" || lockAxis === "v")) {
-      return pipeGrabAt(clientX, clientY, 26 / zoom);
-    }
+    // v3.53 An end is where the angle is set. Under a ground axis it swings
+    // along that direction, which turns the run in plan; under up-and-down it
+    // rises, which tilts it. The body of the pipe is what carries the whole
+    // run — that is the difference between the two, and the end keeps its own
+    // job.
     if (!moveMode || !lines.length) return false;
     const point = toWorkspace(clientX, clientY);
     const reach = 26 / zoom;
@@ -817,6 +819,42 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
   const levelMove = (clientY, clientX) => {
     const drag = levelDrag.current;
     if (!drag) return false;
+
+    // v3.53 Under a ground axis the end travels along it. A run told its
+    // length is fixed pivots about its far end instead of stretching — a
+    // spool already cut swings, it does not grow.
+    if (heightMode && (lockAxis === "u" || lockAxis === "v")) {
+      const axes = planeAxes(view);
+      const dir = lockAxis === "u" ? axes.u : axes.v;
+      const len = Math.hypot(dir.x, dir.y) || 1;
+      const dx = ((clientX ?? drag.startX) - drag.startX) / zoom;
+      const dy = (clientY - drag.startY) / zoom;
+      const raw2 = ((dx * dir.x) + (dy * dir.y)) / (len * len);
+      const along = Math.round(raw2 / pointStep) * pointStep;
+      const moving = drag.which === 1 ? "start" : "end";
+      const anchor = drag.which === 1 ? drag.base.end : drag.base.start;
+      let at = {
+        x: drag.base[moving].x + (dir.x * along),
+        y: drag.base[moving].y + (dir.y * along),
+      };
+      const line0 = lines[drag.index];
+      if (line0?.fixed) {
+        // hold the reach: swing the end round rather than lengthen the pipe
+        const was = Math.hypot(drag.base[moving].x - anchor.x, drag.base[moving].y - anchor.y);
+        const now = Math.hypot(at.x - anchor.x, at.y - anchor.y) || 1;
+        at = {
+          x: anchor.x + ((at.x - anchor.x) * (was / now)),
+          y: anchor.y + ((at.y - anchor.y) * (was / now)),
+        };
+      }
+      setLines(lines.map((line, i) => {
+        if (i !== drag.index) return line;
+        const next = { ...line, [moving]: at };
+        next.lengthMm = line.fixed ? line.lengthMm : segmentLengthMm(next, mmPerPoint);
+        return next;
+      }));
+      return true;
+    }
 
     const raw = drag.startEl + ((drag.startY - clientY) / zoom) * view3d.risePerPx;
     const value = Math.round(raw / 10) * 10;
