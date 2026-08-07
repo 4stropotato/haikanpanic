@@ -287,6 +287,13 @@ export default function Workspace() {
   }, [showDrop]);
 
   useEffect(() => {
+    // v3.01 The fitting marks read their setting from storage but nothing
+    // ever wrote it, so turning them off lasted until the next reload and
+    // looked like a switch that did nothing.
+    localStorage.setItem("haikan-joint-marks", showJointMarks ? "on" : "off");
+  }, [showJointMarks]);
+
+  useEffect(() => {
     localStorage.setItem("haikan-el-offsets", JSON.stringify(elOffsets));   // v2.57
   }, [elOffsets]);
 
