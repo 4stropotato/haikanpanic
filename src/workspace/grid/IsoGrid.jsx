@@ -117,9 +117,10 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
     // isometric grid back for a moment — while you were still orbiting. The
     // tool you are holding is what the grid answers to; the angle only fades
     // it in as you first leave.
-    const blend = orbiting
-      ? Math.min(1, Math.max(0.35, offHome / 20))
-      : 0;
+    // v3.82 In orbit the isometric grid is gone, full stop. Blending it out
+    // only partway left it drawn underneath the box at every middling angle,
+    // which is what kept bringing it back.
+    const blend = orbiting ? 1 : 0;
     const turned = orbiting;
     // v3.19 Three families are a lattice, and a lattice is what reads as
     // depth. Dropping the uprights when the view turned left a single flat
