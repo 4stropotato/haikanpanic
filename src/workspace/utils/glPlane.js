@@ -213,3 +213,19 @@ export function clampHandle(point, cx, cy, rect) {
   t = Math.max(0, Math.min(1, t));
   return { x: cx + (dx * t), y: cy + (dy * t), clamped: true };
 }
+
+// v3.33 Where a surface begins and ends in height. Nothing answered this,
+// so anything that needed a wall's foot — the grid box, for one — guessed at
+// it from the wall's size around its own middle, and a wall standing on the
+// slab appeared to start halfway up. A floor and a ceiling are a single
+// level; a wall runs between two, and which two depends on what holds it.
+export function planeVerticalExtent(datum = {}) {
+  const { kind = "floor", offsetMm = 0, sizeVMm = 0, vAnchor = "free", vMm = 0 } = datum;
+  if (kind !== "wall") return { bottomMm: offsetMm, topMm: offsetMm };
+  const height = Math.max(sizeVMm, 0);
+  if (vAnchor === "bottom") return { bottomMm: vMm, topMm: vMm + height };
+  if (vAnchor === "top") return { bottomMm: vMm - height, topMm: vMm };
+  // free: it floats with the drawing, so the best that can be said is that
+  // it is half its height either side of where the drawing sits
+  return { bottomMm: -height / 2, topMm: height / 2 };
+}

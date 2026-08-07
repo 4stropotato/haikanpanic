@@ -35,7 +35,7 @@ import { segmentLengthMm, dropDegenerate } from "./utils/lengths";          // v
 import { viewport, observeViewport } from "./utils/viewport";               // v1.19+ tap coord conversion
 import {
   glPlaneGeometry, sizeFromHandle, insidePlane,
-  viewRect, clampHandle, planeAxes, isoCoords,                                                    // v2.62 reachable grips
+  viewRect, clampHandle, planeAxes, isoCoords, planeVerticalExtent,                                                    // v2.62 reachable grips
 } from "./utils/glPlane";                                                   // v2.09 datum plane
 import { pipeSpec, material } from "./data/jis";                                      // v2.82 the floor rule
 import GlSheet from "../ui/GlSheet";
@@ -476,13 +476,19 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
       x2 = Math.max(x2, pt.x); y2 = Math.max(y2, pt.y);
     };
     for (const line of lines) { take(line.start); take(line.end); }
+    // v3.33 A surface reaches as far as its own footprint and as low as its
+    // own foot — both asked for now rather than guessed at from its size.
     for (const datum of datums) {
       if (datum.continuous) continue;
-      const half = Math.max(datum.sizeMm ?? 0, datum.sizeVMm ?? 0) / 2;
-      if (half > 0) {
-        const px = (half * pointStep) / mmPerPoint;
+      const reach = Math.max(datum.sizeMm ?? 0, datum.sizeVMm ?? 0) / 2;
+      if (reach > 0) {
+        const px = (reach * pointStep) / mmPerPoint;
         take({ x: -px, y: -px }); take({ x: px, y: px });
       }
+      const { bottomMm, topMm } = planeVerticalExtent(datum);
+      const toPx = (mm) => (-mm * pointStep) / mmPerPoint;
+      take({ x: 0, y: toPx(bottomMm) });
+      take({ x: 0, y: toPx(topMm) });
     }
     if (!Number.isFinite(x1)) return pointStep * 8;
     return Math.max(pointStep * 4, Math.max(x2 - x1, y2 - y1) / 2);
