@@ -117,8 +117,11 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
       // reference to nothing. It is centred on the drawing's own extent and
       // sized to cover it, so the ground lies under the pipes and the
       // uprights stand behind them.
+      // v3.32 The box stands ON the work, not through the middle of it. Its
+      // floor was placed at the drawing's centre height, so anything below
+      // that — the foot of a wall, a run near the slab — hung out underneath.
       const mid = bounds
-        ? { x: (bounds.x1 + bounds.x2) / 2, y: (bounds.y1 + bounds.y2) / 2 }
+        ? { x: (bounds.x1 + bounds.x2) / 2, y: bounds.y2 }
         : { x: 0, y: 0 };
       // v3.27 How far the box has to reach is measured, not guessed. The
       // old estimate was a fraction of the screen-space width, which says
@@ -130,7 +133,9 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
       // box from every angle. Decomposing the on-screen bounds into the box
       // axes blew up whenever those axes closed on each other, which is why
       // the grid sometimes grew for no reason.
-      const need = Math.max(6, (span || pointStep * 8) / pointStep);
+      let need = Math.max(6, (span || pointStep * 8) / pointStep);
+      // and tall enough for the highest thing on the sheet
+      if (bounds) need = Math.max(need, Math.abs(bounds.y2 - bounds.y1) / pointStep);
       let cell = pointStep;
       while ((cell / pointStep) * n < need) cell *= 2;
       const at = (a, b, c) => ({
@@ -147,6 +152,10 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
       // keep. Turn the model and the box opens on the other side by itself.
       const yaw = ((view?.yawDeg ?? 45) * Math.PI) / 180;
       const pitch = ((view?.pitchDeg ?? 35.264) * Math.PI) / 180;
+      // v3.32 The depth axis, derived rather than guessed: it is the null
+      // direction of the projection, (-sy*cp, sp, cy*cp), and the far side
+      // is its negative. Flipping it wholesale kept the ceiling when looking
+      // down from above, which is plainly wrong, so the sign stands.
       const away = { x: Math.sin(yaw) * Math.cos(pitch),
         y: -Math.sin(pitch),
         z: -Math.cos(yaw) * Math.cos(pitch) };
