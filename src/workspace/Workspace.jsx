@@ -1337,9 +1337,16 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
           // what the corners are matched on.
           const g = planeAxes(view);
           const ab = (pt) => isoCoords(pt, 0, 0, g);
-          for (const a of mine.corners) {
+          // v3.70 A wall belongs on a floor's SIDE, so the sides are what it
+          // is offered. Corner-to-corner only ever lined up two points and
+          // let the wall come to rest anywhere across the slab; matching its
+          // own centre and corners against the floor's edges puts it on the
+          // edge itself.
+          const targets = [...other.corners, ...other.edges.map((e) => e.point)];
+          const sources = [...mine.corners, { x: mine.cx, y: mine.cy }];
+          for (const a of sources) {
             const mv = ab({ x: a.x + centre.x - mine.cx, y: a.y + centre.y - mine.cy });
-            for (const b of other.corners) {
+            for (const b of targets) {
               const bv = ab(b);
               const d = Math.hypot(mv.a - bv.a, mv.b - bv.b);
               if (d < reach && (!best || d < best.d)) {
