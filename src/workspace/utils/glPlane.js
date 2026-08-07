@@ -171,7 +171,10 @@ export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
   // floats with the drawing, which is fine while sketching and useless once
   // the levels matter.
   if (wall && vAnchor !== "free") {
-    cy += (-vMm * upPerMm) + (vAnchor === "bottom" ? -halfV : halfV);
+    // v3.84 The anchor turns over with the wall. Its axis flipped past the
+    // horizon but this offset did not, so the two cancelled and the wall
+    // stood upright in an upside-down model.
+    cy += (-vMm * upPerMm) + (upSign * (vAnchor === "bottom" ? -halfV : halfV));
   }
 
   const at = (a, b) => ({
