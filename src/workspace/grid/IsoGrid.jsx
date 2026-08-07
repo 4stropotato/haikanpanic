@@ -4,13 +4,38 @@
 // [v1.09] Apply zoom and offset transform uniformly to match static workspace illusion
 // [v1.10] Centralized grid math via constants, slope calculation via tan30
 
-import { useEffect, useRef } from "react";                          // [v1.10] React hook for lifecycle
+import { useEffect, useRef, useState } from "react";                          // [v1.10] React hook for lifecycle
 import { dx, pointStep } from "../utils/constants";      // [v1.10] Centralized grid constants
 import { planeAxes, isoCoords } from "../utils/glPlane"; // v3.15 the grid follows the view
 import { useViewport } from "../utils/viewport";                   // v1.18+ live workspace size
 
 const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds = null, span = 0, spanV = 0, isDark = true, orbiting = false }) => {  // [v1.09] Accept zoom and offset props
   const canvasRef = useRef(null);
+  // v3.87 The two grids change into one another over about half a second
+  // rather than swapping. The uprights fade as the ground opens out, so the
+  // isometric sheet becomes the floor of the box under your hand.
+  const blendRef = useRef(orbiting ? 1 : 0);
+  const [, setFrame] = useState(0);
+
+  useEffect(() => {
+    const want = orbiting ? 1 : 0;
+    let raf = 0;
+    const step = () => {
+      const now = blendRef.current;
+      const gap = want - now;
+      if (Math.abs(gap) < 0.004) {
+        blendRef.current = want;
+        setFrame((n) => n + 1);
+        return;
+      }
+      blendRef.current = now + (gap * 0.12);          // ease out
+      setFrame((n) => n + 1);
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [orbiting]);
+
   const { w: vpW, h: vpH } = useViewport();                          // v1.18+ re-render on resize                                  // [v1.0] Reference to canvas element
 
   useEffect(() => {
@@ -124,7 +149,7 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
     // v3.85 In orbit the isometric grid is not drawn at all. Fading it only
     // partway left it under the box at every angle, and at 45/135/225/315
     // with the iso tilt it came back in full.
-    const blend = orbiting ? 1 : 0;
+    const blend = blendRef.current;
     const turned = orbiting;
     // v3.19 Three families are a lattice, and a lattice is what reads as
     // depth. Dropping the uprights when the view turned left a single flat
@@ -177,6 +202,9 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
       const needUp = Math.max(4, (spanV || pointStep * 8) / pointStep);
       let cell = pointStep;
       while ((cell / pointStep) * n < need) cell *= 2;
+      // pulling back into the box: the ground opens from the sketch's own
+      // cell to the box's, rather than arriving at it
+      cell = pointStep + ((cell - pointStep) * blend);
       const at = (a, b, c) => ({
         x: mid.x + ((step.u.x * a) + (step.v.x * b) + (step.w.x * c)) * (cell / pointStep),
         y: mid.y + ((step.u.y * a) + (step.v.y * b) + (step.w.y * c)) * (cell / pointStep),
