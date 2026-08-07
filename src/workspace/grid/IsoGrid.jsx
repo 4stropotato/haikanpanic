@@ -145,17 +145,38 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
       });
       const seg = (p1, p2, bold, dim) => drawLine(p1.x, p1.y, p2.x, p2.y, bold, dim);
       const strong = (i) => i % 5 === 0;
+      // v3.29 A full box, with the near faces left out. The work sits inside
+      // it and you look in: the three faces between you and the drawing would
+      // only be a screen over it, so they are dropped. Which three depends on
+      // where you stand, so each face is tested against the view direction —
+      // the ones whose outward normal points away from you are the ones you
+      // keep. Turn the model and the box opens on the other side by itself.
+      const yaw = ((view?.yawDeg ?? 45) * Math.PI) / 180;
+      const pitch = ((view?.pitchDeg ?? 35.264) * Math.PI) / 180;
+      const away = { x: Math.sin(yaw) * Math.cos(pitch),
+        y: -Math.sin(pitch),
+        z: -Math.cos(yaw) * Math.cos(pitch) };
+      const facing = (nx, ny, nz) => ((nx * away.x) + (ny * away.y) + (nz * away.z)) > 0;
       const h = n;
-      for (let i = -h; i <= h; i += 1) {
-        // the ground under the work, and the two walls behind it
-        seg(at(i, -h, 0), at(i, h, 0), strong(i), 1);
-        seg(at(-h, i, 0), at(h, i, 0), strong(i), 1);
-        seg(at(i, -h, 0), at(i, -h, -h), strong(i), 0.45);
-        seg(at(-h, i, 0), at(-h, i, -h), strong(i), 0.45);
+
+      // the two ground-parallel faces
+      for (const [c, ny] of [[0, -1], [-h, 1]]) {
+        if (!facing(0, ny, 0)) continue;
+        for (let i = -h; i <= h; i += 1) {
+          seg(at(i, -h, c), at(i, h, c), strong(i), c === 0 ? 1 : 0.5);
+          seg(at(-h, i, c), at(h, i, c), strong(i), c === 0 ? 1 : 0.5);
+        }
       }
-      for (let c = 0; c <= h; c += 1) {
-        seg(at(-h, -h, -c), at(h, -h, -c), strong(c), 0.45);
-        seg(at(-h, -h, -c), at(-h, h, -c), strong(c), 0.45);
+      // the four uprights
+      for (const [b, nz] of [[-h, -1], [h, 1]]) {
+        if (!facing(0, 0, nz)) continue;
+        for (let i = -h; i <= h; i += 1) seg(at(i, b, 0), at(i, b, -h), strong(i), 0.45);
+        for (let c = 0; c <= h; c += 1) seg(at(-h, b, -c), at(h, b, -c), strong(c), 0.45);
+      }
+      for (const [a, nx] of [[-h, -1], [h, 1]]) {
+        if (!facing(nx, 0, 0)) continue;
+        for (let i = -h; i <= h; i += 1) seg(at(a, i, 0), at(a, i, -h), strong(i), 0.45);
+        for (let c = 0; c <= h; c += 1) seg(at(a, -h, -c), at(a, h, -c), strong(c), 0.45);
       }
     }
 
