@@ -193,6 +193,10 @@ export default function Workspace() {
   // among the pipes, and one missed grab moves a run instead. This locks
   // everything but the datums.
   const [surfaceOnly, setSurfaceOnly] = useState(false);
+  // v3.08 Height only. Raising a whole pipeline is a routine change — the
+  // run stays where it is on plan and only its level moves — and doing it
+  // by dragging risks sliding it sideways at the same time.
+  const [heightMode, setHeightMode] = useState(false);
   const [glEditPlane, setGlEditPlane] = useState(false);                    // v2.09 drag handles on
   const planeDrag = useRef(null);
   const [immersive, setImmersive] = useState(false);                        // v2.66 3D with no chrome
@@ -716,6 +720,7 @@ export default function Workspace() {
       elevationMm: anchor.elevationMm ?? (elevations.get(anchorKey) ?? 0),
       origin: point,
       base: lines.map((line) => ({ start: { ...line.start }, end: { ...line.end } })),
+      baseLines: lines,
       datums: datumSel,
       datumBase: Object.fromEntries(datumSel.map((i) => {
         const plane = planeAt(i);
@@ -798,6 +803,23 @@ export default function Workspace() {
     // pull to the right going right after the model has been turned.
     const dxScreen = point.x - drag.origin.x;
     const dyScreen = point.y - drag.origin.y;
+
+    // v3.08 In height mode the drag is read as elevation and nothing else,
+    // so a pipeline goes up without wandering off its setting-out.
+    if (heightMode) {
+      const rise = Math.round((-dyScreen * view3d.risePerPx) / 10) * 10;
+      const els = nodeElevations(drag.baseLines ?? lines, mmPerPoint);
+      setLines(lines.map((line, i) => {
+        if (!drag.members.has(i)) return line;
+        const base = drag.base[i];
+        const at = (pt) => (els.get(nodeKey(pt)) ?? 0) + rise;
+        return { ...line, elev1Mm: at(base.start), elev2Mm: at(base.end) };
+      }));
+      setMoveReadout({
+        x: null, y: null, el: rise, datum: primary?.name ?? "GL", rel: rise,
+      });
+      return true;
+    }
     const world = view3d.screenToWorld(dxScreen, dyScreen);
     const shift = horizontalTo2D(world.x, world.z, mmPerPoint / pointStep);
     const wanted = { x: anchorBase.x + shift.x, y: anchorBase.y + shift.y };
@@ -1321,7 +1343,15 @@ export default function Workspace() {
     viewTool,                                                              // v2.59 pan / zoom
     setViewTool,
     fitToView,                                                             // v2.74 double-tap Move
-    selectAll: () => setSelection(lines.map((_, i) => i)),
+    selectAll: () => {
+      setSelection(lines.map((_, i) => i));
+      setDatumSel(datums.map((_, i) => i).filter((i) => !datums[i].continuous));
+    },
+    // v3.07 the runs on their own, when the surfaces should stay where they are
+    selectRuns: () => {
+      setSelection(lines.map((_, i) => i));
+      setDatumSel([]);
+    },
     selectMode,                                                            // v2.37 selection tool
     // v2.76 A selection outlives the tool that made it: you pick the runs,
     // then switch to Move to carry them. Clearing it on the way out meant
@@ -1369,6 +1399,8 @@ export default function Workspace() {
     setShowGlSheet,
     surfaceOnly,                                                           // v3.02 lock everything but datums
     setSurfaceOnly,
+    heightMode,                                                            // v3.08 lift only
+    setHeightMode,
     resetDatum: () => setDatums(                                            // refit the primary
       (list) => list.map((d, i) => (i === 0 ? { ...d, fitted: false, sizeMm: 0, sizeVMm: 0, center: null } : d)),
     ),

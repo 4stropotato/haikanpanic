@@ -170,7 +170,7 @@ export default function TopBar() {
     setEraseMode,
     moveMode,
     setMoveMode,
-    viewTool, setViewTool, fitToView, selectAll, clearSelection,
+    viewTool, setViewTool, fitToView, selectAll, selectRuns, clearSelection,
     selectMode,
     setSelectMode,
     drawing,
@@ -197,7 +197,7 @@ export default function TopBar() {
     glEditPlane,
     setGlEditPlane,
     setShowGlSheet,
-    surfaceOnly, setSurfaceOnly,
+    surfaceOnly, setSurfaceOnly, heightMode, setHeightMode,
     currentSpec,
     setShowSpecSheet,
     labelFields, setLabelFields, labelAvoid, setLabelAvoid, labelFlat, setLabelFlat,
@@ -207,15 +207,17 @@ export default function TopBar() {
   const [lang, setLang] = useState(detectLanguage);
   // v2.74 A second tap on a tool asks it to do its whole job at once:
   // Select takes everything, Move brings the drawing back to the middle.
-  const lastDock = useRef({ name: "", at: 0 });
-  const doubleTap = (name, action) => {
+  // v3.07 Taps in quick succession ask for more each time: two takes
+  // everything, three narrows it to the pipes alone.
+  const lastDock = useRef({ name: "", at: 0, count: 0 });
+  const holdTimer = useRef(null);
+  const multiTap = (name, actions) => {
     const now = Date.now();
-    if (lastDock.current.name === name && now - lastDock.current.at < 400) {
-      lastDock.current = { name: "", at: 0 };
-      action();
-      return true;
-    }
-    lastDock.current = { name, at: now };
+    const run = lastDock.current.name === name && now - lastDock.current.at < 450;
+    const count = run ? lastDock.current.count + 1 : 1;
+    lastDock.current = { name, at: now, count };
+    const action = actions[count];
+    if (action) { action(); return true; }
     return false;
   };
 
@@ -358,7 +360,7 @@ export default function TopBar() {
         <button
           className={"dock-btn" + (selectMode ? " glow" : "")}
           onClick={() => {
-            if (doubleTap("select", selectAll)) return;
+            if (multiTap("select", { 2: selectAll, 3: selectRuns })) return;
             if (selectMode) clearSelection();          // v2.76 second tap empties it
             setSelectMode(!selectMode); setViewTool(null);
             setEditMode(false);
@@ -371,9 +373,20 @@ export default function TopBar() {
           <span>{t.select}</span>
         </button>
         <button
-          className={"dock-btn" + (moveMode ? " glow" : "")}
+          className={"dock-btn" + (moveMode ? (heightMode ? " danger-glow" : " glow") : "")}
+          onPointerDown={() => {
+            // v3.08 hold Move to lift: the drag then changes height alone
+            holdTimer.current = setTimeout(() => {
+              setHeightMode(true);
+              setMoveMode(true);
+              setEditMode(false); setEraseMode(false); setSelectMode(false);
+            }, 500);
+          }}
+          onPointerUp={() => clearTimeout(holdTimer.current)}
+          onPointerLeave={() => clearTimeout(holdTimer.current)}
           onClick={() => {
-            if (doubleTap("move", fitToView)) return;
+            if (heightMode) { setHeightMode(false); return; }
+            if (multiTap("move", { 2: fitToView })) return;
             setMoveMode(!moveMode); setViewTool(null);
             setEditMode(false); setEraseMode(false); setSelectMode(false);
           }}
