@@ -1854,7 +1854,7 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
-          <IsoGrid show={showGrid} zoom={zoom} offset={offset} view={view} bounds={sketchBounds} span={sketchSpan.wide} spanV={sketchSpan.tall} />
+          <IsoGrid show={showGrid} zoom={zoom} offset={offset} view={view} bounds={sketchBounds} span={sketchSpan.wide} spanV={sketchSpan.tall} isDark={darkMode} />
           <DrawLayer
             lines={viewLines}
             projection={projection}
