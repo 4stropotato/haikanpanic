@@ -3,7 +3,7 @@
 // it — nothing waits on an Apply press. Number fields keep their own text
 // while you type, so clearing a field to retype it cannot snap back.
 import { useEffect, useState } from "react";
-import { DATUM_NAMES } from "../workspace/utils/datums";
+import { DATUM_NAMES, WALL_NAMES } from "../workspace/utils/datums";
 
 const TEXT = {
   en: {
@@ -12,6 +12,7 @@ const TEXT = {
     name: "Name",
     colour: "Colour",
     kind: "Surface",
+    rename: "Label",
     floor: "Floor",
     wall: "Wall",
     facing: "Runs along",
@@ -39,6 +40,7 @@ const TEXT = {
     name: "名称",
     colour: "色",
     kind: "面の種類",
+    rename: "表示名",
     floor: "床",
     wall: "壁",
     facing: "方向",
@@ -119,7 +121,7 @@ export default function GlSheet({
           <div className="sheet-row">
             <span>{t.name}</span>
             <div className="seg-group">
-              {DATUM_NAMES.map((item) => (
+              {(plane.kind === "wall" ? WALL_NAMES : DATUM_NAMES).map((item) => (
                 <button
                   key={item}
                   className={"seg-btn" + (plane.name === item ? " on" : "")}
@@ -129,6 +131,19 @@ export default function GlSheet({
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* v3.00 A job with a 1FL and a 2FL, or three walls, cannot be
+              described by four fixed names — so the name can be typed. */}
+          <div className="sheet-row">
+            <span>{t.rename}</span>
+            <input
+              type="text"
+              maxLength={10}
+              value={plane.name}
+              onFocus={(e) => e.target.select()}
+              onChange={(e) => onChange({ name: e.target.value })}
+            />
           </div>
 
           <div className="sheet-row">

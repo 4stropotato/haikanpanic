@@ -2,6 +2,11 @@
 // TOS on a platform. Each plane carries its own name, elevation, footprint
 // and position. The first entry is the primary datum — pipe elevations are
 // measured from it and Workshop stands the model on it.
+// v3.00 Names follow the surface. GL and FL name floors; a wall wants its
+// own — and a job with several of either needs to write its own name, which
+// is why the sheet lets you type one.
+export const WALL_NAMES = ["W1", "W2", "W3", "壁"];
+
 export const DATUM_NAMES = ["GL", "FL", "TOS", "BOP"];
 
 export function makeDatum(name = "GL", offsetMm = 0) {
