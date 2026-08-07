@@ -67,7 +67,11 @@ export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
   const wall = kind === "wall";
   const along = facing === "v" ? ground.v : ground.u;
   const away = facing === "v" ? ground.u : ground.v;
-  const axes = wall ? { u: along, v: { x: 0, y: 1 } } : ground;
+  // v3.73 A wall turns over with everything else. Its vertical was pinned
+  // to the page rather than to the world, so once the view passed the
+  // horizon the runs inverted and the wall stayed the right way up.
+  const upSign = Math.cos(((view?.pitchDeg ?? ISO_PITCH) * Math.PI) / 180) < 0 ? -1 : 1;
+  const axes = wall ? { u: along, v: { x: 0, y: upSign } } : ground;
   if (!lines.length) return null;
 
   const pxPerMm = pointStep / mmPerPoint;
