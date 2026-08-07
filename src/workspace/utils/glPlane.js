@@ -80,8 +80,13 @@ export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
   // datum with the flat scale put the plane at the wrong level and laid
   // elevated runs flat on it, and made the height appear to change with the
   // camera. Height has one scale, and this is it.
+  // v3.76 Signed, not absolute. Above the horizon and below it the
+  // projection flips, and abs() did not — so dropping a node to its datum
+  // pushed it the wrong way from underneath, and the level a pipe reported
+  // depended on which side you were watching from. Height cannot depend on
+  // where you stand.
   const upPerMm = pxPerMm * VIEW_K
-    * Math.abs(Math.cos(((view?.pitchDeg ?? ISO_PITCH) * Math.PI) / 180));
+    * Math.cos(((view?.pitchDeg ?? ISO_PITCH) * Math.PI) / 180);
   const elevations = nodeElevations(lines, mmPerPoint);
 
   const nodes = [];
@@ -157,9 +162,9 @@ export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
   // because that number is its distance and its height had never been set.
   // Left unsaid, a wall is a storey: 2400mm, which is at least a real answer.
   const autoHalf = (Math.max(reachA, reachB) * 1.4) + (pointStep * 3);
-  const autoWallHalf = ((2400 / 2) * upPerMm);
+  const autoWallHalf = ((2400 / 2) * Math.abs(upPerMm));
   const halfU = sizeMm > 0 ? (sizeMm / 2) * pxPerMm : autoHalf;
-  const halfV = sizeVMm > 0 ? (sizeVMm / 2) * (wall ? upPerMm : pxPerMm) : (wall ? autoWallHalf : autoHalf);
+  const halfV = sizeVMm > 0 ? (sizeVMm / 2) * (wall ? Math.abs(upPerMm) : pxPerMm) : (wall ? autoWallHalf : autoHalf);
 
   // v3.11 A wall can be pinned by its bottom or its top to a known height,
   // the way a real one stands on a slab or hangs from a beam. Left free it
