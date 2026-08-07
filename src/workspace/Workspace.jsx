@@ -1326,6 +1326,11 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
         const reach = 18 / zoom;
         let best = null;
         datums.forEach((_, i) => {
+          // v3.71 Only a surface you can see is something to snap to. Every
+          // datum was offered, drawn or not, so a wall took hold of a plane
+          // that was not on the page — landing in open space at the right
+          // level and nowhere near an edge.
+          if (!showGL) return;
           if (i === me || datums[i].continuous) return;
           const other = planeAt(i);
           if (!other) return;
