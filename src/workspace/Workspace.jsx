@@ -941,12 +941,17 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
       if (drag.lock !== "up") {
         const dir = drag.lock === "u" ? axes.u : axes.v;
         const len = Math.hypot(dir.x, dir.y) || 1;
-        const along = ((dxScreen * dir.x) + (dyScreen * dir.y)) / (len * len);
+        // v3.47 Snap along the axis, not to the nearest point on the sheet.
+        // Placing the run on the chosen axis and then snapping in two
+        // dimensions pulled it straight back off again — onto whichever
+        // lattice point was nearest — so both ground directions ended up
+        // doing the same thing. Quantising the distance keeps it exactly on
+        // the axis and exactly on the grid.
+        const raw = ((dxScreen * dir.x) + (dyScreen * dir.y)) / (len * len);
+        const along = Math.round(raw / pointStep) * pointStep;
         const anchorBase2 = drag.base[drag.anchorIndex].start;
-        const want = { x: anchorBase2.x + (dir.x * along), y: anchorBase2.y + (dir.y * along) };
-        const put = snapWorkspaceToGrid(want);
-        const sx = put.x - anchorBase2.x;
-        const sy = put.y - anchorBase2.y;
+        const sx = dir.x * along;
+        const sy = dir.y * along;
         setLines(lines.map((line, i) => {
           if (!drag.members.has(i)) return line;
           const base = drag.base[i];
