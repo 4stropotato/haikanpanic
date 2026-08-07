@@ -9,7 +9,7 @@ import { dx, pointStep } from "../utils/constants";      // [v1.10] Centralized 
 import { planeAxes, isoCoords } from "../utils/glPlane"; // v3.15 the grid follows the view
 import { useViewport } from "../utils/viewport";                   // v1.18+ live workspace size
 
-const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds = null, span = 0, spanV = 0, isDark = true }) => {  // [v1.09] Accept zoom and offset props
+const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds = null, span = 0, spanV = 0 }) => {  // [v1.09] Accept zoom and offset props
   const canvasRef = useRef(null);
   const { w: vpW, h: vpH } = useViewport();                          // v1.18+ re-render on resize                                  // [v1.0] Reference to canvas element
 
@@ -45,13 +45,9 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
       ctx.moveTo(x1, y1);
       ctx.lineTo(x2, y2);
       // v2.01 premium grid: quiet field, bold lines only gently brighter
-      // v3.79 In day mode the sheet is pale and a faint blue reads as
-      // nothing at all, so the grid takes a darker ink there.
-      const rgb = isDark ? "124,196,255" : "58,110,160";
-      const lift = isDark ? 1 : 1.9;
       ctx.strokeStyle = bold
-        ? `rgba(${rgb},${Math.min(1, 0.34 * dim * lift)})`
-        : `rgba(${rgb},${Math.min(1, 0.13 * dim * lift)})`;
+        ? `rgba(124,196,255,${0.34 * dim})`
+        : `rgba(124,196,255,${0.13 * dim})`;
       ctx.lineWidth = (bold ? 1.1 : 0.5) / zoom;
       ctx.stroke();
     };
@@ -104,29 +100,18 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
     const yawNow = ((((view?.yawDeg ?? 45) - 45) % 360) + 360) % 360;
     const onQuarter = Math.min(yawNow % 90, 90 - (yawNow % 90)) < 0.5;
     const levelPitch = Math.abs((view?.pitchDeg ?? 35.264) - 35.264) < 0.5;
-    // v3.79 The two grids are the same grid. Rather than swapping between
-    // them the moment the view leaves home, the uprights fade out and the box
-    // fades in across the first twenty degrees of movement, so the isometric
-    // becomes the box under your finger instead of being replaced by it.
-    const offHome = Math.min(
-      Math.abs((((((view?.yawDeg ?? 45) - 45) % 90) + 135) % 90) - 45),
-      45,
-    ) + Math.abs((view?.pitchDeg ?? 35.264) - 35.264);
-    const blend = Math.min(1, Math.max(0, (offHome - 1) / 20));
     const turned = !!view && !(onQuarter && levelPitch);
     // v3.19 Three families are a lattice, and a lattice is what reads as
     // depth. Dropping the uprights when the view turned left a single flat
     // sheet — correct as a floor, but flat, and a turned view is exactly
     // where the third direction is worth seeing. They come back quietened
     // instead, so the ground still leads and the space around it is there.
-    if (blend < 1) {
+    if (!turned) {
       // the drawing surface: the isometric grid, edge to edge
-      const fade = 1 - blend;
-      family(step.u, step.v, 10, fade);
-      family(step.v, step.u, 10, fade);
-      family(step.w, step.u, 10, fade);
-    }
-    if (turned && blend > 0) {
+      family(step.u, step.v, 10);
+      family(step.v, step.u, 10);
+      family(step.w, step.u, 10);
+    } else {
       // v3.20 A corner of the world, not a field of lines. Six families of
       // infinite lines is what a true 3D lattice needs, and it is unreadable;
       // one plane is readable and says nothing about the third direction.
@@ -219,8 +204,8 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
           seg(at(-h, i, c), at(h, i, c), strong(i), d);
         }
       };
-      deck(0, open * blend * (fromBelow ? 0.35 : 1));
-      if (fromBelow) deck(-hv, open * blend);
+      deck(0, open * (fromBelow ? 0.35 : 1));
+      if (fromBelow) deck(-hv, open);
       // the four uprights
       // v3.37 The b axis runs along world -Z, not +Z: planeAxes returns
       // v = -(sy, cy*sp) while the projection of world +Z is +(sy, cy*sp).
@@ -230,13 +215,13 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
       // standing behind the drawing.
       for (const [b, nz] of [[-h, 1], [h, -1]]) {
         if (!facing(0, 0, nz)) continue;
-        const d = fade(0, 0, nz) * 0.45 * blend;
+        const d = fade(0, 0, nz) * 0.45;
         for (let i = -h; i <= h; i += 1) seg(at(i, b, 0), at(i, b, -hv), strong(i), d);
         for (let c = 0; c <= hv; c += 1) seg(at(-h, b, -c), at(h, b, -c), strong(c), d);
       }
       for (const [a, nx] of [[-h, -1], [h, 1]]) {
         if (!facing(nx, 0, 0)) continue;
-        const d = fade(nx, 0, 0) * 0.45 * blend;
+        const d = fade(nx, 0, 0) * 0.45;
         for (let i = -h; i <= h; i += 1) seg(at(a, i, 0), at(a, i, -hv), strong(i), d);
         for (let c = 0; c <= hv; c += 1) seg(at(a, -h, -c), at(a, h, -c), strong(c), d);
       }
