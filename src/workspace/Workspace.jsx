@@ -1031,7 +1031,19 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
       if (!drag.lock) return true;
 
       if (drag.lock !== "up") {
-        const dir = drag.lock === "u" ? axes.u : axes.v;
+        // v3.55 "Along" is the run's own line, not a global direction. A
+        // fitter sliding a spool moves it up and down the line it already
+        // lies on — that is the yellow line drawn over the sketch, the pipe's
+        // own axis extended. "Across" is then the ground axis it is not on.
+        const base0 = drag.base[drag.anchorIndex];
+        const own = { x: base0.end.x - base0.start.x, y: base0.end.y - base0.start.y };
+        const ownLen = Math.hypot(own.x, own.y) || 1;
+        const unit = { x: own.x / ownLen, y: own.y / ownLen };
+        const other = Math.abs((unit.x * axes.u.x) + (unit.y * axes.u.y))
+          > Math.abs((unit.x * axes.v.x) + (unit.y * axes.v.y))
+          ? axes.v
+          : axes.u;
+        const dir = drag.lock === "u" ? unit : other;
         const len = Math.hypot(dir.x, dir.y) || 1;
         // v3.47 Snap along the axis, not to the nearest point on the sheet.
         // Placing the run on the chosen axis and then snapping in two
