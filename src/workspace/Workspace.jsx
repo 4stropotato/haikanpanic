@@ -1347,12 +1347,25 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
                   x: (g.u.x * (bv.a - mv.a)) + (g.v.x * (bv.b - mv.b)),
                   y: (g.u.y * (bv.a - mv.a)) + (g.v.y * (bv.b - mv.b)),
                 };
-                best = { d, dx: fix.x, dy: fix.y };
+                best = {
+                  d,
+                  dx: fix.x,
+                  dy: fix.y,
+                  level: datums[i].kind === "wall" ? null : (datums[i].offsetMm ?? 0),
+                };
               }
             }
           }
         });
         if (best) { centre.x += best.dx; centre.y += best.dy; }
+        // v3.69 A wall snapped to a floor must also stand ON it. Matching the
+        // ground coordinates alone put the two together on the page and left
+        // them a storey apart in the model — which is why they came unstuck
+        // the moment the view was orbited. The wall's foot is set to the
+        // floor's level, so the joint is real and survives the turn.
+        if (best && datums[me]?.kind === "wall" && best.level != null) {
+          patchDatum(me, { vAnchor: "bottom", vMm: best.level });
+        }
       }
       // stored along the axes so it turns with the drawing
       const ab = isoCoords(centre, 0, 0, planeAxes(view));
