@@ -231,7 +231,7 @@ const DrawLayer = ({
         ctx.fillText(`${datum.name}${elText}`, corners[2].x + (10 / zoom), corners[2].y + (6 / zoom));
         ctx.restore();
 
-        if (datumIdx === 0) {
+        if (datumIdx === 0 && !plane.wall) {
           ctx.save();
           // v2.90 The leaders belong to their datum, so they take its colour
           ctx.strokeStyle = `rgba(${tint},0.45)`;
@@ -248,7 +248,7 @@ const DrawLayer = ({
           // v2.94 Only where there is floor beneath it: a run off the edge of
           // the datum has nothing to stand on, and drawing a curtain there
           // would claim a relationship that is not real.
-          if (showDrop) {
+          if (showDrop && !plane.wall) {
           ctx.save();
           const drop = (pt) => {
             const el = elevationsForLabels?.get(`${pt.x.toFixed(3)},${pt.y.toFixed(3)}`) ?? 0;

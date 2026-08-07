@@ -13,6 +13,11 @@ export function makeDatum(name = "GL", offsetMm = 0) {
     sizeVMm: 0,
     center: null,
     continuous: false,
+    // v2.98 A datum is a surface, not only a floor: "floor" lies flat and is
+    // measured by height, "wall" stands up and is measured by how far it
+    // sits along the ground axis it does not run along.
+    kind: "floor",
+    facing: "u",
     // false until the footprint has been fitted to the sketch once; after
     // that the plane holds its size so drawing never moves the ground
     fitted: false,

@@ -11,6 +11,13 @@ const TEXT = {
     primary: "primary",
     name: "Name",
     colour: "Colour",
+    kind: "Surface",
+    floor: "Floor",
+    wall: "Wall",
+    facing: "Runs along",
+    offsetWall: (name) => `${name} distance`,
+    wallNote: "A wall stands up. Its offset is how far it sits from the drawing,"
+      + " and its depth becomes its height.",
     height: (name) => `${name} elevation`,
     width: "Width",
     depth: "Depth",
@@ -31,6 +38,12 @@ const TEXT = {
     primary: "主基準",
     name: "名称",
     colour: "色",
+    kind: "面の種類",
+    floor: "床",
+    wall: "壁",
+    facing: "方向",
+    offsetWall: (name) => `${name} の離れ`,
+    wallNote: "壁は立ちます。オフセットは図面からの離れ、奥行は高さになります。",
     height: (name) => `${name} の高さ`,
     width: "幅",
     depth: "奥行",
@@ -119,6 +132,43 @@ export default function GlSheet({
           </div>
 
           <div className="sheet-row">
+            <span>{t.kind}</span>
+            <div className="seg-group">
+              <button
+                className={"seg-btn" + ((plane.kind ?? "floor") === "floor" ? " on" : "")}
+                onClick={() => onChange({ kind: "floor" })}
+              >
+                {t.floor}
+              </button>
+              <button
+                className={"seg-btn" + (plane.kind === "wall" ? " on" : "")}
+                onClick={() => onChange({ kind: "wall" })}
+              >
+                {t.wall}
+              </button>
+            </div>
+          </div>
+          {plane.kind === "wall" && (
+            <>
+              <div className="sheet-row">
+                <span>{t.facing}</span>
+                <div className="seg-group">
+                  {["u", "v"].map((dir) => (
+                    <button
+                      key={dir}
+                      className={"seg-btn" + ((plane.facing ?? "u") === dir ? " on" : "")}
+                      onClick={() => onChange({ facing: dir })}
+                    >
+                      {dir === "u" ? "◤" : "◥"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="sheet-hint">{t.wallNote}</div>
+            </>
+          )}
+
+          <div className="sheet-row">
             <span>{t.colour}</span>
             <input
               type="color"
@@ -130,7 +180,7 @@ export default function GlSheet({
           </div>
 
           <NumberRow
-            label={t.height(plane.name)}
+            label={plane.kind === "wall" ? t.offsetWall(plane.name) : t.height(plane.name)}
             value={plane.offsetMm}
             step="100"
             zeroIsValue

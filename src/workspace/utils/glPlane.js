@@ -53,9 +53,17 @@ export function isoCoords(point, cx, cy, axes = { u: ISO_U, v: ISO_V }) {
 export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
   const {
     sizeMm = 0, sizeVMm = 0, offsetMm = 0, center = null, projection = null,
-    view = null,
+    view = null, kind = "floor", facing = "u",
   } = plane;
-  const axes = planeAxes(view);
+  const ground = planeAxes(view);
+  // v2.98 A wall is spanned by one ground direction and the vertical; a
+  // floor by the two ground directions. Everything downstream — the corners,
+  // the grips, the hit tests — is written against these two axes, so a wall
+  // needs nothing else.
+  const wall = kind === "wall";
+  const along = facing === "v" ? ground.v : ground.u;
+  const away = facing === "v" ? ground.u : ground.v;
+  const axes = wall ? { u: along, v: { x: 0, y: 1 } } : ground;
   if (!lines.length) return null;
 
   const pxPerMm = pointStep / mmPerPoint;
@@ -86,12 +94,25 @@ export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
   for (const node of nodes) { cx += node.ground.x; cy += node.ground.y; }
   cx /= nodes.length;
   cy /= nodes.length;
+  if (wall) {
+    // a wall stands where the drawing does, pushed out along the axis it
+    // does not run along; its offset is a distance, not a height
+    cx = 0;
+    cy = 0;
+    for (const node of nodes) { cx += node.point.x; cy += node.point.y; }
+    cx /= nodes.length;
+    cy /= nodes.length;
+    cx += away.x * offsetMm * pxPerMm;
+    cy += away.y * offsetMm * pxPerMm;
+  }
   if (center) { cx = center.x; cy = center.y; }
 
   let reachA = 0;
   let reachB = 0;
   for (const node of nodes) {
-    const { a, b } = isoCoords(node.ground, cx, cy, axes);
+    // v2.98 A wall is fitted to where the pipes actually are, not to where
+    // they would land on the floor
+    const { a, b } = isoCoords(wall ? node.point : node.ground, cx, cy, axes);
     reachA = Math.max(reachA, Math.abs(a));
     reachB = Math.max(reachB, Math.abs(b));
   }
@@ -115,7 +136,7 @@ export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
     { point: at(0, -halfV), axis: "v" },
   ];
 
-  return { cx, cy, halfU, halfV, corners, edges, centre: { x: cx, y: cy }, nodes, pxPerMm, axes };
+  return { cx, cy, halfU, halfV, corners, edges, centre: { x: cx, y: cy }, nodes, pxPerMm, axes, wall };
 }
 
 // Is a workspace point inside the rhombus?
