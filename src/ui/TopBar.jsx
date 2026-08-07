@@ -9,7 +9,7 @@
 import { useContext, useState, useEffect, useRef } from "react";
 import { WorkspaceContext } from "../workspace/WorkspaceContext";
 import { HandIcon, ZoomIcon, ExpandIcon, ShrinkIcon } from "./Icons";                              // v2.58 one-handed drafting
-import { LABEL_FIELDS, LABEL_TEXT } from "../workspace/utils/labelFields"; // v2.51
+import { LABEL_FIELDS, LABEL_TEXT, LABEL_PRESETS, PRESET_TEXT, presetOf } from "../workspace/utils/labelFields"; // v2.51
 import { ISO_YAW, ISO_PITCH } from "../workspace/workshop/pipe3d";        // v2.55 the home tilt
 import { SunIcon, MoonIcon, GridIcon, CrosshairIcon, MagnifierIcon, RotateIcon, GlobeIcon, CheckIcon, SendToStudioIcon, PencilIcon, MoreIcon, CubeIcon, ListIcon, EraserIcon, MoveIcon, RedoIcon, PencilDrawIcon, SelectIcon, TurnLeftIcon, TurnRightIcon, OrbitIcon, CompassIcon } from "./Icons";
 import { buildStudioHandoff, encodeHandoff } from "../workspace/utils/handoff";
@@ -69,6 +69,7 @@ const translations = {
     labels: "Run labels",
     labelNote: "Tap a label with Move to slide it; double-tap to send it home.",
     labelAvoid: "Keep labels apart",
+    preset: "Preset",
     labelStyle: "Label angle",
     labelAlong: "Along the line",
     labelLevel: "Horizontal",
@@ -127,6 +128,7 @@ const translations = {
     labels: "配管ラベル",
     labelNote: "移動ツールでラベルをドラッグ、ダブルタップで元の位置へ。",
     labelAvoid: "ラベルの重なりを避ける",
+    preset: "プリセット",
     labelStyle: "ラベルの向き",
     labelAlong: "線に沿う",
     labelLevel: "水平",
@@ -435,23 +437,6 @@ export default function TopBar() {
             >
               <ListIcon /> <span>{t.cutList}</span>
             </button>
-            <div className="sheet-row">
-              <span>{t.detail}</span>
-              <div className="seg-group">
-                {[["full", t.detailFull], ["normal", t.detailNormal], ["eco", t.detailEco]].map(
-                  ([value, label]) => (
-                    <button
-                      key={value}
-                      className={"seg-btn" + (detail === value ? " on" : "")}
-                      onClick={() => setDetail(value)}
-                    >
-                      {label}
-                    </button>
-                  ),
-                )}
-              </div>
-            </div>
-            <div className="sheet-hint">{t.detailNote}</div>
             <button
               className="sheet-btn"
               onClick={() => setView({ yawDeg: ISO_YAW, pitchDeg: ISO_PITCH })}
@@ -461,6 +446,21 @@ export default function TopBar() {
             </button>
             <div className="sheet-group">{t.gLabels}</div>
             {/* v2.51 A label says only what this job needs it to say. */}
+            <div className="sheet-row">
+              <span>{t.preset}</span>
+              <div className="seg-group">
+                {Object.keys(LABEL_PRESETS).map((name) => (
+                  <button
+                    key={name}
+                    className={"seg-btn" + (presetOf(labelFields) === name ? " on" : "")}
+                    onClick={() => setLabelFields({ ...LABEL_PRESETS[name] })}
+                  >
+                    {PRESET_TEXT[lang === "jp" ? "jp" : "en"][name]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="sheet-row">
               <span>{t.labels}</span>
               <div className="seg-group wrap">

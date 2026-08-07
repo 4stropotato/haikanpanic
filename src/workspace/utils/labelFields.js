@@ -21,3 +21,24 @@ export function loadLabelFields() {
   } catch { /* first run, or a stale value — the default is always valid */ }
   return { ...LABEL_DEFAULT };
 }
+
+// v2.99 Presets. What a label should say changes with what the drawing is
+// for — a quick field sketch wants the size and nothing else, a fabrication
+// print wants all of it — so the common sets are one tap rather than seven.
+export const LABEL_PRESETS = {
+  size: { length: false, size: true, sch: false, joint: false, angle: false, rise: false, el: false },
+  standard: { length: true, size: true, sch: false, joint: false, angle: true, rise: true, el: false },
+  full: { length: true, size: true, sch: true, joint: true, angle: true, rise: true, el: true },
+};
+
+export const PRESET_TEXT = {
+  en: { size: "Size only", standard: "Standard", full: "Everything" },
+  jp: { size: "呼び径のみ", standard: "標準", full: "全部" },
+};
+
+export function presetOf(fields) {
+  for (const [name, set] of Object.entries(LABEL_PRESETS)) {
+    if (LABEL_FIELDS.every((f) => !!fields[f] === !!set[f])) return name;
+  }
+  return null;
+}
