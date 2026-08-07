@@ -1351,8 +1351,23 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
           // let the wall come to rest anywhere across the slab; matching its
           // own centre and corners against the floor's edges puts it on the
           // edge itself.
-          const targets = [...other.corners, ...other.edges.map((e) => e.point)];
-          const sources = [...mine.corners, { x: mine.cx, y: mine.cy }];
+          // v3.75 A wall's corners carry height in their screen position,
+          // and the ground decomposition only understands plan — so the
+          // numbers coming out of it were meaningless and the wall matched
+          // wherever they happened to agree. The height is taken back out
+          // first, which puts the wall's foot on the ground where the
+          // floor's edges are, and only there can the two be compared.
+          const lift = (pt, mm) => ({ x: pt.x, y: pt.y + (mm / (view3d.risePerPx || 1)) });
+          const myFoot = datums[me]?.kind === "wall"
+            ? planeVerticalExtent(datums[me]).bottomMm
+            : (datums[me]?.offsetMm ?? 0);
+          const itsLevel = datums[i]?.kind === "wall"
+            ? planeVerticalExtent(datums[i]).bottomMm
+            : (datums[i]?.offsetMm ?? 0);
+          const targets = [...other.corners, ...other.edges.map((e) => e.point)]
+            .map((pt) => lift(pt, itsLevel));
+          const sources = [...mine.corners, { x: mine.cx, y: mine.cy }]
+            .map((pt) => lift(pt, myFoot));
           for (const a of sources) {
             const mv = ab({ x: a.x + centre.x - mine.cx, y: a.y + centre.y - mine.cy });
             for (const b of targets) {
