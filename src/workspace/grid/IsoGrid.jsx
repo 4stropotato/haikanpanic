@@ -170,13 +170,20 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
       const fade = (nx, ny, nz) => Math.min(1, (lookAt(nx, ny, nz) - OPEN) / 0.35);
       const h = n;
 
-      // the two ground-parallel faces
-      for (const [c, ny] of [[0, -1], [-h, 1]]) {
-        if (!facing(0, ny, 0)) continue;
-        const d = fade(0, ny, 0) * (c === 0 ? 1 : 0.6);
-        for (let i = -h; i <= h; i += 1) {
-          seg(at(i, -h, c), at(i, h, c), strong(i), d);
-          seg(at(-h, i, c), at(h, i, c), strong(i), d);
+      // v3.35 The ground is always there. Culling it like any other face
+      // meant that from above the box swapped to its ceiling — and a plan
+      // view is exactly when you want the floor, because that is what the
+      // job is set out on. It is drawn whatever the angle, fading only when
+      // the view goes edge-on to it and the lines would pile up; the ceiling
+      // is not drawn at all.
+      {
+        const level = Math.abs(lookAt(0, -1, 0));
+        const d = Math.min(1, Math.max(0, (level - 0.05) / 0.3));
+        if (d > 0) {
+          for (let i = -h; i <= h; i += 1) {
+            seg(at(i, -h, 0), at(i, h, 0), strong(i), d);
+            seg(at(-h, i, 0), at(h, i, 0), strong(i), d);
+          }
         }
       }
       // the four uprights
