@@ -72,12 +72,13 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null }) => { 
         .map(([x, y]) => ((x * n.x) + (y * n.y)) / nl / spacing);
       const lo = Math.floor(Math.min(...cast)) - 1;
       const hi = Math.ceil(Math.max(...cast)) + 1;
-      // v3.16 Zoomed out, the lattice is denser than the screen can show.
-      // Dropping the family outright made the grid vanish; it thins instead,
-      // doubling the step until it reads — and the doubling keeps the tenth
-      // lines, so the bold ones stay where they were.
+      // v3.18 The step is chosen by how far apart the lines land on the
+      // glass, not by how many there are. Counting them made the stride
+      // depend on how much workspace happened to be in view, so a family
+      // could thin out to nothing at one zoom and be fine at the next.
+      // Eight screen pixels is about where a grid stops reading as a grid.
       let stride = 1;
-      while ((hi - lo) / stride > 220) stride *= 2;
+      while (Math.abs(spacing) * stride * zoom < 8 && stride < 4096) stride *= 2;
       for (let k = Math.ceil(lo / stride) * stride; k <= hi; k += stride) {
         const px = along.x * k;
         const py = along.y * k;
