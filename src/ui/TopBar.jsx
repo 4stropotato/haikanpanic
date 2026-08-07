@@ -45,6 +45,7 @@ const translations = {
     workshop: "Workshop",
     dims: "3D dimensions",
     drop: "Drop to floor",
+    surfaces: "Edit surfaces only",
     full: "Full screen",
     exitFull: "Show controls",
     exitWorkshop: "Close 3D",
@@ -196,6 +197,7 @@ export default function TopBar() {
     glEditPlane,
     setGlEditPlane,
     setShowGlSheet,
+    surfaceOnly, setSurfaceOnly,
     currentSpec,
     setShowSpecSheet,
     labelFields, setLabelFields, labelAvoid, setLabelAvoid, labelFlat, setLabelFlat,
@@ -508,6 +510,9 @@ export default function TopBar() {
               <GridIcon /> <span>{t.glRef}</span> {showGL && <CheckIcon />}
             </button>
             <div className="sheet-group">{t.gDatums}</div>
+            <button className="sheet-btn" onClick={() => setSurfaceOnly(!surfaceOnly)}>
+              <GridIcon /> <span>{t.surfaces}</span> {surfaceOnly && <CheckIcon />}
+            </button>
             <button
               className="sheet-btn"
               onClick={() => { setShowSheet(false); setShowGlSheet(true); }}

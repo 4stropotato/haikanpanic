@@ -3,7 +3,7 @@
 // it — nothing waits on an Apply press. Number fields keep their own text
 // while you type, so clearing a field to retype it cannot snap back.
 import { useEffect, useState } from "react";
-import { DATUM_NAMES, WALL_NAMES } from "../workspace/utils/datums";
+import { DATUM_NAMES, WALL_NAMES, CEILING_NAMES } from "../workspace/utils/datums";
 
 const TEXT = {
   en: {
@@ -15,6 +15,7 @@ const TEXT = {
     rename: "Label",
     floor: "Floor",
     wall: "Wall",
+    ceiling: "Ceiling",
     facing: "Runs along",
     offsetWall: (name) => `${name} distance`,
     wallNote: "A wall stands up. Its offset is how far it sits from the drawing,"
@@ -43,6 +44,7 @@ const TEXT = {
     rename: "表示名",
     floor: "床",
     wall: "壁",
+    ceiling: "天井",
     facing: "方向",
     offsetWall: (name) => `${name} の離れ`,
     wallNote: "壁は立ちます。オフセットは図面からの離れ、奥行は高さになります。",
@@ -121,7 +123,8 @@ export default function GlSheet({
           <div className="sheet-row">
             <span>{t.name}</span>
             <div className="seg-group">
-              {(plane.kind === "wall" ? WALL_NAMES : DATUM_NAMES).map((item) => (
+              {(plane.kind === "wall" ? WALL_NAMES
+                : plane.kind === "ceiling" ? CEILING_NAMES : DATUM_NAMES).map((item) => (
                 <button
                   key={item}
                   className={"seg-btn" + (plane.name === item ? " on" : "")}
@@ -160,6 +163,12 @@ export default function GlSheet({
                 onClick={() => onChange({ kind: "wall" })}
               >
                 {t.wall}
+              </button>
+              <button
+                className={"seg-btn" + (plane.kind === "ceiling" ? " on" : "")}
+                onClick={() => onChange({ kind: "ceiling" })}
+              >
+                {t.ceiling}
               </button>
             </div>
           </div>

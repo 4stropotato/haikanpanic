@@ -5,8 +5,11 @@ export const LABEL_HOME = { along: 0, across: -13 };
 
 export const LABEL_FIELDS = ["length", "size", "sch", "joint", "angle", "rise", "el"];
 
+// v3.03 A new sketch says nothing until the fitter asks it to. Drawing is
+// the whole of the app at its simplest; every annotation is opt-in, and once
+// switched on it stays on.
 export const LABEL_DEFAULT = {
-  length: true, size: true, sch: false, joint: false, angle: true, rise: true, el: false,
+  length: false, size: false, sch: false, joint: false, angle: false, rise: false, el: false,
 };
 
 export const LABEL_TEXT = {
@@ -26,14 +29,15 @@ export function loadLabelFields() {
 // for — a quick field sketch wants the size and nothing else, a fabrication
 // print wants all of it — so the common sets are one tap rather than seven.
 export const LABEL_PRESETS = {
+  none: { length: false, size: false, sch: false, joint: false, angle: false, rise: false, el: false },
   size: { length: false, size: true, sch: false, joint: false, angle: false, rise: false, el: false },
   standard: { length: true, size: true, sch: false, joint: false, angle: true, rise: true, el: false },
   full: { length: true, size: true, sch: true, joint: true, angle: true, rise: true, el: true },
 };
 
 export const PRESET_TEXT = {
-  en: { size: "Size only", standard: "Standard", full: "Everything" },
-  jp: { size: "呼び径のみ", standard: "標準", full: "全部" },
+  en: { none: "None", size: "Size only", standard: "Standard", full: "Everything" },
+  jp: { none: "なし", size: "呼び径のみ", standard: "標準", full: "全部" },
 };
 
 export function presetOf(fields) {

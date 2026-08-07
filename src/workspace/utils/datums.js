@@ -6,6 +6,7 @@
 // own — and a job with several of either needs to write its own name, which
 // is why the sheet lets you type one.
 export const WALL_NAMES = ["W1", "W2", "W3", "壁"];
+export const CEILING_NAMES = ["CL", "SL", "天井", "梁下"];
 
 export const DATUM_NAMES = ["GL", "FL", "TOS", "BOP"];
 

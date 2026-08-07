@@ -60,6 +60,9 @@ export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
   // floor by the two ground directions. Everything downstream — the corners,
   // the grips, the hit tests — is written against these two axes, so a wall
   // needs nothing else.
+  // v3.02 A ceiling is a floor seen from underneath: the same horizontal
+  // plane, and the drop to it simply goes up because the run sits below it.
+  // The arithmetic already handles that, so it needs no case of its own.
   const wall = kind === "wall";
   const along = facing === "v" ? ground.v : ground.u;
   const away = facing === "v" ? ground.u : ground.v;

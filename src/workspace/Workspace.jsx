@@ -161,7 +161,9 @@ export default function Workspace() {
     };
   });
   const [showCutList, setShowCutList] = useState(() => new URLSearchParams(window.location.search).has("cutlist")); // v2.07 材料表 sheet
-  const [showGL, setShowGL] = useState(true);                               // v2.07 GL/EL in 2D
+  const [showGL, setShowGL] = useState(                                     // v2.07 GL/EL in 2D
+    () => localStorage.getItem("haikan-show-gl") === "1",                   // v3.03 off until asked for
+  );
   const [view, setView] = useState({ yawDeg: ISO_YAW, pitchDeg: ISO_PITCH }); // v2.46 look from elsewhere
   const [orbitMode, setOrbitMode] = useState(false);                        // v2.48 drag to turn
   const orbitDrag = useRef(null);
@@ -182,16 +184,20 @@ export default function Workspace() {
     } catch { return {}; }                     // a stale value is not worth a crash
   });
   const [showJointMarks, setShowJointMarks] = useState(                     // v2.26 L/T circles
-    () => localStorage.getItem("haikan-joint-marks") !== "off",
+    () => localStorage.getItem("haikan-joint-marks") === "on",             // v3.03 off until asked for
   );
   const [showGlSheet, setShowGlSheet] = useState(() => new URLSearchParams(window.location.search).has("gl"));
   const [datums, setDatums] = useState(loadDatums);                         // v2.19 GL / FL / TOS list
   const [datumIndex, setDatumIndex] = useState(0);                          // which one the sheet edits
+  // v3.02 Surfaces only. Setting out a floor means dragging grips that sit
+  // among the pipes, and one missed grab moves a run instead. This locks
+  // everything but the datums.
+  const [surfaceOnly, setSurfaceOnly] = useState(false);
   const [glEditPlane, setGlEditPlane] = useState(false);                    // v2.09 drag handles on
   const planeDrag = useRef(null);
   const [immersive, setImmersive] = useState(false);                        // v2.66 3D with no chrome
   const [showDrop, setShowDrop] = useState(                                 // v2.96 projection to datum
-    () => localStorage.getItem("haikan-drop") !== "0",
+    () => localStorage.getItem("haikan-drop") === "1",                     // v3.03 off until asked for
   );
   const [showDims, setShowDims] = useState(true);                           // v2.64 3D dimension labels
   const [showWorkshop, setShowWorkshop] = useState(() => new URLSearchParams(window.location.search).has("workshop")); // v2.02 3D view toggle (?workshop=1 for tests)
@@ -285,6 +291,10 @@ export default function Workspace() {
   useEffect(() => {
     localStorage.setItem("haikan-drop", showDrop ? "1" : "0");              // v2.96
   }, [showDrop]);
+
+  useEffect(() => {
+    localStorage.setItem("haikan-show-gl", showGL ? "1" : "0");             // v3.03
+  }, [showGL]);
 
   useEffect(() => {
     // v3.01 The fitting marks read their setting from storage but nothing
@@ -541,6 +551,7 @@ export default function Workspace() {
   };
 
   const labelGrab = (clientX, clientY) => {
+    if (surfaceOnly) return false;                                         // v3.02 surfaces only
     if (!moveMode || !lines.length) return false;
     const point = toWorkspace(clientX, clientY);
     for (const anchor of labelAnchors.current) {
@@ -621,6 +632,7 @@ export default function Workspace() {
   // down sets that node's elevation, which makes the run slope between two
   // known levels instead of forcing the whole chain to move.
   const levelGrab = (clientX, clientY) => {
+    if (surfaceOnly) return false;                                         // v3.02 surfaces only
     if (!moveMode || !lines.length) return false;
     const point = toWorkspace(clientX, clientY);
     const reach = 26 / zoom;
@@ -681,6 +693,7 @@ export default function Workspace() {
   };
 
   const pipeGrab = (clientX, clientY) => {
+    if (surfaceOnly) return false;                                         // v3.02 surfaces only
     if (!moveMode || !lines.length) return false;
     const point = toWorkspace(clientX, clientY);
     const index = findSegmentAt(point, viewLines, 22 / zoom);
@@ -733,6 +746,7 @@ export default function Workspace() {
   };
 
   const marqueeStart = (clientX, clientY) => {
+    if (surfaceOnly) return false;                                         // v3.02 surfaces only
     if (!selectMode) return false;
     const point = toWorkspace(clientX, clientY);
     marqueeRef.current = { x0: point.x, y0: point.y, x1: point.x, y1: point.y };
@@ -865,7 +879,7 @@ export default function Workspace() {
 
   // v2.09 Plane editing: grab a corner or a side to resize, the face to move.
   const planeGrab = (clientX, clientY) => {
-    if ((!glEditPlane && !moveMode) || !lines.length) return false;
+    if ((!glEditPlane && !moveMode && !surfaceOnly) || !lines.length) return false;
     const point = toWorkspace(clientX, clientY);
     const grabRadius = 22 / zoom;
     // v2.62 Grips are hit where they are actually drawn — pulled inside the
@@ -1105,6 +1119,7 @@ export default function Workspace() {
     if (!homeView) return;                                                 // v2.46 other views are for looking
     if (moveMode) return;                                                  // v2.16 drags, not taps
     if (viewTool) return;                                                  // v2.58 the hand slides, never draws
+    if (surfaceOnly) return;                                               // v3.02 surfaces only
     // v2.37 Select mode: a tap adds or removes one run from the selection.
     if (selectMode) {
       const point = {
@@ -1304,6 +1319,8 @@ export default function Workspace() {
     glEditPlane,
     setGlEditPlane,
     setShowGlSheet,
+    surfaceOnly,                                                           // v3.02 lock everything but datums
+    setSurfaceOnly,
     resetDatum: () => setDatums(                                            // refit the primary
       (list) => list.map((d, i) => (i === 0 ? { ...d, fitted: false, sizeMm: 0, sizeVMm: 0, center: null } : d)),
     ),
@@ -1365,8 +1382,8 @@ export default function Workspace() {
             // v2.62 Grips show whenever the plane can be taken hold of, not
             // only while its sheet is open — an invisible control is no
             // control, which is why the plane never seemed resizable.
-            activeDatum={showGlSheet || moveMode || glEditPlane ? datumIndex : -1}
-            gripAll={moveMode || glEditPlane}
+            activeDatum={showGlSheet || moveMode || glEditPlane || surfaceOnly ? datumIndex : -1}
+            gripAll={moveMode || glEditPlane || surfaceOnly}
             showDrop={showDrop}
             view={view}
             glEditPlane={glEditPlane || moveMode}
