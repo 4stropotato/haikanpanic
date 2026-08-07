@@ -1,7 +1,10 @@
 ﻿export const dx = 20;                             // v1.10+ grid spacing (px)
 export const tan30 = Math.tan(Math.PI / 6);       // v1.10+ tan(30°) slope ≈ 0.577
 export const gridSize = 5000;                     // v1.10+ half-extent of grid canvas (px)
-export const zoomMin = 0.25;                      // v1.10+ minimum zoom level
+// v3.28 Far enough back to see a whole site. A quarter scale was barely two
+// rooms, and the grid thins itself now, so the sheet stays readable however
+// far out you pull.
+export const zoomMin = 0.05;                      // v1.10+ minimum zoom level
 export const zoomMax = 4;                         // v1.10+ maximum zoom level
 export const snapRange = 200;                     // v1.10+ search radius for snapping
 

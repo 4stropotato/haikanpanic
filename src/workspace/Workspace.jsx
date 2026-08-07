@@ -454,7 +454,10 @@ export default function Workspace() {
   );
   const homeView = Math.abs(view.yawDeg - ISO_YAW) < 0.5
     && Math.abs(view.pitchDeg - ISO_PITCH) < 0.5;
-  const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
+  const ZOOM_MIN = 0.05;                                                      // v3.28 a whole site
+const ZOOM_MAX = 6;
+
+const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
   const viewLines = useMemo(() => lines.map((line) => ({
     ...line,
     start: projection.get(nodeKey(line.start)) ?? line.start,
@@ -579,7 +582,10 @@ export default function Workspace() {
         ry = Math.max(ry, Math.abs(pt.y));
       }
     }
-    setZoom(Math.max(0.25, Math.min(3, Math.min(
+    // v3.28 Pull back far enough to see a whole job. A quarter scale was
+    // barely two rooms; a site plan wants more, and the grid thins itself
+    // now so the sheet stays readable however far out you go.
+    setZoom(Math.max(ZOOM_MIN, Math.min(3, Math.min(
       (viewport.w * 0.42) / Math.max(rx, 1),
       (viewport.h * 0.30) / Math.max(ry, 1),
     ))));
@@ -594,7 +600,7 @@ export default function Workspace() {
   const zoomMove = (clientX, clientY) => {
     const drag = zoomDrag.current;
     if (!drag) return false;
-    const next = Math.max(0.25, Math.min(6, drag.zoom * Math.exp((drag.y - clientY) * 0.006)));
+    const next = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, drag.zoom * Math.exp((drag.y - clientY) * 0.006)));
     const applied = next / drag.zoom;
     const cx = viewport.w / 2;
     const cy = viewport.h / 2;
