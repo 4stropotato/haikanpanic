@@ -17,6 +17,12 @@ const TEXT = {
     wall: "Wall",
     ceiling: "Ceiling",
     facing: "Runs along",
+    stands: "Held by",
+    free: "Free",
+    bottom: "Bottom",
+    top: "Top",
+    bottomAt: "Bottom at",
+    topAt: "Top at",
     offsetWall: (name) => `${name} distance`,
     wallNote: "A wall stands up. Its offset is how far it sits from the drawing,"
       + " and its depth becomes its height.",
@@ -46,6 +52,12 @@ const TEXT = {
     wall: "壁",
     ceiling: "天井",
     facing: "方向",
+    stands: "固定",
+    free: "自由",
+    bottom: "下端",
+    top: "上端",
+    bottomAt: "下端の高さ",
+    topAt: "上端の高さ",
     offsetWall: (name) => `${name} の離れ`,
     wallNote: "壁は立ちます。オフセットは図面からの離れ、奥行は高さになります。",
     height: (name) => `${name} の高さ`,
@@ -197,6 +209,29 @@ export default function GlSheet({
                   ))}
                 </div>
               </div>
+              <div className="sheet-row">
+                <span>{t.stands}</span>
+                <div className="seg-group">
+                  {["free", "bottom", "top"].map((mode) => (
+                    <button
+                      key={mode}
+                      className={"seg-btn" + ((plane.vAnchor ?? "free") === mode ? " on" : "")}
+                      onClick={() => onChange({ vAnchor: mode })}
+                    >
+                      {t[mode]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {(plane.vAnchor ?? "free") !== "free" && (
+                <NumberRow
+                  label={plane.vAnchor === "top" ? t.topAt : t.bottomAt}
+                  value={plane.vMm}
+                  step="100"
+                  zeroIsValue
+                  onCommit={(v) => onChange({ vMm: v })}
+                />
+              )}
               <div className="sheet-hint">{t.wallNote}</div>
             </>
           )}

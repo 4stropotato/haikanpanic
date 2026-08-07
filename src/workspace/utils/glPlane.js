@@ -54,6 +54,7 @@ export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
   const {
     sizeMm = 0, sizeVMm = 0, offsetMm = 0, center = null, centerAB = null,
     projection = null, view = null, kind = "floor", facing = "u",
+    vAnchor = "free", vMm = 0,
   } = plane;
   const ground = planeAxes(view);
   // v2.98 A wall is spanned by one ground direction and the vertical; a
@@ -139,6 +140,14 @@ export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
   const autoHalf = (Math.max(reachA, reachB) * 1.4) + (pointStep * 3);
   const halfU = sizeMm > 0 ? (sizeMm / 2) * pxPerMm : autoHalf;
   const halfV = sizeVMm > 0 ? (sizeVMm / 2) * pxPerMm : autoHalf;
+
+  // v3.11 A wall can be pinned by its bottom or its top to a known height,
+  // the way a real one stands on a slab or hangs from a beam. Left free it
+  // floats with the drawing, which is fine while sketching and useless once
+  // the levels matter.
+  if (wall && vAnchor !== "free") {
+    cy += (-vMm * pxPerMm) + (vAnchor === "bottom" ? -halfV : halfV);
+  }
 
   const at = (a, b) => ({
     x: cx + (axes.u.x * a) + (axes.v.x * b),
