@@ -100,9 +100,36 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null }) => { 
     // sheet — correct as a floor, but flat, and a turned view is exactly
     // where the third direction is worth seeing. They come back quietened
     // instead, so the ground still leads and the space around it is there.
-    family(step.u, step.v, 10);
-    family(step.v, step.u, 10);
-    family(step.w, step.u, 10, turned ? 0.45 : 1);
+    if (!turned) {
+      // the drawing surface: the isometric grid, edge to edge
+      family(step.u, step.v, 10);
+      family(step.v, step.u, 10);
+      family(step.w, step.u, 10);
+    } else {
+      // v3.20 A corner of the world, not a field of lines. Six families of
+      // infinite lines is what a true 3D lattice needs, and it is unreadable;
+      // one plane is readable and says nothing about the third direction.
+      // Three bounded planes meeting at the origin say all of XYZ and stay
+      // quiet, which is how a CAD viewport does it. The box is sized to the
+      // view so it neither disappears nor swamps the drawing.
+      const span = Math.min(Math.hypot(xb - xa, yb - ya) * 0.42, pointStep * 40);
+      const n = Math.max(4, Math.min(16, Math.round(span / pointStep)));
+      const at = (a, b, c) => ({
+        x: (step.u.x * a) + (step.v.x * b) + (step.w.x * c),
+        y: (step.u.y * a) + (step.v.y * b) + (step.w.y * c),
+      });
+      const seg = (p1, p2, bold, dim) => drawLine(p1.x, p1.y, p2.x, p2.y, bold, dim);
+      const strong = (i) => i % 5 === 0;
+      for (let i = 0; i <= n; i += 1) {
+        // the ground, and the two uprights that meet it at the origin
+        seg(at(i, 0, 0), at(i, n, 0), strong(i), 1);
+        seg(at(0, i, 0), at(n, i, 0), strong(i), 1);
+        seg(at(i, 0, 0), at(i, 0, -n), strong(i), 0.5);
+        seg(at(0, 0, -i), at(n, 0, -i), strong(i), 0.5);
+        seg(at(0, i, 0), at(0, i, -n), strong(i), 0.5);
+        seg(at(0, 0, -i), at(0, n, -i), strong(i), 0.5);
+      }
+    }
 
     ctx.restore();
   }, [show, zoom, offset, vpW, vpH, view]);                                       // [v1.09] Redraw on zoom/pan/show change
