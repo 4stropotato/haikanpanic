@@ -1897,7 +1897,12 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
                   ((wx * sin) + (wz * cos)) * reach,
                   mmPerPoint / pointStep,
                 );
-                const newEnd = { x: target.start.x + p.x, y: target.start.y + p.y };
+                let newEnd = { x: target.start.x + p.x, y: target.start.y + p.y };
+                // v3.61 A turn must never leave a run with no drawn extent —
+                // dropDegenerate would then take the pipe out of the drawing
+                // altogether, which is how a 45 degree turn made it vanish.
+                // If the projection collapses the run, hold the end it had.
+                if (Math.hypot(p.x, p.y) < pointStep * 0.6) newEnd = { ...target.end };
                 const same = (a, b) => Math.hypot(a.x - b.x, a.y - b.y) < 0.001;
                 next = next.map((line) => {
                   const out = { ...line };
