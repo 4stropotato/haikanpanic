@@ -824,25 +824,48 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
     // length is fixed pivots about its far end instead of stretching — a
     // spool already cut swings, it does not grow.
     if (heightMode && (lockAxis === "u" || lockAxis === "v")) {
-      // v3.58 Both buttons are grid lines, fixed — the two 30 degree
-      // directions the drawing is built on, which is what they say on the
-      // face of them. Making them relative to the pipe (its own line, and
-      // the other) meant "along 30" no longer pointed along 30, and the
-      // movement read as arbitrary. A run already lying on the chosen line
-      // grows and shrinks along it; one lying across it steps sideways.
+      // v3.59 Built from the rule, not from the axis: there is no hypotenuse
+      // smaller than its legs. The run the pipe has to cover does not change
+      // when you swing its end — so only the part of the drag that is square
+      // to the run is applied, and the pipe becomes sqrt(run² + offset²).
+      // It can only grow. Along and Across choose which way the end swings;
+      // this is the Turn, dragged rather than typed.
       const axes = planeAxes(view);
-      const dir = lockAxis === "u" ? axes.u : axes.v;
-      const len = Math.hypot(dir.x, dir.y) || 1;
+      const axis = lockAxis === "u" ? axes.u : axes.v;
+      const aLen = Math.hypot(axis.x, axis.y) || 1;
       const dx = ((clientX ?? drag.startX) - drag.startX) / zoom;
       const dy = (clientY - drag.startY) / zoom;
-      const raw2 = ((dx * dir.x) + (dy * dir.y)) / (len * len);
-      const along = Math.round(raw2 / pointStep) * pointStep;
-      const moving = drag.which === 1 ? "start" : "end";
-      const anchor = drag.which === 1 ? drag.base.end : drag.base.start;
-      let at = {
-        x: drag.base[moving].x + (dir.x * along),
-        y: drag.base[moving].y + (dir.y * along),
+      const pushed = (((dx * axis.x) + (dy * axis.y)) / (aLen * aLen));
+
+      const moving0 = drag.which === 1 ? "start" : "end";
+      const anchor0 = drag.which === 1 ? drag.base.end : drag.base.start;
+      const run = {
+        x: drag.base[moving0].x - anchor0.x,
+        y: drag.base[moving0].y - anchor0.y,
       };
+      const runLen = Math.hypot(run.x, run.y) || 1;
+      const along0 = { x: run.x / runLen, y: run.y / runLen };
+      // the axis, with anything parallel to the run taken out of it
+      const dot = (axis.x * along0.x) + (axis.y * along0.y);
+      const square = { x: axis.x - (along0.x * dot), y: axis.y - (along0.y * dot) };
+      const sqLen = Math.hypot(square.x, square.y);
+      // v3.60 Stepped by a whole lattice cell, the end jumped and overshot
+      // the line it was aiming at. Up and down rounds to 10mm and feels
+      // smooth, so this does the same: the offset is quantised in
+      // millimetres, not in grid squares.
+      const mmPerPx = mmPerPoint / pointStep;
+      const wantMm = pushed * sqLen * mmPerPx;
+      const offset = sqLen > 1e-6
+        ? (Math.round(wantMm / 10) * 10) / mmPerPx
+        : 0;
+      const moving = moving0;
+      const anchor = anchor0;
+      let at = sqLen > 1e-6
+        ? {
+          x: drag.base[moving].x + ((square.x / sqLen) * offset),
+          y: drag.base[moving].y + ((square.y / sqLen) * offset),
+        }
+        : { ...drag.base[moving] };
       const line0 = lines[drag.index];
       if (line0?.fixed) {
         // hold the reach: swing the end round rather than lengthen the pipe
