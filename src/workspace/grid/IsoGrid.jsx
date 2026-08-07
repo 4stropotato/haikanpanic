@@ -93,8 +93,14 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
     // draw on. Turned away from it, the uprights stop meaning "up the page"
     // and just clutter — so the grid becomes the ground alone, a floor seen
     // from where you stand, which is what a 3D view is read against.
-    const turned = !!view && (Math.abs((view.yawDeg ?? 45) - 45) > 0.5
-      || Math.abs((view.pitchDeg ?? 35.264) - 35.264) > 0.5);
+    // v3.38 A quarter turn is still an isometric — the same drawing read
+    // from the next corner — so it keeps the flat iso grid and simply turns
+    // about the origin. Only a free angle becomes a box, because only there
+    // is the lattice no longer something you could draw on.
+    const yawNow = ((((view?.yawDeg ?? 45) - 45) % 360) + 360) % 360;
+    const onQuarter = Math.min(yawNow % 90, 90 - (yawNow % 90)) < 0.5;
+    const levelPitch = Math.abs((view?.pitchDeg ?? 35.264) - 35.264) < 0.5;
+    const turned = !!view && !(onQuarter && levelPitch);
     // v3.19 Three families are a lattice, and a lattice is what reads as
     // depth. Dropping the uprights when the view turned left a single flat
     // sheet — correct as a floor, but flat, and a turned view is exactly
