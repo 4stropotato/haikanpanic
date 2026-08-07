@@ -466,14 +466,23 @@ export default function Workspace() {
   const sketchBounds = useMemo(() => {
     if (!viewLines.length) return null;
     let x1 = Infinity; let y1 = Infinity; let x2 = -Infinity; let y2 = -Infinity;
-    for (const line of viewLines) {
-      for (const pt of [line.start, line.end]) {
-        x1 = Math.min(x1, pt.x); y1 = Math.min(y1, pt.y);
-        x2 = Math.max(x2, pt.x); y2 = Math.max(y2, pt.y);
+    const take = (pt) => {
+      x1 = Math.min(x1, pt.x); y1 = Math.min(y1, pt.y);
+      x2 = Math.max(x2, pt.x); y2 = Math.max(y2, pt.y);
+    };
+    for (const line of viewLines) { take(line.start); take(line.end); }
+    // v3.25 The surfaces are part of the work, so they count towards what
+    // the grid has to cover. Measuring the pipes alone left a box a floor
+    // could hang out of, and the grid stopped short of the drawing.
+    if (showGL) {
+      for (const datum of datums) {
+        if (datum.continuous) continue;
+        const plane = glPlaneGeometry(lines, mmPerPoint, { ...datum, projection, view });
+        if (plane) plane.corners.forEach(take);
       }
     }
     return { x1, y1, x2, y2 };
-  }, [viewLines]);
+  }, [viewLines, lines, datums, showGL, mmPerPoint, projection, view]);
 
 
   const stackedCount = useMemo(() => overlappingRuns(viewLines).size, [viewLines]);

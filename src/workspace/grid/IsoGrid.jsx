@@ -120,14 +120,19 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
       const mid = bounds
         ? { x: (bounds.x1 + bounds.x2) / 2, y: (bounds.y1 + bounds.y2) / 2 }
         : { x: 0, y: 0 };
-      const spread = bounds
-        ? Math.hypot(bounds.x2 - bounds.x1, bounds.y2 - bounds.y1) * 0.75
-        : pointStep * 10;
-      const span = Math.max(pointStep * 4, Math.min(spread, pointStep * 40));
-      const n = Math.max(4, Math.min(16, Math.round(span / pointStep)));
+      // v3.25 The box covers the work, however big it is. A fixed cap on
+      // the number of steps meant a long run simply ran out of grid; the
+      // cell grows instead, the way a CAD grid coarsens as you pull back,
+      // so the box always reaches the far end of the drawing.
+      const half = bounds
+        ? Math.max(Math.abs(bounds.x2 - bounds.x1), Math.abs(bounds.y2 - bounds.y1)) * 0.8
+        : pointStep * 8;
+      let cell = pointStep;
+      const n = 14;
+      while (cell * n < half) cell *= 2;
       const at = (a, b, c) => ({
-        x: mid.x + (step.u.x * a) + (step.v.x * b) + (step.w.x * c),
-        y: mid.y + (step.u.y * a) + (step.v.y * b) + (step.w.y * c),
+        x: mid.x + ((step.u.x * a) + (step.v.x * b) + (step.w.x * c)) * (cell / pointStep),
+        y: mid.y + ((step.u.y * a) + (step.v.y * b) + (step.w.y * c)) * (cell / pointStep),
       });
       const seg = (p1, p2, bold, dim) => drawLine(p1.x, p1.y, p2.x, p2.y, bold, dim);
       const strong = (i) => i % 5 === 0;
