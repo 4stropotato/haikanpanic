@@ -46,6 +46,7 @@ const translations = {
     dims: "3D dimensions",
     drop: "Drop to floor",
     surfaces: "Edit surfaces only",
+    duplicate: "Duplicate selection",
     axisUp: "Rise",
     axisTurn: "Turn",
     axisLen: "Length",
@@ -175,7 +176,7 @@ export default function TopBar() {
     setEraseMode,
     moveMode,
     setMoveMode,
-    viewTool, setViewTool, fitToView, selectAll, selectRuns, clearSelection, clearAll,
+    viewTool, setViewTool, fitToView, selectAll, selectRuns, clearSelection, clearAll, duplicate,
     selectMode,
     setSelectMode,
     drawing,
@@ -572,6 +573,9 @@ export default function TopBar() {
               <GridIcon /> <span>{t.glRef}</span> {showGL && <CheckIcon />}
             </button>
             <div className="sheet-group">{t.gDatums}</div>
+            <button className="sheet-btn" onClick={() => { duplicate(); setShowSheet(false); }}>
+              <SelectIcon /> <span>{t.duplicate}</span>
+            </button>
             <button className="sheet-btn" onClick={() => setSurfaceOnly(!surfaceOnly)}>
               <GridIcon /> <span>{t.surfaces}</span> {surfaceOnly && <CheckIcon />}
             </button>

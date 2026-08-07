@@ -1323,12 +1323,25 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
           if (i === me || datums[i].continuous) return;
           const other = planeAt(i);
           if (!other) return;
+          // v3.65 Snap where the surfaces really meet, not where they look
+          // as though they do. Matching screen positions joined a wall to a
+          // floor at one viewpoint and pulled them apart at the next — the
+          // corners were never together, the projection only said so. The
+          // ground coordinates are the same from every angle, so they are
+          // what the corners are matched on.
+          const g = planeAxes(view);
+          const ab = (pt) => isoCoords(pt, 0, 0, g);
           for (const a of mine.corners) {
+            const mv = ab({ x: a.x + centre.x - mine.cx, y: a.y + centre.y - mine.cy });
             for (const b of other.corners) {
-              const d = Math.hypot((a.x + centre.x - mine.cx) - b.x,
-                (a.y + centre.y - mine.cy) - b.y);
+              const bv = ab(b);
+              const d = Math.hypot(mv.a - bv.a, mv.b - bv.b);
               if (d < reach && (!best || d < best.d)) {
-                best = { d, dx: b.x - (a.x + centre.x - mine.cx), dy: b.y - (a.y + centre.y - mine.cy) };
+                const fix = {
+                  x: (g.u.x * (bv.a - mv.a)) + (g.v.x * (bv.b - mv.b)),
+                  y: (g.u.y * (bv.a - mv.a)) + (g.v.y * (bv.b - mv.b)),
+                };
+                best = { d, dx: fix.x, dy: fix.y };
               }
             }
           }
@@ -1679,6 +1692,28 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
     // v3.34 Clearing means clearing. The surfaces are part of the drawing —
     // a floor set out for one job is wrong for the next — so they go with
     // the runs, back to a single GL to measure from.
+    // v3.66 Duplicate. A rack of identical drops, a second wall a bay over —
+    // the same thing again, offset a step so it can be seen and then moved.
+    duplicate: () => {
+      const step = pointStep * 2;
+      const copiedRuns = selection.map((i) => lines[i]).filter(Boolean).map((line) => ({
+        ...line,
+        start: { x: line.start.x + step, y: line.start.y },
+        end: { x: line.end.x + step, y: line.end.y },
+      }));
+      const copiedPlanes = datumSel.map((i) => datums[i]).filter(Boolean).map((datum) => ({
+        ...datum,
+        id: `d${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+        centerAB: datum.centerAB
+          ? { a: datum.centerAB.a + 2, b: datum.centerAB.b }
+          : { a: 2, b: 0 },
+      }));
+      if (!copiedRuns.length && !copiedPlanes.length) return;
+      if (copiedRuns.length) commitLines([...lines, ...copiedRuns]);
+      if (copiedPlanes.length) setDatums([...datums, ...copiedPlanes]);
+      setSelection(copiedRuns.map((_, k) => lines.length + k));
+      setDatumSel(copiedPlanes.map((_, k) => datums.length + k));
+    },
     clearAll: () => {
       commitLines([]);
       setDatums([makeDatum("GL")]);

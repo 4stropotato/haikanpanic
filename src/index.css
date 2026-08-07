@@ -466,6 +466,7 @@ html, body, #root {
   letter-spacing: 0.26em; color: var(--accent);
   margin-top: 1px;
 }
+.move-readout { bottom: calc(160px + env(safe-area-inset-bottom, 0px) + var(--kb, 0px)) !important; }
 .axis-lock {                                       /* v3.45 which way the drag goes */
   position: fixed; left: 50%; transform: translateX(-50%);
   bottom: calc(96px + env(safe-area-inset-bottom, 0px) + var(--kb, 0px));
