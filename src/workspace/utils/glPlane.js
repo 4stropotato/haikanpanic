@@ -75,6 +75,13 @@ export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
   if (!lines.length) return null;
 
   const pxPerMm = pointStep / mmPerPoint;
+  // v3.74 A millimetre of height is not a millimetre on the page once the
+  // view is turned — it is VIEW_K * cos(pitch) of one. Dropping nodes to the
+  // datum with the flat scale put the plane at the wrong level and laid
+  // elevated runs flat on it, and made the height appear to change with the
+  // camera. Height has one scale, and this is it.
+  const upPerMm = pxPerMm * VIEW_K
+    * Math.abs(Math.cos(((view?.pitchDeg ?? ISO_PITCH) * Math.PI) / 180));
   const elevations = nodeElevations(lines, mmPerPoint);
 
   const nodes = [];
@@ -91,7 +98,7 @@ export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
         key,                                  // v2.57 so a callout can be moved and remembered
         point: drawn,
         // the drop equals the elevation, so leader length reads as height
-        ground: { x: drawn.x, y: drawn.y + (elevation * pxPerMm) },
+        ground: { x: drawn.x, y: drawn.y + (elevation * upPerMm) },
         elevation,
       });
     }
@@ -150,16 +157,16 @@ export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
   // because that number is its distance and its height had never been set.
   // Left unsaid, a wall is a storey: 2400mm, which is at least a real answer.
   const autoHalf = (Math.max(reachA, reachB) * 1.4) + (pointStep * 3);
-  const autoWallHalf = ((2400 / 2) * pxPerMm);
+  const autoWallHalf = ((2400 / 2) * upPerMm);
   const halfU = sizeMm > 0 ? (sizeMm / 2) * pxPerMm : autoHalf;
-  const halfV = sizeVMm > 0 ? (sizeVMm / 2) * pxPerMm : (wall ? autoWallHalf : autoHalf);
+  const halfV = sizeVMm > 0 ? (sizeVMm / 2) * (wall ? upPerMm : pxPerMm) : (wall ? autoWallHalf : autoHalf);
 
   // v3.11 A wall can be pinned by its bottom or its top to a known height,
   // the way a real one stands on a slab or hangs from a beam. Left free it
   // floats with the drawing, which is fine while sketching and useless once
   // the levels matter.
   if (wall && vAnchor !== "free") {
-    cy += (-vMm * pxPerMm) + (vAnchor === "bottom" ? -halfV : halfV);
+    cy += (-vMm * upPerMm) + (vAnchor === "bottom" ? -halfV : halfV);
   }
 
   const at = (a, b) => ({
