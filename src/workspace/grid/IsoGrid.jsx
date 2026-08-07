@@ -72,8 +72,13 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null }) => { 
         .map(([x, y]) => ((x * n.x) + (y * n.y)) / nl / spacing);
       const lo = Math.floor(Math.min(...cast)) - 1;
       const hi = Math.ceil(Math.max(...cast)) + 1;
-      if (hi - lo > 400) return;                            // too dense to be readable
-      for (let k = lo; k <= hi; k += 1) {
+      // v3.16 Zoomed out, the lattice is denser than the screen can show.
+      // Dropping the family outright made the grid vanish; it thins instead,
+      // doubling the step until it reads — and the doubling keeps the tenth
+      // lines, so the bold ones stay where they were.
+      let stride = 1;
+      while ((hi - lo) / stride > 220) stride *= 2;
+      for (let k = Math.ceil(lo / stride) * stride; k <= hi; k += stride) {
         const px = along.x * k;
         const py = along.y * k;
         drawLine(px - (dir.x * reach), py - (dir.y * reach),
@@ -81,9 +86,15 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null }) => { 
       }
     };
 
-    family(step.w, step.u, 10);            // uprights
-    family(step.u, step.w, 10);            // one ground direction
-    family(step.v, step.w, 10);            // the other
+    // v3.17 At the home view the three families are the isometric grid you
+    // draw on. Turned away from it, the uprights stop meaning "up the page"
+    // and just clutter — so the grid becomes the ground alone, a floor seen
+    // from where you stand, which is what a 3D view is read against.
+    const turned = !!view && (Math.abs((view.yawDeg ?? 45) - 45) > 0.5
+      || Math.abs((view.pitchDeg ?? 35.264) - 35.264) > 0.5);
+    if (!turned) family(step.w, step.u, 10);
+    family(step.u, step.v, 10);
+    family(step.v, step.u, 10);
 
     ctx.restore();
   }, [show, zoom, offset, vpW, vpH, view]);                                       // [v1.09] Redraw on zoom/pan/show change
