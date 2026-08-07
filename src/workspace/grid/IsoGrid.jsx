@@ -15,7 +15,7 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
   // rather than swapping. The uprights fade as the ground opens out, so the
   // isometric sheet becomes the floor of the box under your hand.
   const blendRef = useRef(orbiting ? 1 : 0);
-  const [, setFrame] = useState(0);
+  const [frame, setFrame] = useState(0);
 
   useEffect(() => {
     const want = orbiting ? 1 : 0;
@@ -286,7 +286,7 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
     }
 
     ctx.restore();
-  }, [show, zoom, offset, vpW, vpH, view, bounds, span, spanV, isDark, orbiting]);                                       // [v1.09] Redraw on zoom/pan/show change
+  }, [show, zoom, offset, vpW, vpH, view, bounds, span, spanV, isDark, orbiting, frame]);   // frame drives the ease                                       // [v1.09] Redraw on zoom/pan/show change
 
   return (
     <canvas
