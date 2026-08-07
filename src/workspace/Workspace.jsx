@@ -1257,8 +1257,19 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
       for (const edge of plane.edges) if (grip(plane, index, edge.point, edge.axis)) return true;
       if (Math.hypot(point.x - plane.cx, point.y - plane.cy) < grabRadius) {
         setDatumIndex(index);
+        // v3.72 The shapes are taken once, at the grab. Recomputing them
+        // every frame meant the snap was measuring against a plane the drag
+        // itself was moving — it chased its own tail and settled wherever
+        // that happened to land, floor or no floor.
         planeDrag.current = {
-          mode: "move", index, dx: plane.cx - point.x, dy: plane.cy - point.y,
+          mode: "move",
+          index,
+          dx: plane.cx - point.x,
+          dy: plane.cy - point.y,
+          mine0: plane,
+          targets0: datums.map((d, k) => (
+            (k === index || d.continuous || !showGL) ? null : planeAt(k)
+          )),
         };
         return true;
       }
@@ -1321,18 +1332,11 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
       // corner when it comes close. Without it you are eyeballing a joint
       // that has an exact answer.
       const me = drag.index ?? datumIndex;
-      const mine = planeAt(me);
+      const mine = drag.mine0 ?? planeAt(me);
       if (mine) {
         const reach = 18 / zoom;
         let best = null;
-        datums.forEach((_, i) => {
-          // v3.71 Only a surface you can see is something to snap to. Every
-          // datum was offered, drawn or not, so a wall took hold of a plane
-          // that was not on the page — landing in open space at the right
-          // level and nowhere near an edge.
-          if (!showGL) return;
-          if (i === me || datums[i].continuous) return;
-          const other = planeAt(i);
+        (drag.targets0 ?? []).forEach((other, i) => {
           if (!other) return;
           // v3.65 Snap where the surfaces really meet, not where they look
           // as though they do. Matching screen positions joined a wall to a
