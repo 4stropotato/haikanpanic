@@ -52,8 +52,8 @@ export function isoCoords(point, cx, cy, axes = { u: ISO_U, v: ISO_V }) {
 // on a platform — so planes are a list. `plane` is one entry of that list.
 export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
   const {
-    sizeMm = 0, sizeVMm = 0, offsetMm = 0, center = null, projection = null,
-    view = null, kind = "floor", facing = "u",
+    sizeMm = 0, sizeVMm = 0, offsetMm = 0, center = null, centerAB = null,
+    projection = null, view = null, kind = "floor", facing = "u",
   } = plane;
   const ground = planeAxes(view);
   // v2.98 A wall is spanned by one ground direction and the vertical; a
@@ -108,7 +108,17 @@ export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
     cx += away.x * offsetMm * pxPerMm;
     cy += away.y * offsetMm * pxPerMm;
   }
-  if (center) { cx = center.x; cy = center.y; }
+  // v3.06 Where a moved plane sits is kept along the ground axes, not as a
+  // screen position. A screen position does not turn: every floor and wall
+  // stayed put while the pipes rotated, so the drawing stopped being one
+  // space. Along the axes it rotates with everything else.
+  if (centerAB) {
+    cx += (axes.u.x * centerAB.a) + (axes.v.x * centerAB.b);
+    cy += (axes.u.y * centerAB.a) + (axes.v.y * centerAB.b);
+  } else if (center) {
+    cx = center.x;
+    cy = center.y;
+  }
 
   let reachA = 0;
   let reachB = 0;

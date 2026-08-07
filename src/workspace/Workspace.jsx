@@ -954,12 +954,16 @@ export default function Workspace() {
       };
       if (drag.axis !== "v") shift.a = pull(here.a, drag.signA, drag.halfU, "sizeMm");
       if (drag.axis !== "u") shift.b = pull(here.b, drag.signB, drag.halfV, "sizeVMm");
+      const moved = {
+        x: drag.cx + (drag.axes.u.x * shift.a) + (drag.axes.v.x * shift.b),
+        y: drag.cy + (drag.axes.u.y * shift.a) + (drag.axes.v.y * shift.b),
+      };
+      const home = glPlaneGeometry(lines, mmPerPoint, {
+        ...datums[drag.index ?? datumIndex], center: null, centerAB: null, projection, view,
+      });
+      const ab = home ? isoCoords(moved, home.cx, home.cy, home.axes) : { a: 0, b: 0 };
       patchDatum(drag.index ?? datumIndex, {
-        ...patch,
-        center: {
-          x: drag.cx + (drag.axes.u.x * shift.a) + (drag.axes.v.x * shift.b),
-          y: drag.cy + (drag.axes.u.y * shift.a) + (drag.axes.v.y * shift.b),
-        },
+        ...patch, center: null, centerAB: { a: ab.a, b: ab.b },
       });
       // v2.65 A datum is a floor, and a floor is quoted by its span and its
       // area — the number the job actually needs while you drag.
@@ -974,7 +978,39 @@ export default function Workspace() {
       });
     } else {
       const centre = { x: point.x + drag.dx, y: point.y + drag.dy };
-      patchDatum(drag.index ?? datumIndex, { center: centre });
+      // v3.05 Surfaces meet at their edges — a wall stands on the line where
+      // the floor ends — so a plane being moved settles onto another's
+      // corner when it comes close. Without it you are eyeballing a joint
+      // that has an exact answer.
+      const me = drag.index ?? datumIndex;
+      const mine = planeAt(me);
+      if (mine) {
+        const reach = 18 / zoom;
+        let best = null;
+        datums.forEach((_, i) => {
+          if (i === me || datums[i].continuous) return;
+          const other = planeAt(i);
+          if (!other) return;
+          for (const a of mine.corners) {
+            for (const b of other.corners) {
+              const d = Math.hypot((a.x + centre.x - mine.cx) - b.x,
+                (a.y + centre.y - mine.cy) - b.y);
+              if (d < reach && (!best || d < best.d)) {
+                best = { d, dx: b.x - (a.x + centre.x - mine.cx), dy: b.y - (a.y + centre.y - mine.cy) };
+              }
+            }
+          }
+        });
+        if (best) { centre.x += best.dx; centre.y += best.dy; }
+      }
+      // stored along the axes so it turns with the drawing
+      const auto = glPlaneGeometry(lines, mmPerPoint, {
+        ...datums[me], center: null, centerAB: null, projection, view,
+      });
+      const ab = auto
+        ? isoCoords(centre, auto.cx, auto.cy, auto.axes)
+        : { a: 0, b: 0 };
+      patchDatum(me, { center: null, centerAB: { a: ab.a, b: ab.b } });
       const plane = planeAt(drag.index ?? datumIndex);
       // v2.70 A floor is set out from a datum like anything else on site, so
       // moving it quotes where its centre now stands.
@@ -1155,7 +1191,19 @@ export default function Workspace() {
         y: (e.clientY - (viewport.h / 2 + offset.y)) / zoom,
       };
       const index = findSegmentAt(point, viewLines, 24 / zoom);
-      if (index >= 0) commitLines(lines.filter((_, i) => i !== index));
+      if (index >= 0) { commitLines(lines.filter((_, i) => i !== index)); return; }
+      // v3.04 A surface is part of the drawing, so the eraser takes it too.
+      // The last one stays: a job with no datum has nothing to measure from.
+      if (datums.length > 1) {
+        for (let i = datums.length - 1; i >= 0; i -= 1) {
+          if (datums[i].continuous) continue;
+          const plane = planeAt(i);
+          if (!plane || !insidePlane(point, plane)) continue;
+          setDatums(datums.filter((_, k) => k !== i));
+          setDatumIndex((k) => Math.max(0, Math.min(k, datums.length - 2)));
+          return;
+        }
+      }
       return;
     }
 

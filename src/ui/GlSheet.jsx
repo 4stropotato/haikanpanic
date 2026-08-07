@@ -91,6 +91,15 @@ function NumberRow({ label, value, step, min, placeholder, onCommit, suffix = "m
   );
 }
 
+// v3.04 Turning a floor into a wall left a wall still called GL, which read
+// as a bug — the name follows the surface unless it has been typed by hand.
+const NAMES_FOR = { floor: DATUM_NAMES, wall: WALL_NAMES, ceiling: CEILING_NAMES };
+function renameFor(kind, current) {
+  const known = [...DATUM_NAMES, ...WALL_NAMES, ...CEILING_NAMES];
+  if (!known.includes(current)) return {};              // a typed name is the fitter's
+  return { name: NAMES_FOR[kind][0] };
+}
+
 export default function GlSheet({
   datums, index, lang, onChange, onSelect, onAdd, onRemove, onRefit, onMakePrimary, onClose,
 }) {
@@ -154,19 +163,19 @@ export default function GlSheet({
             <div className="seg-group">
               <button
                 className={"seg-btn" + ((plane.kind ?? "floor") === "floor" ? " on" : "")}
-                onClick={() => onChange({ kind: "floor" })}
+                onClick={() => onChange({ kind: "floor", ...renameFor("floor", plane.name) })}
               >
                 {t.floor}
               </button>
               <button
                 className={"seg-btn" + (plane.kind === "wall" ? " on" : "")}
-                onClick={() => onChange({ kind: "wall" })}
+                onClick={() => onChange({ kind: "wall", ...renameFor("wall", plane.name) })}
               >
                 {t.wall}
               </button>
               <button
                 className={"seg-btn" + (plane.kind === "ceiling" ? " on" : "")}
-                onClick={() => onChange({ kind: "ceiling" })}
+                onClick={() => onChange({ kind: "ceiling", ...renameFor("ceiling", plane.name) })}
               >
                 {t.ceiling}
               </button>
