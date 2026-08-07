@@ -118,9 +118,13 @@ export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
   // moving one run shifted the centroid and dragged the whole site with it.
   // The origin does not move, and the axes turn, so a placed surface now
   // stays where it was put and still rotates with everything else.
+  // v3.64 Always read back on the ground axes, whatever the surface is. A
+  // wall's own pair is (along, vertical), so a centre stored in ground terms
+  // and rebuilt in wall terms came out somewhere else entirely — which is
+  // why moving a wall sent it off in a direction of its own.
   if (centerAB) {
-    cx = (axes.u.x * centerAB.a) + (axes.v.x * centerAB.b);
-    cy = (axes.u.y * centerAB.a) + (axes.v.y * centerAB.b);
+    cx = (ground.u.x * centerAB.a) + (ground.v.x * centerAB.b);
+    cy = (ground.u.y * centerAB.a) + (ground.v.y * centerAB.b);
   } else if (center) {
     cx = center.x;
     cy = center.y;
