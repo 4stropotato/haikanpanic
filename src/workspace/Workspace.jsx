@@ -2000,8 +2000,14 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
                 // If the projection collapses the run, hold the end it had.
                 if (Math.hypot(p.x, p.y) < pointStep * 0.6) newEnd = { ...target.end };
                 const same = (a, b) => Math.hypot(a.x - b.x, a.y - b.y) < 0.001;
-                next = next.map((line) => {
-                  const out = { ...line };
+                // v3.68 write the direction down, so the page never has to
+                // guess it back
+                const turned3 = {
+                  x: (wx * cos) - (wz * sin),
+                  z: (wx * sin) + (wz * cos),
+                };
+                next = next.map((line, i) => {
+                  const out = i === angleTarget.index ? { ...line, dir3: turned3 } : { ...line };
                   if (same(out.start, target.end)) out.start = newEnd;
                   if (same(out.end, target.end)) out.end = newEnd;
                   return out;

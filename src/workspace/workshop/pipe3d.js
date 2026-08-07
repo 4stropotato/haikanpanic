@@ -72,7 +72,13 @@ function placeNodes(lines, mmPerPoint, defaultOd) {
     // a zero-length line is a stray tap, not a pipe; it would otherwise add
     // a phantom leg at its corner and turn an elbow into a tee
     if (Math.hypot(line.end.x - line.start.x, line.end.y - line.start.y) < EPS) continue;
-    const d = isoDeltaTo3D(line.end.x - line.start.x, line.end.y - line.start.y);
+    // v3.68 A run may carry its own direction. Derived from the page, a
+    // horizontal run turned 45 degrees lands on the same two points as a
+    // vertical one and comes back as a rising pipe — the page cannot tell
+    // them apart. When the turn wrote the direction down, that is trusted.
+    const d = line.dir3
+      ? [line.dir3.x, -line.dir3.z, 0]
+      : isoDeltaTo3D(line.end.x - line.start.x, line.end.y - line.start.y);
     const lengthMm = line.lengthMm ?? segmentLengthMm(line, mmPerPoint);
     const startKey = key2D(line.start);
     const endKey = key2D(line.end);
