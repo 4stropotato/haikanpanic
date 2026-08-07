@@ -9,7 +9,7 @@ import { dx, pointStep } from "../utils/constants";      // [v1.10] Centralized 
 import { planeAxes, isoCoords } from "../utils/glPlane"; // v3.15 the grid follows the view
 import { useViewport } from "../utils/viewport";                   // v1.18+ live workspace size
 
-const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds = null }) => {  // [v1.09] Accept zoom and offset props
+const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds = null, span = 0 }) => {  // [v1.09] Accept zoom and offset props
   const canvasRef = useRef(null);
   const { w: vpW, h: vpH } = useViewport();                          // v1.18+ re-render on resize                                  // [v1.0] Reference to canvas element
 
@@ -126,17 +126,11 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
       // axes — so a wall could finish past the last grid line. Each corner
       // of the work is decomposed into those axes and the largest wins.
       const n = 14;
-      let need = 8;
-      if (bounds) {
-        const corners = [[bounds.x1, bounds.y1], [bounds.x2, bounds.y1],
-          [bounds.x1, bounds.y2], [bounds.x2, bounds.y2]];
-        for (const [x, y] of corners) {
-          const ab = isoCoords({ x, y }, mid.x, mid.y, { u: step.u, v: step.v });
-          need = Math.max(need, Math.abs(ab.a), Math.abs(ab.b));
-        }
-        // the uprights have to clear the tallest thing on the sheet too
-        need = Math.max(need, Math.abs(bounds.y2 - bounds.y1) / pointStep / 2);
-      }
+      // v3.31 The reach comes from the job's own size, so the box is the same
+      // box from every angle. Decomposing the on-screen bounds into the box
+      // axes blew up whenever those axes closed on each other, which is why
+      // the grid sometimes grew for no reason.
+      const need = Math.max(6, (span || pointStep * 8) / pointStep);
       let cell = pointStep;
       while ((cell / pointStep) * n < need) cell *= 2;
       const at = (a, b, c) => ({
@@ -192,7 +186,7 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
     }
 
     ctx.restore();
-  }, [show, zoom, offset, vpW, vpH, view]);                                       // [v1.09] Redraw on zoom/pan/show change
+  }, [show, zoom, offset, vpW, vpH, view, bounds, span]);                                       // [v1.09] Redraw on zoom/pan/show change
 
   return (
     <canvas

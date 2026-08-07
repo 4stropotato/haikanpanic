@@ -466,6 +466,28 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
 
   // v3.22 Where the drawing actually sits, so the turned grid can be built
   // around it instead of around the origin.
+  // v3.31 How big the box has to be is a fact about the job, not about the
+  // angle you are looking from. Measured in the view it exploded whenever
+  // the box axes closed up on each other, so the grid grew without reason.
+  const sketchSpan = useMemo(() => {
+    let x1 = Infinity; let y1 = Infinity; let x2 = -Infinity; let y2 = -Infinity;
+    const take = (pt) => {
+      x1 = Math.min(x1, pt.x); y1 = Math.min(y1, pt.y);
+      x2 = Math.max(x2, pt.x); y2 = Math.max(y2, pt.y);
+    };
+    for (const line of lines) { take(line.start); take(line.end); }
+    for (const datum of datums) {
+      if (datum.continuous) continue;
+      const half = Math.max(datum.sizeMm ?? 0, datum.sizeVMm ?? 0) / 2;
+      if (half > 0) {
+        const px = (half * pointStep) / mmPerPoint;
+        take({ x: -px, y: -px }); take({ x: px, y: px });
+      }
+    }
+    if (!Number.isFinite(x1)) return pointStep * 8;
+    return Math.max(pointStep * 4, Math.max(x2 - x1, y2 - y1) / 2);
+  }, [lines, datums, mmPerPoint]);
+
   const sketchBounds = useMemo(() => {
     if (!viewLines.length) return null;
     let x1 = Infinity; let y1 = Infinity; let x2 = -Infinity; let y2 = -Infinity;
@@ -1552,7 +1574,7 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
-          <IsoGrid show={showGrid} zoom={zoom} offset={offset} view={view} bounds={sketchBounds} />
+          <IsoGrid show={showGrid} zoom={zoom} offset={offset} view={view} bounds={sketchBounds} span={sketchSpan} />
           <DrawLayer
             lines={viewLines}
             projection={projection}
