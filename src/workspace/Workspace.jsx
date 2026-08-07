@@ -824,8 +824,21 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
     // length is fixed pivots about its far end instead of stretching — a
     // spool already cut swings, it does not grow.
     if (heightMode && (lockAxis === "u" || lockAxis === "v")) {
+      // v3.57 The end travels on the run's own axes, the same pair the body
+      // uses: "along" is the line the pipe already lies on, so moving the end
+      // simply lengthens or shortens it — always a legal direction, and no
+      // jumping. Forcing the end onto the nearest of the six made it hop from
+      // one grid direction to the next instead of sliding.
       const axes = planeAxes(view);
-      const dir = lockAxis === "u" ? axes.u : axes.v;
+      const b0 = drag.base;
+      const own = { x: b0.end.x - b0.start.x, y: b0.end.y - b0.start.y };
+      const ownLen = Math.hypot(own.x, own.y) || 1;
+      const unit = { x: own.x / ownLen, y: own.y / ownLen };
+      const other = Math.abs((unit.x * axes.u.x) + (unit.y * axes.u.y))
+        > Math.abs((unit.x * axes.v.x) + (unit.y * axes.v.y))
+        ? axes.v
+        : axes.u;
+      const dir = lockAxis === "u" ? unit : other;
       const len = Math.hypot(dir.x, dir.y) || 1;
       const dx = ((clientX ?? drag.startX) - drag.startX) / zoom;
       const dy = (clientY - drag.startY) / zoom;
@@ -837,14 +850,6 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
         x: drag.base[moving].x + (dir.x * along),
         y: drag.base[moving].y + (dir.y * along),
       };
-      // v3.54 The run itself has to lie on the grid. Moving the end along a
-      // 30 degree axis followed that axis faithfully, but the pipe left
-      // behind ran at 60 degrees — a direction an isometric does not have.
-      // The end is swung onto the nearest of the drawing's six directions,
-      // so the run always lands on a grid line and the drag chooses which
-      // one it lands on.
-      const legal = snapToAllowedAngle(anchor, at);
-      at = legal.end;
       const line0 = lines[drag.index];
       if (line0?.fixed) {
         // hold the reach: swing the end round rather than lengthen the pipe
