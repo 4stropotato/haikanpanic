@@ -171,7 +171,7 @@ export default function TopBar() {
     setEraseMode,
     moveMode,
     setMoveMode,
-    viewTool, setViewTool, fitToView, selectAll, selectRuns, clearSelection,
+    viewTool, setViewTool, fitToView, selectAll, selectRuns, clearSelection, clearAll,
     selectMode,
     setSelectMode,
     drawing,
@@ -569,7 +569,7 @@ export default function TopBar() {
               className="sheet-btn danger"
               onClick={() => {
                 if (window.confirm(t.clearConfirm)) {
-                  setLines([]);
+                  clearAll();
                   setShowSheet(false);
                 }
               }}

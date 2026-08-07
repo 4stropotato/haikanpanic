@@ -1491,6 +1491,18 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
     setShowSpecSheet,
     selection,                                                             // v2.29 marquee selection
     clearSelection: () => { setSelection([]); setDatumSel([]); },
+    // v3.34 Clearing means clearing. The surfaces are part of the drawing —
+    // a floor set out for one job is wrong for the next — so they go with
+    // the runs, back to a single GL to measure from.
+    clearAll: () => {
+      commitLines([]);
+      setDatums([makeDatum("GL")]);
+      setDatumIndex(0);
+      setSelection([]);
+      setDatumSel([]);
+      setElOffsets({});
+      setJointTypes({});
+    },
     drawing: Boolean(startPoint && readyToDraw),                            // v2.22 line in progress
     cancelDraw,
     undo,                                                                  // v2.17 history
