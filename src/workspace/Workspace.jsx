@@ -1017,10 +1017,7 @@ export default function Workspace() {
         x: drag.cx + (drag.axes.u.x * shift.a) + (drag.axes.v.x * shift.b),
         y: drag.cy + (drag.axes.u.y * shift.a) + (drag.axes.v.y * shift.b),
       };
-      const home = glPlaneGeometry(lines, mmPerPoint, {
-        ...datums[drag.index ?? datumIndex], center: null, centerAB: null, projection, view,
-      });
-      const ab = home ? isoCoords(moved, home.cx, home.cy, home.axes) : { a: 0, b: 0 };
+      const ab = isoCoords(moved, 0, 0, planeAxes(view));
       patchDatum(drag.index ?? datumIndex, {
         ...patch, center: null, centerAB: { a: ab.a, b: ab.b },
       });
@@ -1063,12 +1060,7 @@ export default function Workspace() {
         if (best) { centre.x += best.dx; centre.y += best.dy; }
       }
       // stored along the axes so it turns with the drawing
-      const auto = glPlaneGeometry(lines, mmPerPoint, {
-        ...datums[me], center: null, centerAB: null, projection, view,
-      });
-      const ab = auto
-        ? isoCoords(centre, auto.cx, auto.cy, auto.axes)
-        : { a: 0, b: 0 };
+      const ab = isoCoords(centre, 0, 0, planeAxes(view));
       patchDatum(me, { center: null, centerAB: { a: ab.a, b: ab.b } });
       const plane = planeAt(drag.index ?? datumIndex);
       // v2.70 A floor is set out from a datum like anything else on site, so

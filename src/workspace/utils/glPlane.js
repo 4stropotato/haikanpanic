@@ -112,9 +112,14 @@ export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
   // screen position. A screen position does not turn: every floor and wall
   // stayed put while the pipes rotated, so the drawing stopped being one
   // space. Along the axes it rotates with everything else.
+  // v3.10 Measured from the origin, not from the drawing's own centre. Tied
+  // to the centre, every placed floor and wall followed the pipes around:
+  // moving one run shifted the centroid and dragged the whole site with it.
+  // The origin does not move, and the axes turn, so a placed surface now
+  // stays where it was put and still rotates with everything else.
   if (centerAB) {
-    cx += (axes.u.x * centerAB.a) + (axes.v.x * centerAB.b);
-    cy += (axes.u.y * centerAB.a) + (axes.v.y * centerAB.b);
+    cx = (axes.u.x * centerAB.a) + (axes.v.x * centerAB.b);
+    cy = (axes.u.y * centerAB.a) + (axes.v.y * centerAB.b);
   } else if (center) {
     cx = center.x;
     cy = center.y;
