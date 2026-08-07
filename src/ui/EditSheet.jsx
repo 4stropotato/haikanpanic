@@ -32,6 +32,8 @@ const TEXT = {
     samePipe: "same as pipe",
     ratingNote: "JIS B2220 10K dimensions.",
     from: (d) => `from ${d}`,
+    fixed: "Fixed length",
+    fixedNote: "The cut stays this length whatever angle it is set at — a made-up spool, or stock you cannot shorten.",
     tooShort: (od) => `Shorter than the ${od}mm outside diameter — it will not read as pipe in 3D`,
     flangeLabels: { none: "None", start: "Start", end: "End", both: "Both" },
   },
@@ -54,6 +56,10 @@ const TEXT = {
     samePipe: "配管と同じ",
     ratingNote: "JIS B2220 10K 寸法。",
     from: (d) => `${d} 基準`,
+    fixed: "Fixed length",
+    fixedNote: "The cut stays this length whatever angle it is set at — a made-up spool, or stock you cannot shorten.",
+    fixed: "長さ固定",
+    fixedNote: "どの角度に振っても長さはこのまま — 加工済みのスプールや、切れない定尺に。",
     tooShort: (od) => `外径 ${od}mm より短いので3Dでは管に見えません`,
     flangeLabels: { none: "なし", start: "始", end: "終", both: "両端" },
   },
@@ -78,6 +84,7 @@ export default function EditSheet({
   const [flangeType, setFlangeType] = useState(spec.flangeType ?? "SO");
   const [flangeSizeA, setFlangeSizeA] = useState(spec.flangeSizeA ?? "");
   const [tone, setTone] = useState(line.tone ?? "none");
+  const [fixed, setFixed] = useState(!!line.fixed);
 
   const t = TEXT[lang === "jp" ? "jp" : "en"];
   const od = pipeSpec(nominalA)?.od ?? 0;
@@ -98,6 +105,7 @@ export default function EditSheet({
     if (!Number.isFinite(value) || value <= 0) return;
     onApply({
       tone: tone === "none" ? null : tone,
+      fixed,
       mm: value,
       a: nominalA,
       conn,
@@ -131,6 +139,22 @@ export default function EditSheet({
           </div>
         )}
         {!hideLength && tooShort && <div className="sheet-hint warn">⚠ {t.tooShort(od)}</div>}
+        {!hideLength && (
+          <>
+            <div className="sheet-row">
+              <span>{t.fixed}</span>
+              <div className="seg-group">
+                <button
+                  className={"seg-btn" + (fixed ? " on" : "")}
+                  onClick={() => setFixed(!fixed)}
+                >
+                  {fixed ? "✓" : "—"}
+                </button>
+              </div>
+            </div>
+            {fixed && <div className="sheet-hint">{t.fixedNote}</div>}
+          </>
+        )}
 
         {ends && (
           <div className="sheet-row">

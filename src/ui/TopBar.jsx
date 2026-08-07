@@ -46,6 +46,9 @@ const translations = {
     dims: "3D dimensions",
     drop: "Drop to floor",
     surfaces: "Edit surfaces only",
+    axisUp: "Up / down",
+    axisU: "Left 30°",
+    axisV: "Right 30°",
     pipes: "Show pipes",
     full: "Full screen",
     exitFull: "Show controls",
@@ -199,6 +202,7 @@ export default function TopBar() {
     setGlEditPlane,
     setShowGlSheet,
     surfaceOnly, setSurfaceOnly, heightMode, setHeightMode, showPipes, setShowPipes,
+    lockAxis, setLockAxis,
     currentSpec,
     setShowSpecSheet,
     labelFields, setLabelFields, labelAvoid, setLabelAvoid, labelFlat, setLabelFlat,
@@ -350,6 +354,28 @@ export default function TopBar() {
         </button>
       )}
 
+      {/* v3.45 Hold Move and the three directions of the drawing appear, so
+          the axis is picked and visible rather than guessed from the first
+          twitch of the finger. */}
+      {heightMode && (
+        <div className="axis-lock">
+          {[
+            ["up", "↕", t.axisUp],
+            ["u", "◤", t.axisU],
+            ["v", "◥", t.axisV],
+          ].map(([key, glyph, label]) => (
+            <button
+              key={key}
+              className={"axis-btn" + (lockAxis === key ? " on" : "")}
+              onClick={() => setLockAxis(lockAxis === key ? null : key)}
+            >
+              <span className="axis-glyph">{glyph}</span>
+              <span>{label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* v2.00 floating dock: only the actions used constantly while drawing */}
       <div className="dock">
         <button
@@ -403,7 +429,7 @@ export default function TopBar() {
           onPointerUp={() => clearTimeout(holdTimer.current)}
           onPointerLeave={() => clearTimeout(holdTimer.current)}
           onClick={() => {
-            if (heightMode) { setHeightMode(false); return; }
+            if (heightMode) { setHeightMode(false); setLockAxis(null); return; }
             if (multiTap("move", { 2: fitToView })) return;
             setMoveMode(!moveMode); setViewTool(null);
             setEditMode(false); setEraseMode(false); setSelectMode(false);

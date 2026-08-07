@@ -215,6 +215,10 @@ export default function Workspace() {
   // run stays where it is on plan and only its level moves — and doing it
   // by dragging risks sliding it sideways at the same time.
   const [heightMode, setHeightMode] = useState(false);
+  // v3.45 Which way the drag will go, chosen and shown rather than inferred
+  // from the first movement. Guessing it left nothing on screen to say what
+  // was about to happen.
+  const [lockAxis, setLockAxis] = useState(null);                           // null | "up" | "u" | "v"
   const [glEditPlane, setGlEditPlane] = useState(false);                    // v2.09 drag handles on
   const planeDrag = useRef(null);
   const [immersive, setImmersive] = useState(false);                        // v2.66 3D with no chrome
@@ -920,6 +924,7 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
     // that one. A pipeline goes up, or along one axis, without wandering.
     if (heightMode) {
       const axes = planeAxes(view);
+      if (lockAxis) drag.lock = lockAxis;
       if (!drag.lock && Math.hypot(dxScreen, dyScreen) > 6 / zoom) {
         const cast = [
           { name: "up", dir: { x: 0, y: 1 } },
@@ -1564,6 +1569,8 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
     setSurfaceOnly,
     heightMode,                                                            // v3.08 lift only
     setHeightMode,
+    lockAxis,                                                              // v3.45 chosen direction
+    setLockAxis,
     resetDatum: () => setDatums(                                            // refit the primary
       (list) => list.map((d, i) => (i === 0 ? { ...d, fitted: false, sizeMm: 0, sizeVMm: 0, center: null } : d)),
     ),
@@ -1677,11 +1684,12 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
             })()}
             datumName={primary?.name ?? "GL"}
             onClose={() => setEditTarget(null)}
-            onApply={({ mm, a, conn, flange, material, schedule, gap, tone }) => {
+            onApply={({ mm, a, conn, flange, material, schedule, gap, tone, fixed }) => {
               const next = setSegmentLength(lines, editTarget, mm, mmPerPoint);
               next[editTarget] = {
                 ...next[editTarget],
                 tone,                                                      // v2.83 mark-up colour
+                fixed,                                                     // v3.46 length is not to be recut
                 spec: { a, conn, flange, material, schedule, gap },
               };
               commitLines(next);
@@ -1733,8 +1741,14 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
               const els = nodeElevations(lines, mmPerPoint);
               const target = lines[angleTarget.index];
               const startEl = els.get(nodeKey(target.start)) ?? 0;
+              // v3.46 A fixed run is a spool already made, or stock that
+              // cannot be shortened: swinging it changes where its far end
+              // lands, never how long it is.
+              const held = target.fixed
+                ? (target.lengthMm ?? horizontalMm)
+                : horizontalMm;
               let next = lines.map((line, i) => (i === angleTarget.index
-                ? { ...line, lengthMm: horizontalMm, elev2Mm: startEl + riseMm }
+                ? { ...line, lengthMm: held, elev2Mm: startEl + riseMm }
                 : line));
 
               // v2.53 A turn in plan moves the far end off the six drawn
