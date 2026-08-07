@@ -511,8 +511,11 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
     // and halved, the box stopped well short of the tallest thing on the
     // job — a wall reaching 2400 sat in a box a metre high.
     const tall = ((high - low) * pointStep) / mmPerPoint;
+    // v3.86 Measured from the origin, because that is where the box stands.
+    // Half the extent is only right for a box centred on the work; centred on
+    // the origin it left everything hanging outside a box far too small.
     const wide = Number.isFinite(x1)
-      ? Math.max(pointStep * 4, (x2 - x1) / 2, (y2 - y1) / 2)
+      ? Math.max(pointStep * 4, Math.abs(x1), Math.abs(x2), Math.abs(y1), Math.abs(y2))
       : pointStep * 8;
     return { wide, tall: Math.max(pointStep * 4, tall) };
   }, [lines, datums, mmPerPoint]);

@@ -65,8 +65,11 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
     const axes = planeAxes(view);
     const step = { u: { x: axes.u.x * pointStep, y: axes.u.y * pointStep },
       v: { x: axes.v.x * pointStep, y: axes.v.y * pointStep },
-      w: { x: 0, y: pointStep * (Math.cos(((view?.pitchDeg ?? 35.264) * Math.PI) / 180) < 0 ? -1 : 1) } };
-    // v3.85 the uprights turn over with everything else past the horizon
+      w: { x: 0, y: pointStep } };
+    // v3.86 The box does not turn over, because everything is inside it. A
+    // room you are looking into has no need to flip — turn the model and you
+    // simply see it from the other side. Flipping the uprights only made its
+    // corners cross the work.
     const reach = Math.hypot(xb - xa, yb - ya) * 1.5;
 
     const family = (dir, along, boldEvery, dim = 1) => {
