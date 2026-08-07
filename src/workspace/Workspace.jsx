@@ -510,12 +510,21 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
     // v3.42 Height is its own measurement. Folded in with the plan extent
     // and halved, the box stopped well short of the tallest thing on the
     // job — a wall reaching 2400 sat in a box a metre high.
+    // v3.91 A metre of air all round. The box was drawn to the exact extent
+    // of the job, so anything sitting at the very bottom was ON the floor
+    // rather than inside the room — and a run a little lower still fell
+    // through it. A thousand below, a thousand above, a thousand out to the
+    // walls, so the work is inside the box with room to be seen.
+    const AIR = 1000;
+    low -= AIR;
+    high += AIR;
     const tall = ((high - low) * pointStep) / mmPerPoint;
     // v3.86 Measured from the origin, because that is where the box stands.
     // Half the extent is only right for a box centred on the work; centred on
     // the origin it left everything hanging outside a box far too small.
     const wide = Number.isFinite(x1)
       ? Math.max(pointStep * 4, Math.abs(x1), Math.abs(x2), Math.abs(y1), Math.abs(y2))
+        + ((AIR * pointStep) / mmPerPoint)
       : pointStep * 8;
     // v3.90 Where the floor of the box belongs: the lowest thing on the job,
     // in world terms, so it holds while the view turns.
