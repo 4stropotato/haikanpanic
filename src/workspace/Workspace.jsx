@@ -1279,8 +1279,14 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
       const patch = { fitted: true };
       const shift = { a: 0, b: 0 };
       const pull = (now, sign, half, key) => {
-        // the far edge stays where it is; this one goes where the finger is
+        // v3.67 The far edge stays put and this one follows the finger — but
+        // it may not cross over. Dragged past the middle the sign flipped and
+        // the side jumped to the far end of the plane; it stops a step short
+        // instead.
         const fixed = -sign * half;
+        const floor = pointStep;
+        if (sign > 0) now = Math.max(now, fixed + floor);
+        else now = Math.min(now, fixed - floor);
         const size = Math.max(Math.abs(now - fixed), pointStep);
         // size is already the full extent here — the old helper doubled a
         // half-extent, which would have made every plane twice as big
