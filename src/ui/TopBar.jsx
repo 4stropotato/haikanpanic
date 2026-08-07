@@ -305,12 +305,18 @@ export default function TopBar() {
               bearing: straight down is a plan, straight up is a soffit, and
               past the vertical you are reading the drawing from behind. */}
           <span className="view-tag">
+            {/* v3.44 Where the camera stands, in the terms a fitter reads:
+                the bearing it is looking along and how far above or below the
+                work it sits. Turned far enough it is easy to lose which way
+                is which, and a number settles it. */}
             {(() => {
+              const bearing = Math.round(((view.yawDeg % 360) + 360) % 360);
               const p = ((view.pitchDeg % 360) + 360) % 360;
-              if (p > 85 && p < 95) return "TOP";
-              if (p > 265 && p < 275) return "BTM";
-              if (p > 95 && p < 265) return `${Math.round(((view.yawDeg % 360) + 360) % 360)}°↑`;
-              return `${Math.round(((view.yawDeg % 360) + 360) % 360)}°`;
+              const tilt = p > 180 ? p - 360 : p;
+              if (tilt > 85 && tilt < 95) return "TOP";
+              if (tilt < -85 && tilt > -95) return "BTM";
+              const updown = tilt >= 0 ? "↑" : "↓";
+              return `${bearing}° ${updown}${Math.abs(Math.round(tilt))}°`;
             })()}
           </span>
         </button>

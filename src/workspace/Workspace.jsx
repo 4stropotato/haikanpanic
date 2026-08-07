@@ -503,9 +503,14 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
       low = Math.min(low, bottomMm);
       high = Math.max(high, topMm);
     }
+    // v3.42 Height is its own measurement. Folded in with the plan extent
+    // and halved, the box stopped well short of the tallest thing on the
+    // job — a wall reaching 2400 sat in a box a metre high.
     const tall = ((high - low) * pointStep) / mmPerPoint;
-    if (!Number.isFinite(x1)) return Math.max(pointStep * 8, tall / 2);
-    return Math.max(pointStep * 4, (x2 - x1) / 2, (y2 - y1) / 2, tall / 2);
+    const wide = Number.isFinite(x1)
+      ? Math.max(pointStep * 4, (x2 - x1) / 2, (y2 - y1) / 2)
+      : pointStep * 8;
+    return { wide, tall: Math.max(pointStep * 4, tall) };
   }, [lines, datums, mmPerPoint]);
 
   const sketchBounds = useMemo(() => {
@@ -1606,7 +1611,7 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
-          <IsoGrid show={showGrid} zoom={zoom} offset={offset} view={view} bounds={sketchBounds} span={sketchSpan} />
+          <IsoGrid show={showGrid} zoom={zoom} offset={offset} view={view} bounds={sketchBounds} span={sketchSpan.wide} spanV={sketchSpan.tall} />
           <DrawLayer
             lines={viewLines}
             projection={projection}

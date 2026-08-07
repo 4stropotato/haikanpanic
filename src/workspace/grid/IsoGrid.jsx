@@ -9,7 +9,7 @@ import { dx, pointStep } from "../utils/constants";      // [v1.10] Centralized 
 import { planeAxes, isoCoords } from "../utils/glPlane"; // v3.15 the grid follows the view
 import { useViewport } from "../utils/viewport";                   // v1.18+ live workspace size
 
-const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds = null, span = 0 }) => {  // [v1.09] Accept zoom and offset props
+const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds = null, span = 0, spanV = 0 }) => {  // [v1.09] Accept zoom and offset props
   const canvasRef = useRef(null);
   const { w: vpW, h: vpH } = useViewport();                          // v1.18+ re-render on resize                                  // [v1.0] Reference to canvas element
 
@@ -143,6 +143,8 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
       // terms — nothing here may reach for the projected bounds again, or
       // the box starts resizing as you tilt.
       const need = Math.max(6, (span || pointStep * 8) / pointStep);
+      // the uprights answer to the tallest thing on the job, on their own
+      const needUp = Math.max(4, (spanV || pointStep * 8) / pointStep);
       let cell = pointStep;
       while ((cell / pointStep) * n < need) cell *= 2;
       const at = (a, b, c) => ({
@@ -180,6 +182,7 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
       const facing = (nx, ny, nz) => lookAt(nx, ny, nz) > OPEN;
       const fade = (nx, ny, nz) => Math.min(1, (lookAt(nx, ny, nz) - OPEN) / 0.35);
       const h = n;
+      const hv = Math.max(2, Math.round((needUp / need) * n));
 
       // v3.35 The ground is always there. Culling it like any other face
       // meant that from above the box swapped to its ceiling — and a plan
@@ -187,16 +190,22 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
       // job is set out on. It is drawn whatever the angle, fading only when
       // the view goes edge-on to it and the lines would pile up; the ceiling
       // is not drawn at all.
-      {
-        const level = Math.abs(lookAt(0, -1, 0));
-        const d = Math.min(1, Math.max(0, (level - 0.05) / 0.3));
-        if (d > 0) {
-          for (let i = -h; i <= h; i += 1) {
-            seg(at(i, -h, 0), at(i, h, 0), strong(i), d);
-            seg(at(-h, i, 0), at(h, i, 0), strong(i), d);
-          }
+      // v3.43 From underneath you are looking up at a ceiling, so that is
+      // the face that should read — and the floor above your head steps back
+      // rather than staying the loudest thing on the sheet. Above the
+      // horizon it is the other way round, as before.
+      const fromBelow = Math.sin(pitch) < 0;
+      const level = Math.abs(lookAt(0, -1, 0));
+      const open = Math.min(1, Math.max(0, (level - 0.05) / 0.3));
+      const deck = (c, d) => {
+        if (d <= 0) return;
+        for (let i = -h; i <= h; i += 1) {
+          seg(at(i, -h, c), at(i, h, c), strong(i), d);
+          seg(at(-h, i, c), at(h, i, c), strong(i), d);
         }
-      }
+      };
+      deck(0, open * (fromBelow ? 0.35 : 1));
+      if (fromBelow) deck(-hv, open);
       // the four uprights
       // v3.37 The b axis runs along world -Z, not +Z: planeAxes returns
       // v = -(sy, cy*sp) while the projection of world +Z is +(sy, cy*sp).
@@ -207,14 +216,14 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
       for (const [b, nz] of [[-h, 1], [h, -1]]) {
         if (!facing(0, 0, nz)) continue;
         const d = fade(0, 0, nz) * 0.45;
-        for (let i = -h; i <= h; i += 1) seg(at(i, b, 0), at(i, b, -h), strong(i), d);
-        for (let c = 0; c <= h; c += 1) seg(at(-h, b, -c), at(h, b, -c), strong(c), d);
+        for (let i = -h; i <= h; i += 1) seg(at(i, b, 0), at(i, b, -hv), strong(i), d);
+        for (let c = 0; c <= hv; c += 1) seg(at(-h, b, -c), at(h, b, -c), strong(c), d);
       }
       for (const [a, nx] of [[-h, -1], [h, 1]]) {
         if (!facing(nx, 0, 0)) continue;
         const d = fade(nx, 0, 0) * 0.45;
-        for (let i = -h; i <= h; i += 1) seg(at(a, i, 0), at(a, i, -h), strong(i), d);
-        for (let c = 0; c <= h; c += 1) seg(at(a, -h, -c), at(a, h, -c), strong(c), d);
+        for (let i = -h; i <= h; i += 1) seg(at(a, i, 0), at(a, i, -hv), strong(i), d);
+        for (let c = 0; c <= hv; c += 1) seg(at(a, -h, -c), at(a, h, -c), strong(c), d);
       }
     }
 
