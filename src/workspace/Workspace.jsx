@@ -746,12 +746,15 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
   // known levels instead of forcing the whole chain to move.
   const levelGrab = (clientX, clientY) => {
     if (surfaceOnly) return false;                                         // v3.02 surfaces only
-    // v3.51 With a ground axis locked, the end handle stands down. The lock
-    // is about carrying the run somewhere, not about pulling one end of it:
-    // grabbing an end under "along 30" stretched the pipe to 3500 instead of
-    // moving it, which is the opposite of what a lock is for. Held on "up
-    // and down" the end handle is still the right tool, so it keeps that.
-    if (heightMode && (lockAxis === "u" || lockAxis === "v")) return false;
+    // v3.52 With a ground axis locked, an end carries its run rather than
+    // stretching it — the lock is about taking the pipe somewhere. Standing
+    // the handle down was not enough on its own: the tip sits at the very
+    // end of the segment, so a tap just past it found nothing at all and the
+    // end stopped working. It hands the drag to the run instead. Held on up
+    // and down the end handle is still the right tool, so it keeps that.
+    if (heightMode && (lockAxis === "u" || lockAxis === "v")) {
+      return pipeGrabAt(clientX, clientY, 26 / zoom);
+    }
     if (!moveMode || !lines.length) return false;
     const point = toWorkspace(clientX, clientY);
     const reach = 26 / zoom;
@@ -844,11 +847,10 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
     return true;
   };
 
-  const pipeGrab = (clientX, clientY) => {
-    if (surfaceOnly) return false;                                         // v3.02 surfaces only
+  const pipeGrabAt = (clientX, clientY, reach) => {
     if (!moveMode || !lines.length) return false;
     const point = toWorkspace(clientX, clientY);
-    const index = findSegmentAt(point, viewLines, 22 / zoom);
+    const index = findSegmentAt(point, viewLines, reach);
     if (index < 0) return false;
     setPast((stack) => [...stack.slice(-49), lines]);                       // one entry per drag
     setFuture([]);
@@ -944,6 +946,11 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
       return acc;
     }, []);
     setSelection((current) => [...new Set([...current, ...caught])]);
+  };
+
+  const pipeGrab = (clientX, clientY) => {
+    if (surfaceOnly) return false;                                         // v3.02 surfaces only
+    return pipeGrabAt(clientX, clientY, 22 / zoom);
   };
 
   const pipeMove = (clientX, clientY) => {
