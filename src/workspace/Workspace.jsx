@@ -822,14 +822,25 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
       const raw = ((dx * dir.x) + (dy * dir.y)) / (len * len);
       const along = Math.round(raw / pointStep) * pointStep;
       const moved = drag.which === 1 ? "start" : "end";
-      setLines(lines.map((line, i) => (i === drag.index ? {
-        ...line,
-        lengthMm: undefined,
-        [moved]: {
-          x: drag.base[moved].x + (dir.x * along),
-          y: drag.base[moved].y + (dir.y * along),
-        },
-      } : line)));
+      setLines(lines.map((line, i) => {
+        if (i !== drag.index) return line;
+        const next = {
+          ...line,
+          [moved]: {
+            x: drag.base[moved].x + (dir.x * along),
+            y: drag.base[moved].y + (dir.y * along),
+          },
+        };
+        // v3.50 The run is re-measured from where its ends now are. Clearing
+        // the length outright left the run without one at all, so anything
+        // that reads it had to fall back on the drawing — which is how a pipe
+        // nobody had fixed still behaved as though its length were being
+        // argued over.
+        next.lengthMm = line.fixed
+          ? line.lengthMm
+          : segmentLengthMm(next, mmPerPoint);
+        return next;
+      }));
       return true;
     }
     const raw = drag.startEl + ((drag.startY - clientY) / zoom) * view3d.risePerPx;
