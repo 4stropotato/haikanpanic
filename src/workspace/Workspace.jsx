@@ -1854,7 +1854,7 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
-          <IsoGrid show={showGrid} zoom={zoom} offset={offset} view={view} bounds={sketchBounds} span={sketchSpan.wide} spanV={sketchSpan.tall} />
+          <IsoGrid show={showGrid} zoom={zoom} offset={offset} view={view} bounds={sketchBounds} span={sketchSpan.wide} spanV={sketchSpan.tall} isDark={darkMode} orbiting={orbitMode || !homeView} />
           <DrawLayer
             lines={viewLines}
             projection={projection}
@@ -2176,6 +2176,8 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
             mmPerPoint={mmPerPoint}
             glOffsetMm={primary?.offsetMm ?? 0}
             jointTypes={jointTypes}
+            datums={datums}
+            view={view}
             detail={detail}
             labelFlat={labelFlat}
             showDims={showDims}
