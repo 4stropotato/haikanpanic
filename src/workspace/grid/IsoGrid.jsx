@@ -9,7 +9,7 @@ import { dx, pointStep } from "../utils/constants";      // [v1.10] Centralized 
 import { planeAxes, isoCoords } from "../utils/glPlane"; // v3.15 the grid follows the view
 import { useViewport } from "../utils/viewport";                   // v1.18+ live workspace size
 
-const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds = null, span = 0, spanV = 0, isDark = true, orbiting = false }) => {  // [v1.09] Accept zoom and offset props
+const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds = null, span = 0, spanV = 0, lowPx = 0, isDark = true, orbiting = false }) => {  // [v1.09] Accept zoom and offset props
   const canvasRef = useRef(null);
   // v3.87 The two grids change into one another over about half a second
   // rather than swapping. The uprights fade as the ground opens out, so the
@@ -183,7 +183,10 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
       // those bounds shift as the view turns, so the box slid out from under
       // the model and the two spaces stopped agreeing. Same lesson as the
       // projection anchor: measure from the one point that holds still.
-      const mid = { x: 0, y: 0 };
+      // v3.90 The box stands on the lowest thing on the job, whatever it is —
+      // a pipe near the slab, the foot of a wall, the ground itself. Its x
+      // stays at the origin so it cannot slide as the view turns.
+      const mid = { x: 0, y: lowPx };
       // v3.27 How far the box has to reach is measured, not guessed. The
       // old estimate was a fraction of the screen-space width, which says
       // nothing about how far the work runs along the box's own diagonal
@@ -287,7 +290,7 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
     }
 
     ctx.restore();
-  }, [show, zoom, offset, vpW, vpH, view, bounds, span, spanV, isDark, orbiting, frame]);   // frame drives the ease                                       // [v1.09] Redraw on zoom/pan/show change
+  }, [show, zoom, offset, vpW, vpH, view, bounds, span, spanV, lowPx, isDark, orbiting, frame]);   // frame drives the ease                                       // [v1.09] Redraw on zoom/pan/show change
 
   return (
     <canvas

@@ -517,8 +517,11 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
     const wide = Number.isFinite(x1)
       ? Math.max(pointStep * 4, Math.abs(x1), Math.abs(x2), Math.abs(y1), Math.abs(y2))
       : pointStep * 8;
-    return { wide, tall: Math.max(pointStep * 4, tall) };
-  }, [lines, datums, mmPerPoint]);
+    // v3.90 Where the floor of the box belongs: the lowest thing on the job,
+    // in world terms, so it holds while the view turns.
+    const lowPx = -low / (view3d.risePerPx || 1);
+    return { wide, tall: Math.max(pointStep * 4, tall), lowPx };
+  }, [lines, datums, mmPerPoint, view3d]);
 
   const sketchBounds = useMemo(() => {
     if (!viewLines.length) return null;
@@ -1857,7 +1860,7 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
-          <IsoGrid show={showGrid} zoom={zoom} offset={offset} view={view} bounds={sketchBounds} span={sketchSpan.wide} spanV={sketchSpan.tall} isDark={darkMode} orbiting={orbitMode || !homeView} />
+          <IsoGrid show={showGrid} zoom={zoom} offset={offset} view={view} bounds={sketchBounds} span={sketchSpan.wide} spanV={sketchSpan.tall} lowPx={sketchSpan.lowPx} isDark={darkMode} orbiting={orbitMode || !homeView} />
           <DrawLayer
             lines={viewLines}
             projection={projection}
