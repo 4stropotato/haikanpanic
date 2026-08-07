@@ -823,7 +823,7 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
     // v3.53 Under a ground axis the end travels along it. A run told its
     // length is fixed pivots about its far end instead of stretching — a
     // spool already cut swings, it does not grow.
-    if (heightMode && (lockAxis === "u" || lockAxis === "v")) {
+    if (heightMode && lockAxis && lockAxis !== "up") {
       // v3.59 Built from the rule, not from the axis: there is no hypotenuse
       // smaller than its legs. The run the pipe has to cover does not change
       // when you swing its end — so only the part of the drag that is square
@@ -831,13 +831,53 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
       // It can only grow. Along and Across choose which way the end swings;
       // this is the Turn, dragged rather than typed.
       const axes = planeAxes(view);
-      const axis = lockAxis === "u" ? axes.u : axes.v;
+      const axis = lockAxis === "turn" ? axes.u : axes.v;
       const aLen = Math.hypot(axis.x, axis.y) || 1;
       const dx = ((clientX ?? drag.startX) - drag.startX) / zoom;
       const dy = (clientY - drag.startY) / zoom;
       const pushed = (((dx * axis.x) + (dy * axis.y)) / (aLen * aLen));
 
       const moving0 = drag.which === 1 ? "start" : "end";
+      const anchorF = drag.which === 1 ? drag.base.end : drag.base.start;
+      // v3.62 Free carries the end anywhere — no axis, no lattice — so a
+      // branch can be set on the side of another pipe the way a nozzle is.
+      if (lockAxis === "free") {
+        const at0 = {
+          x: drag.base[moving0].x + (((clientX ?? drag.startX) - drag.startX) / zoom),
+          y: drag.base[moving0].y + ((clientY - drag.startY) / zoom),
+        };
+        setLines(lines.map((line, i) => {
+          if (i !== drag.index) return line;
+          const next = { ...line, [moving0]: at0 };
+          next.lengthMm = segmentLengthMm(next, mmPerPoint);
+          return next;
+        }));
+        return true;
+      }
+      // Length runs the end up and down the line the pipe already lies on.
+      if (lockAxis === "len") {
+        const own = {
+          x: drag.base[moving0].x - anchorF.x,
+          y: drag.base[moving0].y - anchorF.y,
+        };
+        const oLen = Math.hypot(own.x, own.y) || 1;
+        const u0 = { x: own.x / oLen, y: own.y / oLen };
+        const dxL = ((clientX ?? drag.startX) - drag.startX) / zoom;
+        const dyL = (clientY - drag.startY) / zoom;
+        const mmPx = mmPerPoint / pointStep;
+        const step = (Math.round((((dxL * u0.x) + (dyL * u0.y)) * mmPx) / 10) * 10) / mmPx;
+        const at1 = {
+          x: drag.base[moving0].x + (u0.x * step),
+          y: drag.base[moving0].y + (u0.y * step),
+        };
+        setLines(lines.map((line, i) => {
+          if (i !== drag.index) return line;
+          const next = { ...line, [moving0]: at1 };
+          next.lengthMm = segmentLengthMm(next, mmPerPoint);
+          return next;
+        }));
+        return true;
+      }
       const anchor0 = drag.which === 1 ? drag.base.end : drag.base.start;
       const run = {
         x: drag.base[moving0].x - anchor0.x,
@@ -1866,7 +1906,10 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
               const held = target.fixed
                 ? (target.lengthMm ?? horizontalMm)
                 : (planTurnDeg && hold !== "length"
-                  ? Math.round(horizontalMm / Math.max(Math.abs(Math.cos(turnRad)), 0.1))
+                  ? Math.round(Math.min(
+                    horizontalMm / Math.max(Math.abs(Math.cos(turnRad)), 0.5),
+                    horizontalMm * 2,
+                  ))
                   : horizontalMm);
               let next = lines.map((line, i) => (i === angleTarget.index
                 ? { ...line, lengthMm: held, elev2Mm: startEl + riseMm }
@@ -1891,7 +1934,10 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
                 // a fitter meets.
                 const reach = hold === "length"
                   ? horizontalMm
-                  : horizontalMm / Math.max(Math.abs(cos), 0.1);
+                  // v3.62 capped: 1/cos runs away near 90 and the pipe shot
+                  // past anything sensible. Twice the run is the far end of
+                  // what a turn is ever asked for.
+                  : Math.min(horizontalMm / Math.max(Math.abs(cos), 0.5), horizontalMm * 2);
                 const p = horizontalTo2D(
                   ((wx * cos) - (wz * sin)) * reach,
                   ((wx * sin) + (wz * cos)) * reach,

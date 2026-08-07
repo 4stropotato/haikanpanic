@@ -46,9 +46,10 @@ const translations = {
     dims: "3D dimensions",
     drop: "Drop to floor",
     surfaces: "Edit surfaces only",
-    axisUp: "Up / down",
-    axisU: "Along 30°",
-    axisV: "Across 30°",
+    axisUp: "Rise",
+    axisTurn: "Turn",
+    axisLen: "Length",
+    axisFree: "Free",
     pipes: "Show pipes",
     full: "Full screen",
     exitFull: "Show controls",
@@ -361,8 +362,9 @@ export default function TopBar() {
         <div className="axis-lock">
           {[
             ["up", "↕", t.axisUp],
-            ["u", "↗↙", t.axisU],
-            ["v", "↖↘", t.axisV],
+            ["turn", "⤿", t.axisTurn],
+            ["len", "⟷", t.axisLen],
+            ["free", "✥", t.axisFree],
           ].map(([key, glyph, label]) => (
             <button
               key={key}
