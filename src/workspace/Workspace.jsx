@@ -544,7 +544,10 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
   // and from straight above it always fires, because a run at EL 0 and one
   // at EL 2000 must overlap when seen from overhead. That is the projection
   // doing its job, not a mistake to warn about.
-  const stacked = useMemo(() => overlappingRuns(lines), [lines]);
+  const stacked = useMemo(
+    () => overlappingRuns(lines, lines.length ? nodeElevations(lines, mmPerPoint) : null),
+    [lines, mmPerPoint],
+  );
   const stackedCount = stacked.size;
 
   const jointInfo = (key) => jointAngles(lines, mmPerPoint, { jointTypes }).get(key);
@@ -1861,6 +1864,12 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
             ⚠ {stackedCount} runs share a grid line — move one across
           </div>
         )}
+        {moveReadout?.turn != null && (
+          <div className="move-readout">
+            <strong>∠{moveReadout.turn}°</strong>
+            <span> · {moveReadout.cut}mm</span>
+          </div>
+        )}
         {moveReadout?.plane && (
           <div className="move-readout">
             <strong>{moveReadout.plane}</strong>
@@ -1876,7 +1885,7 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
             )}
           </div>
         )}
-        {moveReadout && !moveReadout.plane && (
+        {moveReadout && !moveReadout.plane && moveReadout.turn == null && (
           <div className="move-readout">
             {moveReadout.x != null && `X ${moveReadout.x} · Y ${moveReadout.y} · `}
             {moveReadout.rel != null

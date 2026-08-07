@@ -117,7 +117,12 @@ export function connectedIndices(lines, index) {
 // v2.41 Runs that lie on top of each other. Two pipes a hand's width apart
 // in the field are still two pipes: drawn on the same grid line they read
 // as one, so they are flagged for the fitter to pull apart.
-export function overlappingRuns(lines) {
+// v3.63 Two runs on one sketch line are only a fault when they are at the
+// same height as well. An isometric puts a pipe at EL 0 and another at EL
+// 2500 on the same line as a matter of course — that is the projection, not
+// a mistake, and a fitter reads it as two pipes. Only genuinely identical
+// coordinates are worth calling out.
+export function overlappingRuns(lines, elevations = null) {
   const flagged = new Set();
   const dirOf = (line) => {
     const dx = line.end.x - line.start.x;
@@ -133,6 +138,12 @@ export function overlappingRuns(lines) {
       const v = dirOf(b);
       const parallel = Math.abs((u.x * v.y) - (u.y * v.x)) < 0.02;
       if (!parallel) continue;
+      if (elevations) {
+        const key = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
+        const ea = elevations.get(key(a.start)) ?? 0;
+        const eb = elevations.get(key(b.start)) ?? 0;
+        if (Math.abs(ea - eb) > 1) continue;              // stacked, not doubled
+      }
       // same infinite line? the offset of b's start from a's line is ~0
       const ox = b.start.x - a.start.x;
       const oy = b.start.y - a.start.y;
