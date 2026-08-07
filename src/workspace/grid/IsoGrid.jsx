@@ -40,12 +40,14 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null }) => { 
     const ya = (-height / 2 - offset.y) / zoom;
     const yb = (height / 2 - offset.y + height) / zoom;
 
-    const drawLine = (x1, y1, x2, y2, bold = false) => {
+    const drawLine = (x1, y1, x2, y2, bold = false, dim = 1) => {
       ctx.beginPath();
       ctx.moveTo(x1, y1);
       ctx.lineTo(x2, y2);
       // v2.01 premium grid: quiet field, bold lines only gently brighter
-      ctx.strokeStyle = bold ? "rgba(124,196,255,0.34)" : "rgba(124,196,255,0.13)";
+      ctx.strokeStyle = bold
+        ? `rgba(124,196,255,${0.34 * dim})`
+        : `rgba(124,196,255,${0.13 * dim})`;
       ctx.lineWidth = (bold ? 1.1 : 0.5) / zoom;
       ctx.stroke();
     };
@@ -62,7 +64,7 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null }) => { 
       w: { x: 0, y: pointStep } };
     const reach = Math.hypot(xb - xa, yb - ya) * 1.5;
 
-    const family = (dir, along, boldEvery) => {
+    const family = (dir, along, boldEvery, dim = 1) => {
       const n = { x: -dir.y, y: dir.x };
       const nl = Math.hypot(n.x, n.y);
       if (nl < 1e-9) return;
@@ -83,7 +85,7 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null }) => { 
         const px = along.x * k;
         const py = along.y * k;
         drawLine(px - (dir.x * reach), py - (dir.y * reach),
-          px + (dir.x * reach), py + (dir.y * reach), k % boldEvery === 0);
+          px + (dir.x * reach), py + (dir.y * reach), k % boldEvery === 0, dim);
       }
     };
 
@@ -93,9 +95,14 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null }) => { 
     // from where you stand, which is what a 3D view is read against.
     const turned = !!view && (Math.abs((view.yawDeg ?? 45) - 45) > 0.5
       || Math.abs((view.pitchDeg ?? 35.264) - 35.264) > 0.5);
-    if (!turned) family(step.w, step.u, 10);
+    // v3.19 Three families are a lattice, and a lattice is what reads as
+    // depth. Dropping the uprights when the view turned left a single flat
+    // sheet — correct as a floor, but flat, and a turned view is exactly
+    // where the third direction is worth seeing. They come back quietened
+    // instead, so the ground still leads and the space around it is there.
     family(step.u, step.v, 10);
     family(step.v, step.u, 10);
+    family(step.w, step.u, 10, turned ? 0.45 : 1);
 
     ctx.restore();
   }, [show, zoom, offset, vpW, vpH, view]);                                       // [v1.09] Redraw on zoom/pan/show change
