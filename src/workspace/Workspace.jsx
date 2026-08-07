@@ -827,18 +827,15 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
     // length is fixed pivots about its far end instead of stretching — a
     // spool already cut swings, it does not grow.
     if (heightMode && lockAxis && lockAxis !== "up") {
-      // v3.59 Built from the rule, not from the axis: there is no hypotenuse
-      // smaller than its legs. The run the pipe has to cover does not change
-      // when you swing its end — so only the part of the drag that is square
-      // to the run is applied, and the pipe becomes sqrt(run² + offset²).
-      // It can only grow. Along and Across choose which way the end swings;
-      // this is the Turn, dragged rather than typed.
-      const axes = planeAxes(view);
-      const axis = lockAxis === "turn" ? axes.u : axes.v;
-      const aLen = Math.hypot(axis.x, axis.y) || 1;
+      // v3.77 Turn swings the end square to the run — always. It used a
+      // fixed ground axis and then took whatever part of it happened to be
+      // perpendicular, so a run already lying on that axis had no
+      // perpendicular left and the turn did nothing at all. The run's own
+      // square is the only direction that always exists, and the drag's sign
+      // says which way round it goes. The pipe is then the hypotenuse of the
+      // leg it must still cover: sqrt(run² + offset²), never shorter.
       const dx = ((clientX ?? drag.startX) - drag.startX) / zoom;
       const dy = (clientY - drag.startY) / zoom;
-      const pushed = (((dx * axis.x) + (dy * axis.y)) / (aLen * aLen));
 
       const moving0 = drag.which === 1 ? "start" : "end";
       const anchorF = drag.which === 1 ? drag.base.end : drag.base.start;
@@ -888,27 +885,21 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
       };
       const runLen = Math.hypot(run.x, run.y) || 1;
       const along0 = { x: run.x / runLen, y: run.y / runLen };
-      // the axis, with anything parallel to the run taken out of it
-      const dot = (axis.x * along0.x) + (axis.y * along0.y);
-      const square = { x: axis.x - (along0.x * dot), y: axis.y - (along0.y * dot) };
-      const sqLen = Math.hypot(square.x, square.y);
+      const square = { x: -along0.y, y: along0.x };        // square to the run
+      const sqLen = 1;
+      const pushed = (dx * square.x) + (dy * square.y);
       // v3.60 Stepped by a whole lattice cell, the end jumped and overshot
       // the line it was aiming at. Up and down rounds to 10mm and feels
       // smooth, so this does the same: the offset is quantised in
       // millimetres, not in grid squares.
       const mmPerPx = mmPerPoint / pointStep;
-      const wantMm = pushed * sqLen * mmPerPx;
-      const offset = sqLen > 1e-6
-        ? (Math.round(wantMm / 10) * 10) / mmPerPx
-        : 0;
+      const offset = (Math.round((pushed * mmPerPx) / 10) * 10) / mmPerPx;
       const moving = moving0;
       const anchor = anchor0;
-      let at = sqLen > 1e-6
-        ? {
-          x: drag.base[moving].x + ((square.x / sqLen) * offset),
-          y: drag.base[moving].y + ((square.y / sqLen) * offset),
-        }
-        : { ...drag.base[moving] };
+      let at = {
+        x: drag.base[moving].x + (square.x * offset),
+        y: drag.base[moving].y + (square.y * offset),
+      };
       const line0 = lines[drag.index];
       if (line0?.fixed) {
         // hold the reach: swing the end round rather than lengthen the pipe
@@ -1351,12 +1342,13 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
           // let the wall come to rest anywhere across the slab; matching its
           // own centre and corners against the floor's edges puts it on the
           // edge itself.
-          // v3.75 A wall's corners carry height in their screen position,
-          // and the ground decomposition only understands plan — so the
-          // numbers coming out of it were meaningless and the wall matched
-          // wherever they happened to agree. The height is taken back out
-          // first, which puts the wall's foot on the ground where the
-          // floor's edges are, and only there can the two be compared.
+          // v3.78 A wall goes on a floor's side. Nothing else. Offering its
+          // corners and centre, and the floor's corners too, gave a dozen
+          // pairs that could agree anywhere — including across the middle of
+          // the slab. One point is compared against four: the foot of the
+          // wall, against the midpoint of each edge of the floor. Height is
+          // taken out of both first, because the ground decomposition only
+          // understands plan.
           const lift = (pt, mm) => ({ x: pt.x, y: pt.y + (mm / (view3d.risePerPx || 1)) });
           const myFoot = datums[me]?.kind === "wall"
             ? planeVerticalExtent(datums[me]).bottomMm
@@ -1364,10 +1356,8 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
           const itsLevel = datums[i]?.kind === "wall"
             ? planeVerticalExtent(datums[i]).bottomMm
             : (datums[i]?.offsetMm ?? 0);
-          const targets = [...other.corners, ...other.edges.map((e) => e.point)]
-            .map((pt) => lift(pt, itsLevel));
-          const sources = [...mine.corners, { x: mine.cx, y: mine.cy }]
-            .map((pt) => lift(pt, myFoot));
+          const targets = other.edges.map((e) => lift(e.point, itsLevel));
+          const sources = [lift({ x: mine.cx, y: mine.cy }, myFoot)];
           for (const a of sources) {
             const mv = ab({ x: a.x + centre.x - mine.cx, y: a.y + centre.y - mine.cy });
             for (const b of targets) {
