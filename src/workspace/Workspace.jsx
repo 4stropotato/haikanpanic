@@ -260,7 +260,7 @@ export default function Workspace() {
       else if (panDrag.current) panMove(e.clientX, e.clientY);
       else if (zoomDrag.current) zoomMove(e.clientX, e.clientY);
       else if (labelDrag.current) labelMove(e.clientX, e.clientY);
-      else if (levelDrag.current) levelMove(e.clientY);
+      else if (levelDrag.current) levelMove(e.clientY, e.clientX);
       else if (pipeDrag.current) pipeMove(e.clientX, e.clientY);
       else if (planeDrag.current) planeMove(e.clientX, e.clientY);
       else if (marqueeRef.current) marqueeMove(e.clientX, e.clientY);
@@ -757,10 +757,25 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
         const key = nodeKey(sketchNode);
         const node = projection.get(key) ?? sketchNode;
         if (Math.hypot(point.x - node.x, point.y - node.y) > reach) continue;
+        const grabbed = lines[i];
+        const otherKey = which === 1 ? nodeKey(grabbed.end) : nodeKey(grabbed.start);
+        const startEls = nodeElevations(lines, mmPerPoint);
         levelDrag.current = {
+          // the cut length as it stands, so a lift shortens the run rather
+          // than stretching the pipe
+          fixedLengthMm: grabbed.fixed
+            ? Math.round(Math.hypot(
+              grabbed.lengthMm ?? segmentLengthMm(grabbed, mmPerPoint),
+              (startEls.get(nodeKey(grabbed.start)) ?? 0)
+                - (startEls.get(nodeKey(grabbed.end)) ?? 0),
+            ))
+            : null,
+          otherEl: startEls.get(otherKey) ?? 0,
           index: i,
           which,
+          startX: clientX,
           startY: clientY,
+          base: { start: { ...grabbed.start }, end: { ...grabbed.end } },
           startEl: (els.get(key) ?? 0) + base,
         };
         return true;
@@ -790,18 +805,59 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
     return null;
   };
 
-  const levelMove = (clientY) => {
+  const levelMove = (clientY, clientX) => {
     const drag = levelDrag.current;
     if (!drag) return false;
+
+    // v3.49 An end dragged under a horizontal axis lock travels along that
+    // axis. The end handle is a level handle first, so it answered only in
+    // height — with "along 30" chosen the finger moved sideways and the pipe
+    // still went up, which is not what the lock says it will do.
+    if (heightMode && (lockAxis === "u" || lockAxis === "v")) {
+      const axes = planeAxes(view);
+      const dir = lockAxis === "u" ? axes.u : axes.v;
+      const len = Math.hypot(dir.x, dir.y) || 1;
+      const dx = ((clientX ?? drag.startX) - drag.startX) / zoom;
+      const dy = (clientY - drag.startY) / zoom;
+      const raw = ((dx * dir.x) + (dy * dir.y)) / (len * len);
+      const along = Math.round(raw / pointStep) * pointStep;
+      const moved = drag.which === 1 ? "start" : "end";
+      setLines(lines.map((line, i) => (i === drag.index ? {
+        ...line,
+        lengthMm: undefined,
+        [moved]: {
+          x: drag.base[moved].x + (dir.x * along),
+          y: drag.base[moved].y + (dir.y * along),
+        },
+      } : line)));
+      return true;
+    }
     const raw = drag.startEl + ((drag.startY - clientY) / zoom) * view3d.risePerPx;
     const value = Math.round(raw / 10) * 10;
     const ref = datumFor(value, datums);
     setMoveReadout({
       x: null, y: null, el: value, datum: ref.name, rel: Math.round(value - ref.offsetMm),
     });
-    setLines(lines.map((line, i) => (i === drag.index
-      ? { ...line, [drag.which === 1 ? "elev1Mm" : "elev2Mm"]: value - (primary?.offsetMm ?? 0) }
-      : line)));
+    setLines(lines.map((line, i) => {
+      if (i !== drag.index) return line;
+      const next = {
+        ...line,
+        [drag.which === 1 ? "elev1Mm" : "elev2Mm"]: value - (primary?.offsetMm ?? 0),
+      };
+      // v3.48 A fixed run keeps its length when an end is lifted. Raising one
+      // end makes the run slope, and a sloped run of the same horizontal is a
+      // longer pipe — so for a spool already cut, the horizontal has to come
+      // in as the end goes up. Without this the switch held the length only
+      // against an angle typed into the sheet, not against a dragged end.
+      if (line.fixed) {
+        const cut = drag.fixedLengthMm ?? line.lengthMm;
+        const rise = Math.abs((value - (primary?.offsetMm ?? 0)) - drag.otherEl);
+        if (cut > 0 && rise < cut) {
+          next.lengthMm = Math.max(1, Math.round(Math.sqrt((cut * cut) - (rise * rise))));
+        }
+      }
+      return next;
+    }));
     return true;
   };
 
@@ -1219,7 +1275,7 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
     }
     if (levelDrag.current && e.touches.length === 1) {
       e.preventDefault();
-      levelMove(e.touches[0].clientY);
+      levelMove(e.touches[0].clientY, e.touches[0].clientX);
       return;
     }
     if (pipeDrag.current && e.touches.length === 1) {
@@ -1601,7 +1657,7 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
             else if (panDrag.current) panMove(e.clientX, e.clientY);
             else if (zoomDrag.current) zoomMove(e.clientX, e.clientY);
             else if (labelDrag.current) labelMove(e.clientX, e.clientY);
-      else if (levelDrag.current) levelMove(e.clientY);
+      else if (levelDrag.current) levelMove(e.clientY, e.clientX);
             else if (pipeDrag.current) pipeMove(e.clientX, e.clientY);
             else if (planeDrag.current) planeMove(e.clientX, e.clientY);
             else if (marqueeRef.current) marqueeMove(e.clientX, e.clientY);
