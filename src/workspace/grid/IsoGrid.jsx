@@ -187,7 +187,13 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
         }
       }
       // the four uprights
-      for (const [b, nz] of [[-h, -1], [h, 1]]) {
+      // v3.37 The b axis runs along world -Z, not +Z: planeAxes returns
+      // v = -(sy, cy*sp) while the projection of world +Z is +(sy, cy*sp).
+      // The normals for these two faces were therefore the wrong way round,
+      // so one of the pair was always the near wall — which is why the box
+      // read as a tunnel with panels left and right instead of a corner
+      // standing behind the drawing.
+      for (const [b, nz] of [[-h, 1], [h, -1]]) {
         if (!facing(0, 0, nz)) continue;
         const d = fade(0, 0, nz) * 0.45;
         for (let i = -h; i <= h; i += 1) seg(at(i, b, 0), at(i, b, -h), strong(i), d);

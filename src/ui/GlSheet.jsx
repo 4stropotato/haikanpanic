@@ -29,6 +29,7 @@ const TEXT = {
     height: (name) => `${name} elevation`,
     width: "Width",
     depth: "Depth",
+    height: "Height",
     auto: "auto",
     mode: "Extent",
     area: "Area",
@@ -63,6 +64,7 @@ const TEXT = {
     height: (name) => `${name} の高さ`,
     width: "幅",
     depth: "奥行",
+    height: "高さ",
     auto: "自動",
     mode: "範囲",
     area: "範囲指定",
@@ -287,7 +289,7 @@ export default function GlSheet({
                 onCommit={(v) => onChange({ sizeMm: Math.max(0, v), fitted: true })}
               />
               <NumberRow
-                label={t.depth}
+                label={plane.kind === "wall" ? t.height : t.depth}
                 value={plane.sizeVMm}
                 step="500"
                 min="0"

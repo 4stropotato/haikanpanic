@@ -137,9 +137,14 @@ export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
   }
   // Auto-fit stays square: a run along one axis would otherwise give a
   // ribbon instead of a floor. Explicit sizes are free to differ.
+  // v3.36 A wall auto-sized to the square that fits the drawing was a height
+  // with no meaning — a wall labelled +1200 stood some three metres tall,
+  // because that number is its distance and its height had never been set.
+  // Left unsaid, a wall is a storey: 2400mm, which is at least a real answer.
   const autoHalf = (Math.max(reachA, reachB) * 1.4) + (pointStep * 3);
+  const autoWallHalf = ((2400 / 2) * pxPerMm);
   const halfU = sizeMm > 0 ? (sizeMm / 2) * pxPerMm : autoHalf;
-  const halfV = sizeVMm > 0 ? (sizeVMm / 2) * pxPerMm : autoHalf;
+  const halfV = sizeVMm > 0 ? (sizeVMm / 2) * pxPerMm : (wall ? autoWallHalf : autoHalf);
 
   // v3.11 A wall can be pinned by its bottom or its top to a known height,
   // the way a real one stands on a slab or hangs from a beam. Left free it
