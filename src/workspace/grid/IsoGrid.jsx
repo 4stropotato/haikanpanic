@@ -6,7 +6,7 @@
 
 import { useEffect, useRef } from "react";                          // [v1.10] React hook for lifecycle
 import { dx, pointStep } from "../utils/constants";      // [v1.10] Centralized grid constants
-import { planeAxes } from "../utils/glPlane";           // v3.15 the grid follows the view
+import { planeAxes, isoCoords } from "../utils/glPlane"; // v3.15 the grid follows the view
 import { useViewport } from "../utils/viewport";                   // v1.18+ live workspace size
 
 const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds = null }) => {  // [v1.09] Accept zoom and offset props
@@ -120,16 +120,25 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
       const mid = bounds
         ? { x: (bounds.x1 + bounds.x2) / 2, y: (bounds.y1 + bounds.y2) / 2 }
         : { x: 0, y: 0 };
-      // v3.25 The box covers the work, however big it is. A fixed cap on
-      // the number of steps meant a long run simply ran out of grid; the
-      // cell grows instead, the way a CAD grid coarsens as you pull back,
-      // so the box always reaches the far end of the drawing.
-      const half = bounds
-        ? Math.max(Math.abs(bounds.x2 - bounds.x1), Math.abs(bounds.y2 - bounds.y1)) * 0.8
-        : pointStep * 8;
-      let cell = pointStep;
+      // v3.27 How far the box has to reach is measured, not guessed. The
+      // old estimate was a fraction of the screen-space width, which says
+      // nothing about how far the work runs along the box's own diagonal
+      // axes — so a wall could finish past the last grid line. Each corner
+      // of the work is decomposed into those axes and the largest wins.
       const n = 14;
-      while (cell * n < half) cell *= 2;
+      let need = 8;
+      if (bounds) {
+        const corners = [[bounds.x1, bounds.y1], [bounds.x2, bounds.y1],
+          [bounds.x1, bounds.y2], [bounds.x2, bounds.y2]];
+        for (const [x, y] of corners) {
+          const ab = isoCoords({ x, y }, mid.x, mid.y, { u: step.u, v: step.v });
+          need = Math.max(need, Math.abs(ab.a), Math.abs(ab.b));
+        }
+        // the uprights have to clear the tallest thing on the sheet too
+        need = Math.max(need, Math.abs(bounds.y2 - bounds.y1) / pointStep / 2);
+      }
+      let cell = pointStep;
+      while ((cell / pointStep) * n < need) cell *= 2;
       const at = (a, b, c) => ({
         x: mid.x + ((step.u.x * a) + (step.v.x * b) + (step.w.x * c)) * (cell / pointStep),
         y: mid.y + ((step.u.y * a) + (step.v.y * b) + (step.w.y * c)) * (cell / pointStep),
