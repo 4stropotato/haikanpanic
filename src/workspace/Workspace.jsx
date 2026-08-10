@@ -391,9 +391,14 @@ export default function Workspace() {
         ...d,
         sizeMm: toMm(plane.halfU),
         sizeVMm: toMm(plane.halfV),
-        // pin the centre too, or the plane drifts with the drawing every
-        // time a pipe is moved
-        center: { x: plane.cx, y: plane.cy },
+        // FIXED v4.01 — pinning the centre kept the plane still while a pipe
+        //   was moved, which was the point, but it pinned it as a SCREEN point.
+        //   A pixel has no bearing and no height, so from then on that surface
+        //   could not turn with the view or sit at its elevation. This runs the
+        //   first time a datum is fitted, so nearly every surface carried it.
+        // GUARD: nothing about a surface is ever stored in screen coordinates.
+        centerAB: groundCoordsOf({ x: plane.cx, y: plane.cy }, planeAxes(view),
+          d.offsetMm ?? 0, upPerMmOf(view, plane.pxPerMm), plane.wall),
         fitted: true,
       }
       : d)));
@@ -1249,9 +1254,16 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
       count: drag.members.size,
     });
 
+    // v4.01 dragged along the ground, not across the glass — see above
     for (const i of drag.datums ?? []) {
       const base = drag.datumBase[i];
-      if (base) patchDatum(i, { center: { x: base.x + dx, y: base.y + dy } });
+      if (!base) continue;
+      const movedPlane = planeAt(i);
+      patchDatum(i, {
+        centerAB: groundCoordsOf({ x: base.x + dx, y: base.y + dy }, planeAxes(view),
+          datums[i]?.offsetMm ?? 0, upPerMmOf(view, movedPlane?.pxPerMm ?? 0),
+          movedPlane?.wall ?? false),
+      });
     }
     setLines(lines.map((line, i) => {
       if (!drag.members.has(i)) return line;

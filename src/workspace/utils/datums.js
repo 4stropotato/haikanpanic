@@ -33,7 +33,13 @@ export function makeDatum(name = "GL", offsetMm = 0) {
 export function loadDatums() {
   try {
     const stored = JSON.parse(localStorage.getItem("haikan-datums-v1"));
-    if (Array.isArray(stored) && stored.length) return stored;
+    // v4.01 A surface saved long ago may carry `center`, a raw screen point
+    // from before positions were kept along the ground axes. Pinned to a pixel
+    // it could not turn with the view or sit at an elevation, and it survived
+    // every reload. Dropping it lets the plane be rebuilt from the drawing.
+    if (Array.isArray(stored) && stored.length) {
+      return stored.map(({ center, ...rest }) => rest);
+    }
   } catch { /* fall through to migration */ }
 
   // migrate the single-plane settings this replaced

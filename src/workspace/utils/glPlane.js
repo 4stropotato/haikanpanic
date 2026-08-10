@@ -79,7 +79,7 @@ export function upPerMmOf(view, pxPerMm) {
 
 export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
   const {
-    sizeMm = 0, sizeVMm = 0, offsetMm = 0, center = null, centerAB = null,
+    sizeMm = 0, sizeVMm = 0, offsetMm = 0, centerAB = null,
     projection = null, view = null, kind = "floor", facing = "u",
     vAnchor = "free", vMm = 0,
   } = plane;
@@ -182,10 +182,17 @@ export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
     cx = (ground.u.x * centerAB.a) + (ground.v.x * centerAB.b);
     cy = (ground.u.y * centerAB.a) + (ground.v.y * centerAB.b)
       - (wall ? 0 : offsetMm * upPerMm);
-  } else if (center) {
-    cx = center.x;
-    cy = center.y;
   }
+  // FIXED v4.01 — the last way a surface could sit still while everything else
+  //   turned. Before positions were kept along the ground axes, a moved plane
+  //   stored a raw SCREEN point. Nothing writes one any more, but a datum saved
+  //   back then keeps it for ever in localStorage, and this branch honoured it:
+  //   pinned to a pixel, such a plane cannot turn with the view and cannot sit
+  //   at an elevation. It just stays put — exactly "naiiwan sya in place pag ni
+  //   rorote", and exactly the float.
+  // GUARD: a screen position is meaningless the moment the view moves. Nothing
+  //   about a surface may ever be stored in screen coordinates. `center` is
+  //   dropped on load (see loadDatums) and is no longer read here.
 
   let reachA = 0;
   let reachB = 0;
