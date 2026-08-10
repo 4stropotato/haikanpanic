@@ -621,6 +621,12 @@ export default function TopBar() {
               <button className="sheet-action solid" onClick={() => setShowSheet(false)}>
                 {t.done}
               </button>
+            {/* v3.98 Which build is actually on screen. A stale bundle looks
+                exactly like a bug, and a screenshot could not tell them apart. */}
+            <div className="sheet-row" style={{ opacity: 0.55, fontSize: ".72rem" }}>
+              <span>build</span>
+              <span>{__BUILD__}</span>
+            </div>
             </div>
           </div>
         </div>
