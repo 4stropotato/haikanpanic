@@ -176,7 +176,19 @@ export default function Workspace() {
   const [showGL, setShowGL] = useState(                                     // v2.07 GL/EL in 2D
     () => localStorage.getItem("haikan-show-gl") === "1",                   // v3.03 off until asked for
   );
-  const [view, setView] = useState({ yawDeg: ISO_YAW, pitchDeg: ISO_PITCH }); // v2.46 look from elsewhere
+  // v3.93 ?yaw= and ?pitch= open on a chosen bearing and tilt. A screenshot
+  // is the only way to check what the drawing actually looks like here, and a
+  // 90 degree turn is useless for that: the isometric lattice and a square
+  // floor both map onto themselves, so a plane that never moved looks correct.
+  // An odd angle tells the truth.
+  const [view, setView] = useState(() => {
+    const q = new URLSearchParams(window.location.search);
+    const num = (key, fallback) => {
+      const v = parseFloat(q.get(key));
+      return Number.isFinite(v) ? v : fallback;
+    };
+    return { yawDeg: num("yaw", ISO_YAW), pitchDeg: num("pitch", ISO_PITCH) };
+  });                                                                        // v2.46 look from elsewhere
   const [orbitMode, setOrbitMode] = useState(false);                        // v2.48 drag to turn
   const orbitDrag = useRef(null);
   const [detail, setDetail] = useState(                                     // v2.33 full / normal / eco
@@ -472,6 +484,16 @@ export default function Workspace() {
   );
   const homeView = Math.abs(view.yawDeg - ISO_YAW) < 0.5
     && Math.abs(view.pitchDeg - ISO_PITCH) < 0.5;
+  // FIXED v3.93 — "yung rotate ng 45 degrees button pumapasok sa state ng
+  //   orbit yung grid. dapat same grid lang yung normal."
+  // CAUSE: the grid was told `orbiting={orbitMode || !homeView}`, and homeView
+  //   also tests the bearing. Turning the view left the home view, so a plain
+  //   turn swapped the isometric grid for the orbit box.
+  // In an isometric there is no top or bottom view — only a bearing. Turning
+  //   is still the same space and must keep the same grid. Only a tilt off the
+  //   isometric pitch is a different space.
+  // GUARD: never drive the grid from yaw, and never from homeView.
+  const tiltedView = Math.abs(view.pitchDeg - ISO_PITCH) > 0.5;
   const ZOOM_MIN = 0.05;                                                      // v3.28 a whole site
 const ZOOM_MAX = 6;
 
@@ -1883,7 +1905,7 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
-          <IsoGrid show={showGrid} zoom={zoom} offset={offset} view={view} bounds={sketchBounds} span={sketchSpan.wide} spanV={sketchSpan.tall} lowPx={sketchSpan.lowPx} isDark={darkMode} orbiting={orbitMode || !homeView} />
+          <IsoGrid show={showGrid} zoom={zoom} offset={offset} view={view} bounds={sketchBounds} span={sketchSpan.wide} spanV={sketchSpan.tall} lowPx={sketchSpan.lowPx} isDark={darkMode} orbiting={orbitMode || tiltedView} />
           <DrawLayer
             lines={viewLines}
             projection={projection}
