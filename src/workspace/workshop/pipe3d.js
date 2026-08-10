@@ -142,18 +142,29 @@ function placeNodes(lines, mmPerPoint, defaultOd) {
 
 // v2.07 Elevation of every sketch node above GL, keyed by its 2D position.
 // The 2D isometric uses this to print EL callouts and the GL line.
+//
+// FIXED v3.95 — "yung gl floor hindi nag adjust sa naging elevation! kahit may
+//   elevation na 3500 naka pantay parin gl 0 sa pipe na yun"
+// CAUSE: this subtracted minY, so the lowest node on the drawing always read
+//   0. Every height was relative to whatever happened to be lowest, which had
+//   two consequences:
+//     - GL could never be below the work. Drawn 3500 up, the pipe still read 0
+//       and the ground came up to meet it.
+//     - drawing a new run lower down silently renumbered every EL already on
+//       the sheet, because the floor of the numbering moved.
+//   placeNodes already gives an absolute height (a node starts at its own
+//   elevationMm, or 0), so the frame was there and this threw it away.
+// GUARD: elevations are absolute. Never re-zero them on the extreme of the
+//   drawing — a datum is what defines zero, not the lowest pipe.
 export function nodeElevations(lines, mmPerPoint) {
   const out = new Map();
   if (!lines.length) return out;
   const segments = placeNodes(lines, mmPerPoint, 60);
-  let minY = Infinity;
-  for (const seg of segments) minY = Math.min(minY, seg.p1.y, seg.p2.y);
-  if (!Number.isFinite(minY)) return out;
   lines.forEach((line, index) => {
     const seg = segments[index];
     if (!seg) return;
-    out.set(key2D(line.start), Math.round(seg.p1.y - minY));
-    out.set(key2D(line.end), Math.round(seg.p2.y - minY));
+    out.set(key2D(line.start), Math.round(seg.p1.y));
+    out.set(key2D(line.end), Math.round(seg.p2.y));
   });
   return out;
 }
