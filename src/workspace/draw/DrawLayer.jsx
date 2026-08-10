@@ -292,7 +292,16 @@ const DrawLayer = ({
             //   it by more the further the view was tilted.
             // GUARD: one vertical scale per view. If it draws a height, it uses
             //   plane.upPerMm.
-            return { x: pt.x, y: pt.y + ((el - datum.offsetMm) * plane.upPerMm) };
+            // FIXED v4.02 — "sobra yung pink dashed line lumagpas sa ground
+            //   level"
+            // CAUSE: the curtain hung the full height difference, so a run
+            //   sitting below the datum was given a footprint below the ground
+            //   and the dashes carried on straight through it. A curtain is
+            //   what the pipe stands on; it stops at the floor.
+            // GUARD: never drop past the datum. A node under the ground has no
+            //   floor beneath it, so its drop is nothing.
+            const above = Math.max(0, el - datum.offsetMm);
+            return { x: pt.x, y: pt.y + (above * plane.upPerMm) };
           };
           for (const line of lines) {
             const a = drop(line.start);
