@@ -50,6 +50,33 @@ export function isoCoords(point, cx, cy, axes = { u: ISO_U, v: ISO_V }) {
 
 // v2.19 A site has more than one datum — GL outside, FL on each floor, TOS
 // on a platform — so planes are a list. `plane` is one entry of that list.
+
+// FIXED v4.00 — "nasa ilalim ng plane yung pipe mali eh kitang kita gl+1200 na
+//   nga", "pag view ng orbit nagbabago yung gl ng bottom parang tanga view
+//   lang naman pero bakit nagbabago geometry"
+// CAUSE: a moved surface stored where it sits by decomposing its SCREEN centre
+//   onto the two ground axes. Both of those are horizontal, so the height the
+//   plane was standing at got absorbed into the pair. Read back at another
+//   view the axes are different, and that absorbed height comes out as
+//   sideways drift — the plane wandered, and at some tilts it climbed above
+//   the work. A plane that had never been moved had no stored pair and was
+//   built from the nodes, which is why a fresh sketch looked right.
+// So the height is taken out before the pair is measured and put back after.
+//   Screen y runs downward, so height subtracts on the way back.
+// GUARD: only a floor's offsetMm is a height. A wall's is a distance along the
+//   ground and must never be lifted this way. Store and rebuild must always
+//   use the same rule — one side alone is worse than neither.
+export function groundCoordsOf(point, axes, offsetMm = 0, upPerMm = 0, wall = false) {
+  const lift = wall ? 0 : offsetMm * upPerMm;
+  return isoCoords({ x: point.x, y: point.y + lift }, 0, 0, axes);
+}
+
+// How far a millimetre of height moves on screen at this view. Exported so the
+// caller measuring a plane's position uses the very same scale it was drawn with.
+export function upPerMmOf(view, pxPerMm) {
+  return pxPerMm * VIEW_K * Math.cos(((view?.pitchDeg ?? ISO_PITCH) * Math.PI) / 180);
+}
+
 export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
   const {
     sizeMm = 0, sizeVMm = 0, offsetMm = 0, center = null, centerAB = null,
@@ -151,8 +178,10 @@ export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
   // and rebuilt in wall terms came out somewhere else entirely — which is
   // why moving a wall sent it off in a direction of its own.
   if (centerAB) {
+    // v4.00 the pair places it on the ground; its own height puts it at level
     cx = (ground.u.x * centerAB.a) + (ground.v.x * centerAB.b);
-    cy = (ground.u.y * centerAB.a) + (ground.v.y * centerAB.b);
+    cy = (ground.u.y * centerAB.a) + (ground.v.y * centerAB.b)
+      - (wall ? 0 : offsetMm * upPerMm);
   } else if (center) {
     cx = center.x;
     cy = center.y;
