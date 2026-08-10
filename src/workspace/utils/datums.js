@@ -64,3 +64,20 @@ export function datumFor(elevationMm, datums) {
   if (below) return below;
   return [...datums].sort((a, b) => a.offsetMm - b.offsetMm)[0];
 }
+
+// FIXED v3.97 — "dapat nasa 0 level palagi ang gl sa lowest point ng draw
+//   natin! hindi naman kelangan patagusin unless i usog ko"
+// A floor that follows the work IS the zero. It sits on the lowest point of
+// the drawing, so that point reads ±0 and everything else reads as height
+// above it. Quoting the ground's own absolute height instead put a number like
+// -3500 on the ground line, which reads as a pipe hanging below it.
+// GUARD: only a following floor defines zero. Pin it (Sit on the lowest run
+// off) and it becomes an ordinary level with a real height again.
+export function followsWork(datum) {
+  return datum.kind !== "wall" && datum.kind !== "ceiling" && datum.autoLow !== false;
+}
+
+export function groundZero(datums) {
+  const ground = datums?.find(followsWork);
+  return ground ? (ground.offsetMm ?? 0) : 0;
+}

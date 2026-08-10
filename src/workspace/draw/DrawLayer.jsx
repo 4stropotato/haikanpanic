@@ -13,7 +13,7 @@ import { overlappingRuns } from "../utils/editLength";          // v2.41 two pip
 import { glPlaneGeometry, viewRect, clampHandle, insidePlane } from "../utils/glPlane"; // v2.09 GL/FL datum plane
 import { nodeElevations, runMetrics } from "../workshop/pipe3d"; // v2.24 slope from elevations
 import { sketchJoints, jointTypeOf, JOINT_MARK } from "../utils/joints"; // v2.10 corner fittings
-import { datumFor } from "../utils/datums";
+import { datumFor, groundZero } from "../utils/datums";
 import { LABEL_DEFAULT, LABEL_HOME } from "../utils/labelFields";
 import { toneColor } from "../utils/tones";                      // v2.83 mark-up colours
 
@@ -30,7 +30,7 @@ export { segmentLengthMm } from "../utils/lengths";   // v2.05 moved to pure mod
 
 // v1.17+ Label text honors an override: schematic mode can claim any true
 // length regardless of drawn length (label is authoritative, per DRAW2 spec).
-function labelFor(line, mmPerPoint, elevations, metric, fields = LABEL_DEFAULT) {
+function labelFor(line, mmPerPoint, elevations, metric, fields = LABEL_DEFAULT, zero = 0) {
   // a sloped run is longer than the horizontal it was typed as, and that
   // extra is rarely a round number — which is exactly what has to be cut
   const sloped = metric && Math.abs(metric.slopeDeg) > 0.4 && Math.abs(metric.slopeDeg) < 89.6;
@@ -57,11 +57,14 @@ function labelFor(line, mmPerPoint, elevations, metric, fields = LABEL_DEFAULT) 
   // v2.51 The run's own elevations, for when the leaders are turned off.
   if (fields.el && elevations) {
     const key = (n) => `${n.x.toFixed(3)},${n.y.toFixed(3)}`;
+    // v3.97 quoted from the ground, so the lowest point of the job reads 0
     const a = elevations.get(key(line.start));
     const b = elevations.get(key(line.end));
     const show = (v) => `${v >= 0 ? "+" : ""}${Math.round(v)}`;
     if (Number.isFinite(a) && Number.isFinite(b)) {
-      parts.push(a === b ? `EL${show(a)}` : `EL${show(a)}→${show(b)}`);
+      const ra = a - zero;
+      const rb = b - zero;
+      parts.push(ra === rb ? `EL${show(ra)}` : `EL${show(ra)}→${show(rb)}`);
     }
   }
   return parts.join("  ");
@@ -112,6 +115,7 @@ const DrawLayer = ({
     // the sheet. They come from the sketch, which does not move.
     const geom = sketchLines ?? lines;
     const elevationsForLabels = geom.length ? nodeElevations(geom, mmPerPoint) : null;
+    const groundLevel = groundZero(datums);
     const metrics = geom.length ? runMetrics(geom, mmPerPoint) : null;
     // v2.49 A run's label rides along the run, the way dimension text does
     // on a drawn isometric: set on the line's own angle and lifted clear of
@@ -138,7 +142,7 @@ const DrawLayer = ({
 
       // the label reads the sketch; only its position comes from the view
       const text = labelFor(geom[index] ?? line, mmPerPoint, elevationsForLabels,
-        metrics?.get(index), labelFields);
+        metrics?.get(index), labelFields, groundLevel);
       if (!text) return;
 
       const place = line.label ?? LABEL_HOME;
@@ -254,7 +258,10 @@ const DrawLayer = ({
         ctx.fillStyle = `rgb(${tint})`;
         ctx.textAlign = "left";
         ctx.textBaseline = "top";
-        const elText = datum.offsetMm ? ` +${datum.offsetMm}` : " ±0";
+        // v3.97 A datum is quoted from the ground, so a floor that follows
+        // the work always reads ±0 — it is the level the rest is measured from.
+        const rel = Math.round((datum.offsetMm ?? 0) - groundLevel);
+        const elText = rel ? ` ${rel > 0 ? "+" : ""}${rel}` : " ±0";
         ctx.fillText(`${datum.name}${elText}`, corners[2].x + (10 / zoom), corners[2].y + (6 / zoom));
         ctx.restore();
 

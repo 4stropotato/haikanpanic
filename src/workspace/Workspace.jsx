@@ -42,7 +42,7 @@ import GlSheet from "../ui/GlSheet";
 import LevelSheet from "../ui/LevelSheet";
 import AngleSheet from "../ui/AngleSheet";
 import { isoDeltaTo3D, horizontalTo2D } from "./utils/handoff"; // v2.53 plan angles
-import { loadDatums, saveDatums, makeDatum, datumFor } from "./utils/datums";
+import { loadDatums, saveDatums, makeDatum, datumFor, followsWork } from "./utils/datums";
 import { loadLabelFields, LABEL_HOME } from "./utils/labelFields";                    // v2.51 label contents
 import { findJointAt, jointSettingOf } from "./utils/joints";               // v2.10 corner fittings
 import JointSheet from "../ui/JointSheet";
@@ -350,7 +350,6 @@ export default function Workspace() {
   //   are placed, not found.
   // GUARD: only kind === "floor" may follow the work, and an explicit false
   //   must still pin it.
-  const followsWork = (d) => d.kind !== "wall" && d.kind !== "ceiling" && d.autoLow !== false;
   useEffect(() => {
     if (!lines.length) return;
     const els = [...nodeElevations(lines, mmPerPoint).values()];
