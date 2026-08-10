@@ -284,34 +284,49 @@ const DrawLayer = ({
           // would claim a relationship that is not real.
           if (showDrop && !plane.wall) {
           ctx.save();
-          const drop = (pt) => {
-            const el = elevationsForLabels?.get(`${pt.x.toFixed(3)},${pt.y.toFixed(3)}`) ?? 0;
-            // FIXED v3.99 — a leader measured the drop with pxPerMm while the
-            //   plane was placed with upPerMm. Those are equal ONLY at the
-            //   isometric pitch, so the leader met the floor at home and missed
-            //   it by more the further the view was tilted.
-            // GUARD: one vertical scale per view. If it draws a height, it uses
-            //   plane.upPerMm.
-            // FIXED v4.02 — "sobra yung pink dashed line lumagpas sa ground
-            //   level"
-            // CAUSE: the curtain hung the full height difference, so a run
-            //   sitting below the datum was given a footprint below the ground
-            //   and the dashes carried on straight through it. A curtain is
-            //   what the pipe stands on; it stops at the floor.
-            // GUARD: never drop past the datum. A node under the ground has no
-            //   floor beneath it, so its drop is nothing.
-            const above = Math.max(0, el - datum.offsetMm);
-            return { x: pt.x, y: pt.y + (above * plane.upPerMm) };
-          };
+          const elAt = (pt) => elevationsForLabels?.get(`${pt.x.toFixed(3)},${pt.y.toFixed(3)}`) ?? 0;
+          // v3.99 One vertical scale per view: the plane was placed with
+          // upPerMm, so anything drawing a height uses the same.
+          const dropTo = (pt, el) => ({
+            x: pt.x,
+            y: pt.y + ((el - datum.offsetMm) * plane.upPerMm),
+          });
           for (const line of lines) {
-            const a = drop(line.start);
-            const b = drop(line.end);
+            // FIXED v4.02/v4.03 — "sobra yung pink dashed line lumagpas sa
+            //   ground level", "nandun parin yung pink dashed line sa ilalim
+            //   ng ground gl pag naka orbit view"
+            // CAUSE: the curtain hung between the pipe and its footprint over
+            //   the run's whole length. Clamping the drop (v4.02) was not
+            //   enough, because the END ITSELF can be under the ground — the
+            //   curtain was still tied to a point below the floor and the
+            //   dashes ran through it.
+            // A curtain is what the pipe stands on, so the run is CUT at the
+            //   ground: the part underneath has no floor beneath it and is not
+            //   drawn at all.
+            // GUARD: never draw a curtain to a point below the datum. Clamping
+            //   the drop is not the same as clipping the run.
+            const e1 = elAt(line.start);
+            const e2 = elAt(line.end);
+            const base = datum.offsetMm;
+            if (e1 <= base && e2 <= base) continue;          // wholly under the ground
+            let p1 = line.start; let p2 = line.end;
+            let el1 = e1; let el2 = e2;
+            if (e1 < base || e2 < base) {
+              const t = (base - e1) / (e2 - e1);             // where it meets the floor
+              const cut = {
+                x: line.start.x + ((line.end.x - line.start.x) * t),
+                y: line.start.y + ((line.end.y - line.start.y) * t),
+              };
+              if (e1 < base) { p1 = cut; el1 = base; } else { p2 = cut; el2 = base; }
+            }
+            const a = dropTo(p1, el1);
+            const b = dropTo(p2, el2);
             if (Math.abs(a.x - b.x) < 0.01 && Math.abs(a.y - b.y) < 0.01) continue;
             if (!insidePlane(a, plane) && !insidePlane(b, plane)) continue;
 
             ctx.beginPath();
-            ctx.moveTo(line.start.x, line.start.y);
-            ctx.lineTo(line.end.x, line.end.y);
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
             ctx.lineTo(b.x, b.y);
             ctx.lineTo(a.x, a.y);
             ctx.closePath();
