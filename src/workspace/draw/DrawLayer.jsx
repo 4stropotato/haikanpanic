@@ -210,19 +210,38 @@ const DrawLayer = ({
         // v2.81 A picked datum says so, the way a picked run does
         const picked = datumSel.includes(datumIdx);
 
+        // FIXED v3.94 — "naiiwan sya in place pag ni rorote ng 45 degrees",
+        //   "pag pinindot ko na yung orbit iba yung position ng gl floor sa
+        //   actual elevation"
+        // CAUSE: a continuous datum was painted as a screen-space fillRect. A
+        //   rectangle in screen space has no bearing to turn with and no height
+        //   to sit at, so it stayed put under a turn and ignored elevation
+        //   under an orbit. Only the Area extent was ever a real plane.
+        // A continuous datum is not a different kind of thing — it is the same
+        //   plane, unbounded. So it is built on the same axes and centre, just
+        //   reaching past the viewport.
+        // GUARD: never draw a datum in screen coordinates. Every datum is
+        //   ground geometry; if it needs to look endless, make it big.
+        const outline = datum.continuous
+          ? (() => {
+              const reach = (Math.max(width, height) * 1.8) / zoom;
+              const at = (a, b) => ({
+                x: plane.cx + (plane.axes.u.x * a) + (plane.axes.v.x * b),
+                y: plane.cy + (plane.axes.u.y * a) + (plane.axes.v.y * b),
+              });
+              return [at(reach, reach), at(reach, -reach), at(-reach, -reach), at(-reach, reach)];
+            })()
+          : corners;
         ctx.save();
-        if (datum.continuous) {
-          const left = ((-width / 2) - offset.x) / zoom;
-          const top = ((-height / 2) - offset.y) / zoom;
-          ctx.fillStyle = `rgba(${tint},0.05)`;
-          ctx.fillRect(left, top, (width * 2) / zoom, (height * 2) / zoom);
-        } else {
-          ctx.beginPath();
-          ctx.moveTo(corners[0].x, corners[0].y);
-          for (const corner of corners.slice(1)) ctx.lineTo(corner.x, corner.y);
-          ctx.closePath();
-          ctx.fillStyle = `rgba(${tint},${picked ? 0.18 : (active ? 0.09 : 0.055)})`;
-          ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(outline[0].x, outline[0].y);
+        for (const corner of outline.slice(1)) ctx.lineTo(corner.x, corner.y);
+        ctx.closePath();
+        ctx.fillStyle = `rgba(${tint},${datum.continuous
+          ? 0.05
+          : (picked ? 0.18 : (active ? 0.09 : 0.055))})`;
+        ctx.fill();
+        if (!datum.continuous) {
           ctx.strokeStyle = `rgba(${tint},${active || glEditPlane ? 0.85 : 0.38})`;
           ctx.lineWidth = (active || glEditPlane ? 1.8 : 1.2) / zoom;
           ctx.stroke();
