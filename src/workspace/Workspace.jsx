@@ -338,13 +338,26 @@ export default function Workspace() {
   // a run downward and the ground was left floating above it, which is not
   // something a ground line does — it is the level you measure from, so it
   // goes where the bottom of the job is.
+  // FIXED v3.96 — "bat naging negative gl... bakit napunta sa ilalim ng floor
+  //   hindi naman ceiling itong ginagawa natin eh. ground so dapat yung gl
+  //   plane lang ang mag aadjust sa pipe"
+  // CAUSE: following the lowest run was opt-in and left off, so with v3.95's
+  //   absolute heights a run drawn downward simply read negative and passed
+  //   under the ground. Arithmetically right, physically wrong: this is a
+  //   GROUND line, and ground goes under the work.
+  // A floor follows the bottom of the job unless it is told not to, which is
+  //   why an absent flag counts as on. A wall or a ceiling never does — those
+  //   are placed, not found.
+  // GUARD: only kind === "floor" may follow the work, and an explicit false
+  //   must still pin it.
+  const followsWork = (d) => d.kind !== "wall" && d.kind !== "ceiling" && d.autoLow !== false;
   useEffect(() => {
     if (!lines.length) return;
     const els = [...nodeElevations(lines, mmPerPoint).values()];
     if (!els.length) return;
     const low = Math.round(Math.min(...els));
-    setDatums((list) => (list.some((d) => d.autoLow && d.offsetMm !== low)
-      ? list.map((d) => (d.autoLow ? { ...d, offsetMm: low } : d))
+    setDatums((list) => (list.some((d) => followsWork(d) && d.offsetMm !== low)
+      ? list.map((d) => (followsWork(d) ? { ...d, offsetMm: low } : d))
       : list));
   }, [lines, mmPerPoint]);
 

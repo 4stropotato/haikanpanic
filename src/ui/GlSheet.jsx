@@ -302,8 +302,10 @@ export default function GlSheet({
             </>
           )}
 
-          <button className="sheet-btn" onClick={() => onChange({ autoLow: !plane.autoLow })}>
-            <span>{t.autoLow}</span> {plane.autoLow ? "✓" : ""}
+          {/* v3.96 A floor follows the work unless pinned, so an absent flag
+              reads as on — the same rule the datum effect applies. */}
+          <button className="sheet-btn" onClick={() => onChange({ autoLow: plane.autoLow === false })}>
+            <span>{t.autoLow}</span> {plane.autoLow !== false ? "✓" : ""}
           </button>
 
           {!isPrimary && (

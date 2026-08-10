@@ -96,15 +96,27 @@ export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
       const key = key2D(point);
       if (seen.has(key)) continue;
       seen.add(key);
-      const elevation = (elevations.get(key) ?? 0) + offsetMm;
+      // FIXED v3.96 — "makikita mo pag nag orbit view naka lutang ang gl mas
+      //   mataas pa sa naka elevated na pipe"
+      // CAUSE: the datum's own height was ADDED to each node's elevation here,
+      //   while the leaders in DrawLayer subtract it. With GL at 0 the two
+      //   agreed by accident; the moment a datum sat anywhere else the plane
+      //   went the wrong way by twice its offset, which is the float.
+      // A node stands `elevation - offsetMm` above its datum. That difference
+      //   is the drop, and the drop is what the leader measures.
+      // GUARD: nodes[].elevation stays the RAW height — DrawLayer subtracts the
+      //   datum itself when it prints a relative figure, so applying the offset
+      //   here too would count it twice.
+      const raw = elevations.get(key) ?? 0;
+      const drop = raw - offsetMm;
       // the drawing may show this node slanted; the datum must follow it
       const drawn = projection?.get(key) ?? point;
       nodes.push({
         key,                                  // v2.57 so a callout can be moved and remembered
         point: drawn,
-        // the drop equals the elevation, so leader length reads as height
-        ground: { x: drawn.x, y: drawn.y + (elevation * upPerMm) },
-        elevation,
+        // the drop equals the height above the datum, so a leader reads as height
+        ground: { x: drawn.x, y: drawn.y + (drop * upPerMm) },
+        elevation: raw,
       });
     }
   }
