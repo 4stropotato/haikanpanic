@@ -286,7 +286,13 @@ const DrawLayer = ({
           ctx.save();
           const drop = (pt) => {
             const el = elevationsForLabels?.get(`${pt.x.toFixed(3)},${pt.y.toFixed(3)}`) ?? 0;
-            return { x: pt.x, y: pt.y + ((el - datum.offsetMm) * plane.pxPerMm) };
+            // FIXED v3.99 — a leader measured the drop with pxPerMm while the
+            //   plane was placed with upPerMm. Those are equal ONLY at the
+            //   isometric pitch, so the leader met the floor at home and missed
+            //   it by more the further the view was tilted.
+            // GUARD: one vertical scale per view. If it draws a height, it uses
+            //   plane.upPerMm.
+            return { x: pt.x, y: pt.y + ((el - datum.offsetMm) * plane.upPerMm) };
           };
           for (const line of lines) {
             const a = drop(line.start);

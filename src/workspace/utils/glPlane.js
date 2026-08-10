@@ -203,7 +203,10 @@ export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
     { point: at(0, -halfV), axis: "v" },
   ];
 
-  return { cx, cy, halfU, halfV, corners, edges, centre: { x: cx, y: cy }, nodes, pxPerMm, axes, wall };
+  // upPerMm is how far a millimetre of height moves on screen at this view.
+  // It is handed out because anything drawing a drop — a leader, a curtain —
+  // must use the same scale the plane itself was placed with.
+  return { cx, cy, halfU, halfV, corners, edges, centre: { x: cx, y: cy }, nodes, pxPerMm, upPerMm, axes, wall };
 }
 
 // Is a workspace point inside the rhombus?
