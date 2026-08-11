@@ -1442,8 +1442,34 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
           // right — lifting the centre by the foot's height IS the foot's plan
           // position. Measure before changing a snap; the numbers are not
           // guessable from the shape of the code.
-          const targets = other.edges.map((e) => lift(e.point, itsLevel));
-          const sources = [lift({ x: mine.cx, y: mine.cy }, myFoot)];
+          // FIXED v4.06 — "nag snap pero hindi same ng line", "dapat pwede
+          //   mag snap sa corner hindi lang side"
+          // CAUSE: one point was offered against four — the centre of the
+          //   wall's foot, against the midpoint of each floor edge. So the
+          //   wall could only ever be centred on a side. Its ENDS had nothing
+          //   to meet, which is why the foot came to rest parallel to an edge
+          //   but inboard of it, and why a corner could never be caught.
+          // The foot is offered as three points, its centre and its two ends,
+          //   against the floor's edge midpoints AND its corners. End-to-corner
+          //   is what lands the foot ON the line; centre-to-midpoint is the old
+          //   behaviour, kept.
+          // v3.78 warned that offering many pairs let the wall agree anywhere.
+          //   That came from offering the whole wall, top corners included.
+          //   Only the foot is offered here — the line that actually meets the
+          //   floor — so every pair on offer is a joint that can really exist.
+          const targets = [
+            ...other.edges.map((e) => lift(e.point, itsLevel)),
+            ...(other.corners ?? []).map((c) => lift(c, itsLevel)),
+          ];
+          const footPlan = lift({ x: mine.cx, y: mine.cy }, myFoot);
+          const alongAx = mine.axes?.u ?? g.u;
+          const sources = datums[me]?.kind === "wall"
+            ? [
+              footPlan,
+              { x: footPlan.x + (alongAx.x * mine.halfU), y: footPlan.y + (alongAx.y * mine.halfU) },
+              { x: footPlan.x - (alongAx.x * mine.halfU), y: footPlan.y - (alongAx.y * mine.halfU) },
+            ]
+            : [footPlan];
           for (const a of sources) {
             const mv = ab({ x: a.x + centre.x - mine.cx, y: a.y + centre.y - mine.cy });
             for (const b of targets) {
