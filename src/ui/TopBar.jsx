@@ -259,6 +259,11 @@ export default function TopBar() {
       <div className="top-bar">
         <span className="brand">
           ハイカンパニック!
+          {/* v4.09 The build, where it can be read without opening anything.
+              Which version is on screen decided whether a bug report was about
+              the code or about a tab that had not reloaded, and guessing that
+              cost days. */}
+          <span className="brand-build">{__BUILD__}</span>
         </span>
         <div className="top-actions">
           <button className="top-btn" onClick={undo} disabled={!canUndo} aria-label={t.undo}>

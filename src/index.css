@@ -216,6 +216,16 @@ html, body, #root {
   white-space: nowrap;
   min-width: 0;
 }
+/* v4.09 The build, small and quiet beside the name. It has to be readable at a
+   glance from a photo, because that is how a bug gets reported. */
+.brand-build {
+  font-size: 0.62rem;
+  font-weight: 500;
+  opacity: 0.45;
+  margin-left: 0.45em;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
 .controls button {
   width: 44px;                       /* v1.18+ real touch target */
   height: 44px;
