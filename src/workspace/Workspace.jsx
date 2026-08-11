@@ -1581,8 +1581,19 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
               //   this. Only a wall that has been pinned can be capped.
               // GUARD: a rule about levels must not be applied to a surface
               //   that has no level.
+              // FIXED v4.20 — "nasira din yung connection ng wall to wall"
+              // CAUSE: the capping rule was applied to every target, including
+              //   another wall. Two walls meet SIDE TO SIDE — one does not cap
+              //   the other — so asking which end of mine is under the other's
+              //   level threw out perfectly good joints. Third case broken by
+              //   a rule written for the first.
+              // Capping is a thing a FLOOR does. Against another wall, every
+              //   handle is offered as it was.
+              // GUARD: a rule made for one pairing does not belong on all of
+              //   them. Name the pairing it is for.
+              const capping = datums[i]?.kind !== "wall";
               const pinned = (datums[me]?.vAnchor ?? "free") !== "free";
-              if (a.where === "bottom" || a.where === "top") {
+              if (capping && (a.where === "bottom" || a.where === "top")) {
                 if (!pinned) {
                   if (a.where === "top") continue;         // free walls stand
                 } else {
