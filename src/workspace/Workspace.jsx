@@ -58,8 +58,31 @@ export default function Workspace() {
   const [magnifyMode, setMagnifyMode] = useState("auto");                  // [v1.11] "auto" | "follow" | "center"
   const [hideCrosshair, setHideCrosshair] = useState(false);               // [v1.05] hide crosshair for screenshot
 
-  const [zoom, setZoom] = useState(1);                                      // [v1.09] current zoom level
-  const [offset, setOffset] = useState({ x: 0, y: 0 });                      // [v1.09] pan offset
+  // FIXED v4.15 — "wala din persistent yung view... nag zozoom in or out dun
+  //   sa pinaka base at bumabalik sa center dot"
+  // CAUSE: zoom, pan and bearing were never kept. Every reload put the view
+  //   back to 1.0 at the origin, which drops the red dot in the middle of the
+  //   screen. That was survivable while a reload was a deliberate act; since
+  //   v4.08 the page reloads itself whenever a new build lands, so the view was
+  //   being thrown away underneath the work.
+  // GUARD: anything the user has arranged by hand survives a reload. The
+  //   drawing already did; where they were standing to look at it did not.
+  const stored = (key, fallback) => {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw == null) return fallback;
+      const value = JSON.parse(raw);
+      return value == null ? fallback : value;
+    } catch { return fallback; }
+  };
+  const [zoom, setZoom] = useState(() => {                                  // [v1.09] current zoom level
+    const v = stored("haikan-zoom", 1);
+    return (typeof v === "number" && Number.isFinite(v) && v > 0) ? v : 1;
+  });
+  const [offset, setOffset] = useState(() => {                              // [v1.09] pan offset
+    const o = stored("haikan-offset", null);
+    return (o && Number.isFinite(o.x) && Number.isFinite(o.y)) ? o : { x: 0, y: 0 };
+  });
   const [lensPos, setLensPos] = useState({ x: 0, y: 0 });                    // [v1.08] magnifier lens position
   const [lastSnap, setLastSnap] = useState(null);                           // [v1.02] current snap point
   const [startPoint, setStartPoint] = useState(
@@ -184,11 +207,16 @@ export default function Workspace() {
   // An odd angle tells the truth.
   const [view, setView] = useState(() => {
     const q = new URLSearchParams(window.location.search);
+    // v4.15 a URL asked for beats one remembered, which beats home
+    const saved = stored("haikan-view", null);
+    const base = (saved && Number.isFinite(saved.yawDeg) && Number.isFinite(saved.pitchDeg))
+      ? saved
+      : { yawDeg: ISO_YAW, pitchDeg: ISO_PITCH };
     const num = (key, fallback) => {
       const v = parseFloat(q.get(key));
       return Number.isFinite(v) ? v : fallback;
     };
-    return { yawDeg: num("yaw", ISO_YAW), pitchDeg: num("pitch", ISO_PITCH) };
+    return { yawDeg: num("yaw", base.yawDeg), pitchDeg: num("pitch", base.pitchDeg) };
   });                                                                        // v2.46 look from elsewhere
   const [orbitMode, setOrbitMode] = useState(false);                        // v2.48 drag to turn
   const orbitDrag = useRef(null);
@@ -334,6 +362,11 @@ export default function Workspace() {
   useEffect(() => {
     localStorage.setItem("haikan-show-gl", showGL ? "1" : "0");             // v3.03
   }, [showGL]);
+
+  // v4.15 where you were standing, kept the way the drawing is
+  useEffect(() => { localStorage.setItem("haikan-zoom", JSON.stringify(zoom)); }, [zoom]);
+  useEffect(() => { localStorage.setItem("haikan-offset", JSON.stringify(offset)); }, [offset]);
+  useEffect(() => { localStorage.setItem("haikan-view", JSON.stringify(view)); }, [view]);
 
   // v3.92 A datum set to follow the work sits on the lowest thing drawn. Draw
   // a run downward and the ground was left floating above it, which is not
