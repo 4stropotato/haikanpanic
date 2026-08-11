@@ -163,6 +163,8 @@ export default function Workspace() {
   // v4.24 Zoom says where it is, the way a move does. Pinching told you
   // nothing about how far in you were, so getting back to a known scale meant
   // fitting to the drawing and starting again.
+  // one straight 3 metre run across the screen is 100%
+  const ZOOM_REFERENCE_MM = 3000;
   const [zoomReadout, setZoomReadout] = useState(null);
   const zoomFade = useRef(null);
   const marqueeRef = useRef(null);
@@ -2280,17 +2282,19 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
         )}
         {zoomReadout != null && (
           <div className={"move-readout zoom-readout" + (zoomReadout.going ? " going" : "")}>
-            <strong>{Math.round(zoomReadout.zoom * 100)}%</strong>
-            {/* v4.25 How much pipe fits across the screen, measured along a
-                ground axis — one straight 30 degree run. A percentage says
-                nothing about the job; this says whether the run you are about
-                to draw will fit on the page. */}
-            <span> · ⟋ {(() => {
+            {/* v4.26 The scale is quoted against a 3 metre run, because that is
+                a length a fitter already has in his hand. Three metres filling
+                the screen is 100%; zoom out and more pipe fits, so the figure
+                climbs. Zoom in and it falls. A raw zoom factor said nothing
+                about the job. */}
+            {(() => {
               const ax = planeAxes(view).u;
               const perMm = (pointStep / mmPerPoint) * Math.hypot(ax.x, ax.y) * zoomReadout.zoom;
               const mm = perMm > 0 ? viewport.w / perMm : 0;
-              return mm >= 1000 ? `${(mm / 1000).toFixed(1)} m` : `${Math.round(mm)} mm`;
-            })()}</span>
+              const pct = Math.round((mm / ZOOM_REFERENCE_MM) * 100);
+              const span = mm >= 1000 ? `${(mm / 1000).toFixed(1)} m` : `${Math.round(mm)} mm`;
+              return (<><strong>{pct}%</strong><span>{span}</span></>);
+            })()}
           </div>
         )}
         {moveReadout?.plane && (
