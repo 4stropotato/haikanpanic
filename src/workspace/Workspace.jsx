@@ -1402,6 +1402,7 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
       // that has an exact answer.
       const me = drag.index ?? datumIndex;
       const mine = drag.mine0 ?? planeAt(me);
+      let vertical = null;                      // v4.13 level and position settle together
       if (mine) {
         const reach = 18 / zoom;
         let best = null;
@@ -1537,21 +1538,35 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
         // them a storey apart in the model — which is why they came unstuck
         // the moment the view was orbited. The wall's foot is set to the
         // floor's level, so the joint is real and survives the turn.
+        // FIXED v4.13 — "ayaw parin mag snap sa ibabaw sa ilalim lang"
+        // CAUSE: the new level was written first, and the position was then
+        //   measured with `datums[me]` — which is still the OLD state inside
+        //   the same handler. Where a surface sits is stored with its height
+        //   taken out, so measuring with the old height and rebuilding with
+        //   the new one moved the wall by the difference. Pinning the FOOT
+        //   usually changed nothing, so it looked fine; pinning the HEAD moves
+        //   the level by a whole storey, and the wall shot away — which reads
+        //   as the top simply refusing to snap.
+        // The level and the position are one change and are worked out
+        //   together, from the same state.
+        // GUARD: never measure a position from state you are about to replace
+        //   in the same breath. React has not updated it yet.
         if (best && datums[me]?.kind === "wall" && !best.targetIsWall
             && best.myEnd !== "middle") {
           // the end that met is the end that is pinned — foot to stand on it,
           // head to hang from it
-          patchDatum(me, {
+          vertical = {
             vAnchor: best.myEnd === "top" ? "top" : "bottom",
             vMm: best.meetsAt,
-          });
+          };
         }
       }
       // stored along the axes so it turns with the drawing
       const abPlane = planeAt(me);
-      const ab = groundCoordsOf(centre, planeAxes(view), datumHeightMm(datums[me] ?? {}),
+      const settled = { ...(datums[me] ?? {}), ...(vertical ?? {}) };
+      const ab = groundCoordsOf(centre, planeAxes(view), datumHeightMm(settled),
         upPerMmOf(view, abPlane?.pxPerMm ?? 0));
-      patchDatum(me, { center: null, centerAB: { a: ab.a, b: ab.b } });
+      patchDatum(me, { center: null, centerAB: { a: ab.a, b: ab.b }, ...(vertical ?? {}) });
       const plane = planeAt(drag.index ?? datumIndex);
       // v2.70 A floor is set out from a datum like anything else on site, so
       // moving it quotes where its centre now stands.
