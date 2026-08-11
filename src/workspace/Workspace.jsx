@@ -1538,6 +1538,29 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
                 (a.raw.x + centre.x - mine.cx) - b.raw.x,
                 (a.raw.y + centre.y - mine.cy) - b.raw.y,
               );
+              // FIXED v4.17 — "hindi talaga nag ssnap yung top part ng wall sa
+              //   ground", after four attempts that all missed this.
+              // CAUSE: every one of those tried to make the top WIN when it was
+              //   brought near the floor. It never can be. Dragging a plane in
+              //   an isometric moves it along the GROUND — a wall's height does
+              //   not change under the finger at all — so the state where the
+              //   top is the nearer end simply cannot be reached by dragging.
+              //   Proximity could never decide this, and four fixes tuned a
+              //   race that was already lost.
+              // So the LEVELS decide, not the distance: whichever end of the
+              //   wall is nearer the level being met is the end that meets it.
+              //   A wall above a slab stands on it; a wall below it hangs from
+              //   it. Both are reachable, because both are just a matter of
+              //   where the wall already sits.
+              // GUARD: before tuning which candidate wins, check the losing one
+              //   can be reached at all.
+              const myExt = planeVerticalExtent(datums[me] ?? {});
+              if (a.where === "bottom" || a.where === "top") {
+                const toTop = Math.abs(myExt.topMm - b.mm);
+                const toFoot = Math.abs(myExt.bottomMm - b.mm);
+                if (a.where === "bottom" && toFoot > toTop) continue;
+                if (a.where === "top" && toTop > toFoot) continue;
+              }
               if (d < reach && (!best || ds < best.ds)) {
                 const fix = {
                   x: (g.u.x * (bv.a - mv.a)) + (g.v.x * (bv.b - mv.b)),
