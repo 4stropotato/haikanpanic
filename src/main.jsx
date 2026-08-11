@@ -3,6 +3,7 @@ import { trackKeyboardInset } from "./workspace/utils/keyboardInset";
 import { createRoot } from "react-dom/client";              // v1.10+ createRoot API from React 18+
 import App from "./App";                                    // v1.10+ entry point app component
 import "./index.css";                                       // v1.10+ global stylesheet import
+import { watchForNewBuild } from "./buildWatch";              // v4.07 no more stale tabs
 
 createRoot(document.getElementById("root")).render(         // v1.10+ mount app at root div
   <StrictMode>
@@ -29,3 +30,5 @@ function showError(message) {
 }
 window.addEventListener("error", (event) => showError(event.message + "\n" + (event.error?.stack ?? "")));
 window.addEventListener("unhandledrejection", (event) => showError(`promise: ${event.reason}`));
+
+watchForNewBuild();
