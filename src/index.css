@@ -1063,5 +1063,10 @@ html, body, #root { max-width: 100vw; overflow-x: hidden; }
 /* v4.14 what the snap caught, said plainly while dragging */
 .move-snap { opacity: 0.75; }
 
-/* v4.24 the zoom readout sits above the move one so both can show */
-.zoom-readout { top: calc(64px + env(safe-area-inset-top, 0px)); }
+/* v4.25 Clear of the view tools and the Workshop button, which sit across the
+   top — the readout was landing on them. It fades rather than blinking away. */
+.zoom-readout {
+  top: calc(176px + env(safe-area-inset-top, 0px));
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+.zoom-readout.going { opacity: 0; transform: translateX(-50%) translateY(-4px); }
