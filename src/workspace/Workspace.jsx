@@ -1586,8 +1586,23 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
         //   in the same breath. React has not updated it yet.
         if (best && datums[me]?.kind === "wall" && !best.targetIsWall
             && best.myEnd !== "middle") {
-          // the end that met is the end that is pinned — foot to stand on it,
-          // head to hang from it
+          // FIXED v4.16 — "hindi talaga nag ssnap yung top part ng wall sa
+          //   ground"
+          // CAUSE: the snap only ever corrected the PLAN. Standing a wall on a
+          //   floor worked because v3.69 also wrote the foot's level, and the
+          //   two happened to agree. Hanging one from a floor wrote the head's
+          //   level the same way — but v4.13 then made the stored position
+          //   agree with that new level, so the wall stayed exactly where the
+          //   finger left it and the level did nothing at all. Each fix here
+          //   made the next one invisible.
+          // A joint has to MOVE the wall. The end that met is brought onto the
+          //   level it met, and the level is written to match.
+          // GUARD: writing a level is not the same as moving to it. Check that
+          //   the end actually lands there, not that the number was set.
+          const ext = planeVerticalExtent(datums[me] ?? {});
+          const endNowAt = best.myEnd === "top" ? ext.topMm : ext.bottomMm;
+          const upMm = upPerMmOf(view, mine.pxPerMm ?? 0);
+          centre.y -= (best.meetsAt - endNowAt) * upMm;
           vertical = {
             vAnchor: best.myEnd === "top" ? "top" : "bottom",
             vMm: best.meetsAt,
