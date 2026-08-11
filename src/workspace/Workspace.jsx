@@ -36,7 +36,7 @@ import { viewport, observeViewport } from "./utils/viewport";               // v
 import {
   glPlaneGeometry, sizeFromHandle, insidePlane,
   viewRect, clampHandle, planeAxes, isoCoords, planeVerticalExtent,                                                    // v2.62 reachable grips
-  groundCoordsOf, upPerMmOf,                                              // v4.00 height in, height out
+  groundCoordsOf, upPerMmOf, datumHeightMm,                               // v4.00 height in, height out
 } from "./utils/glPlane";                                                   // v2.09 datum plane
 import { pipeSpec, material } from "./data/jis";                                      // v2.82 the floor rule
 import GlSheet from "../ui/GlSheet";
@@ -398,7 +398,7 @@ export default function Workspace() {
         //   first time a datum is fitted, so nearly every surface carried it.
         // GUARD: nothing about a surface is ever stored in screen coordinates.
         centerAB: groundCoordsOf({ x: plane.cx, y: plane.cy }, planeAxes(view),
-          d.offsetMm ?? 0, upPerMmOf(view, plane.pxPerMm), plane.wall),
+          datumHeightMm(d), upPerMmOf(view, plane.pxPerMm)),
         fitted: true,
       }
       : d)));
@@ -1261,8 +1261,7 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
       const movedPlane = planeAt(i);
       patchDatum(i, {
         centerAB: groundCoordsOf({ x: base.x + dx, y: base.y + dy }, planeAxes(view),
-          datums[i]?.offsetMm ?? 0, upPerMmOf(view, movedPlane?.pxPerMm ?? 0),
-          movedPlane?.wall ?? false),
+          datumHeightMm(datums[i] ?? {}), upPerMmOf(view, movedPlane?.pxPerMm ?? 0)),
       });
     }
     setLines(lines.map((line, i) => {
@@ -1379,8 +1378,8 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
       };
       const movedIdx = drag.index ?? datumIndex;
       const movedPlane = planeAt(movedIdx);
-      const ab = groundCoordsOf(moved, planeAxes(view), datums[movedIdx]?.offsetMm ?? 0,
-        upPerMmOf(view, movedPlane?.pxPerMm ?? 0), movedPlane?.wall ?? false);
+      const ab = groundCoordsOf(moved, planeAxes(view), datumHeightMm(datums[movedIdx] ?? {}),
+        upPerMmOf(view, movedPlane?.pxPerMm ?? 0));
       patchDatum(drag.index ?? datumIndex, {
         ...patch, center: null, centerAB: { a: ab.a, b: ab.b },
       });
@@ -1535,8 +1534,8 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
       }
       // stored along the axes so it turns with the drawing
       const abPlane = planeAt(me);
-      const ab = groundCoordsOf(centre, planeAxes(view), datums[me]?.offsetMm ?? 0,
-        upPerMmOf(view, abPlane?.pxPerMm ?? 0), abPlane?.wall ?? false);
+      const ab = groundCoordsOf(centre, planeAxes(view), datumHeightMm(datums[me] ?? {}),
+        upPerMmOf(view, abPlane?.pxPerMm ?? 0));
       patchDatum(me, { center: null, centerAB: { a: ab.a, b: ab.b } });
       const plane = planeAt(drag.index ?? datumIndex);
       // v2.70 A floor is set out from a datum like anything else on site, so

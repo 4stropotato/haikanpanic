@@ -66,9 +66,24 @@ export function isoCoords(point, cx, cy, axes = { u: ISO_U, v: ISO_V }) {
 // GUARD: only a floor's offsetMm is a height. A wall's is a distance along the
 //   ground and must never be lifted this way. Store and rebuild must always
 //   use the same rule — one side alone is worse than neither.
-export function groundCoordsOf(point, axes, offsetMm = 0, upPerMm = 0, wall = false) {
-  const lift = wall ? 0 : offsetMm * upPerMm;
-  return isoCoords({ x: point.x, y: point.y + lift }, 0, 0, axes);
+// FIXED v4.11 — "pag nag orbit iba yung lugar nya sobrang layo"
+// CAUSE: v4.00 took a surface's height out before storing where it sits, so
+//   the height could not be absorbed into the two horizontal axes and reappear
+//   as sideways drift. Walls were EXCLUDED from that, on the grounds that a
+//   wall's offsetMm is a distance along the ground rather than a height. True,
+//   but beside the point: a wall still STANDS at a height, and that height was
+//   absorbed exactly the same way. Floors were fixed and walls were left with
+//   the original bug.
+// A wall's height is the middle of where it stands; a floor's is its offset.
+// GUARD: every surface has a height, whatever its offsetMm happens to mean.
+export function datumHeightMm(datum = {}) {
+  if (datum.kind !== "wall") return datum.offsetMm ?? 0;
+  const { bottomMm, topMm } = planeVerticalExtent(datum);
+  return (bottomMm + topMm) / 2;
+}
+
+export function groundCoordsOf(point, axes, heightMm = 0, upPerMm = 0) {
+  return isoCoords({ x: point.x, y: point.y + (heightMm * upPerMm) }, 0, 0, axes);
 }
 
 // How far a millimetre of height moves on screen at this view. Exported so the
@@ -180,8 +195,9 @@ export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
   if (centerAB) {
     // v4.00 the pair places it on the ground; its own height puts it at level
     cx = (ground.u.x * centerAB.a) + (ground.v.x * centerAB.b);
+    // v4.11 a wall stands at a height too — see datumHeightMm
     cy = (ground.u.y * centerAB.a) + (ground.v.y * centerAB.b)
-      - (wall ? 0 : offsetMm * upPerMm);
+      - (datumHeightMm(plane) * upPerMm);
   }
   // FIXED v4.01 — the last way a surface could sit still while everything else
   //   turned. Before positions were kept along the ground axes, a moved plane
@@ -218,7 +234,19 @@ export function glPlaneGeometry(lines, mmPerPoint, plane = {}) {
   // the way a real one stands on a slab or hangs from a beam. Left free it
   // floats with the drawing, which is fine while sketching and useless once
   // the levels matter.
-  if (wall && vAnchor !== "free") {
+  // FIXED v4.11 — "wall to wall ang layo", "pag nag orbit iba yung lugar nya
+  //   sobrang layo"
+  // CAUSE: this lifts an anchored wall onto its level. It ran AFTER the centre
+  //   was restored from the stored position — but that stored position was
+  //   measured from the finished centre, with the lift already in it. So the
+  //   lift went on a second time, every redraw, and the wall walked away from
+  //   where it had been put. It was worst where the lift is biggest, which is
+  //   flat on and in orbit.
+  // It belongs only to a centre worked out from the drawing. A centre that was
+  //   remembered already carries it.
+  // GUARD: an adjustment applied before a position is stored must not be
+  //   applied again when that position is read back.
+  if (wall && vAnchor !== "free" && !centerAB) {
     // v3.84 The anchor turns over with the wall. Its axis flipped past the
     // horizon but this offset did not, so the two cancelled and the wall
     // stood upright in an upside-down model.
