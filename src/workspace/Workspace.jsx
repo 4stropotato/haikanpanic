@@ -1435,23 +1435,15 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
           const itsLevel = datums[i]?.kind === "wall"
             ? planeVerticalExtent(datums[i]).bottomMm
             : (datums[i]?.offsetMm ?? 0);
-          // FIXED v4.04 — "hindi ang ssnap yung connections ng wall sa floor o
-          //   ground"
-          // CAUSE: the height taken out was the FOOT's, but the point it was
-          //   taken out of was the wall's CENTRE. The two are half a wall
-          //   apart, so every comparison was out by half a storey — far more
-          //   than the 18px it has to come within, and the joint never took.
-          // A wall's plan position is read at its foot, because that is the
-          //   line that meets the floor.
-          // GUARD: take a point's OWN height out of that point. The v axis
-          //   flips past the horizon, so the foot is whichever v edge is lower
-          //   on screen rather than a fixed sign.
-          const vEdges = (mine.edges ?? []).filter((e) => e.axis === "v").map((e) => e.point);
-          const myPoint = (datums[me]?.kind === "wall" && vEdges.length)
-            ? vEdges.reduce((low, p) => (p.y > low.y ? p : low))
-            : { x: mine.cx, y: mine.cy };
+          // v4.04 REVERTED — matching the wall at its foot POINT and then
+          // also taking the foot's height out of it lands exactly back on the
+          // centre, which is further from the floor's edge, not nearer:
+          // centre+foot-height 3101, foot+foot-height 4301. The original was
+          // right — lifting the centre by the foot's height IS the foot's plan
+          // position. Measure before changing a snap; the numbers are not
+          // guessable from the shape of the code.
           const targets = other.edges.map((e) => lift(e.point, itsLevel));
-          const sources = [lift(myPoint, myFoot)];
+          const sources = [lift({ x: mine.cx, y: mine.cy }, myFoot)];
           for (const a of sources) {
             const mv = ab({ x: a.x + centre.x - mine.cx, y: a.y + centre.y - mine.cy });
             for (const b of targets) {
