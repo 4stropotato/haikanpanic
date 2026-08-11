@@ -1468,7 +1468,7 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
             const uPts = (plane.edges ?? []).filter((e) => e.axis === "u").map((e) => e.point);
             if (!isWall) {
               return [...corners, ...vPts, ...uPts, { x: plane.cx, y: plane.cy }]
-                .map((pt) => lift(pt, flat));
+                .map((pt) => ({ p: lift(pt, flat), mm: flat, where: "flat" }));
             }
             const mid = (ext.bottomMm + ext.topMm) / 2;
             const byY = [...corners].sort((p, q) => p.y - q.y);
@@ -1476,20 +1476,20 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
             const foot = byY.slice(2);
             const vSorted = [...vPts].sort((p, q) => p.y - q.y);
             return [
-              ...foot.map((pt) => lift(pt, ext.bottomMm)),
-              ...head.map((pt) => lift(pt, ext.topMm)),
-              ...(vSorted[1] ? [lift(vSorted[1], ext.bottomMm)] : []),
-              ...(vSorted[0] ? [lift(vSorted[0], ext.topMm)] : []),
-              ...uPts.map((pt) => lift(pt, mid)),
-              lift({ x: plane.cx, y: plane.cy }, mid),
+              ...foot.map((pt) => ({ p: lift(pt, ext.bottomMm), mm: ext.bottomMm, where: "bottom" })),
+              ...head.map((pt) => ({ p: lift(pt, ext.topMm), mm: ext.topMm, where: "top" })),
+              ...(vSorted[1] ? [{ p: lift(vSorted[1], ext.bottomMm), mm: ext.bottomMm, where: "bottom" }] : []),
+              ...(vSorted[0] ? [{ p: lift(vSorted[0], ext.topMm), mm: ext.topMm, where: "top" }] : []),
+              ...uPts.map((pt) => ({ p: lift(pt, mid), mm: mid, where: "middle" })),
+              { p: lift({ x: plane.cx, y: plane.cy }, mid), mm: mid, where: "middle" },
             ];
           };
           const targets = handlesOf(other, datums[i]);
           const sources = handlesOf(mine, datums[me]);
           for (const a of sources) {
-            const mv = ab({ x: a.x + centre.x - mine.cx, y: a.y + centre.y - mine.cy });
+            const mv = ab({ x: a.p.x + centre.x - mine.cx, y: a.p.y + centre.y - mine.cy });
             for (const b of targets) {
-              const bv = ab(b);
+              const bv = ab(b.p);
               const d = Math.hypot(mv.a - bv.a, mv.b - bv.b);
               if (d < reach && (!best || d < best.d)) {
                 const fix = {
@@ -1500,7 +1500,18 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
                   d,
                   dx: fix.x,
                   dy: fix.y,
-                  level: datums[i].kind === "wall" ? null : (datums[i].offsetMm ?? 0),
+                  // FIXED v4.10 — "wala din snapint point ang taas ng wall to
+                  //   the ground or floor", "hindi pa accurate ang snapping
+                  //   point sa mismong point ng ground at wall"
+                  // CAUSE: whichever handle met, the wall was always pinned by
+                  //   its FOOT to the target's level. Catch a floor with the
+                  //   TOP of a wall and it jumped a whole storey to stand on
+                  //   it instead of hanging from it.
+                  // The end that met is the end that is pinned.
+                  // GUARD: never assume which end of a wall made the joint.
+                  meetsAt: b.mm,
+                  myEnd: a.where,
+                  targetIsWall: datums[i]?.kind === "wall",
                 };
               }
             }
@@ -1512,8 +1523,14 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
         // them a storey apart in the model — which is why they came unstuck
         // the moment the view was orbited. The wall's foot is set to the
         // floor's level, so the joint is real and survives the turn.
-        if (best && datums[me]?.kind === "wall" && best.level != null) {
-          patchDatum(me, { vAnchor: "bottom", vMm: best.level });
+        if (best && datums[me]?.kind === "wall" && !best.targetIsWall
+            && best.myEnd !== "middle") {
+          // the end that met is the end that is pinned — foot to stand on it,
+          // head to hang from it
+          patchDatum(me, {
+            vAnchor: best.myEnd === "top" ? "top" : "bottom",
+            vMm: best.meetsAt,
+          });
         }
       }
       // stored along the axes so it turns with the drawing
