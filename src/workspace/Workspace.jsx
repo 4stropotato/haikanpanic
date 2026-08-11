@@ -1568,10 +1568,28 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
               // GUARD: when a fix fails five times, the description is the
               //   thing to check, not the code.
               const myExt = planeVerticalExtent(datums[me] ?? {});
+              // FIXED v4.19 — "ayaw talaga eh pati sa floor"
+              // CAUSE: v4.18's rule asks whether a slab sits above the wall's
+              //   FOOT. A wall that has never been pinned is `vAnchor: "free"`
+              //   and has no real level at all — planeVerticalExtent then
+              //   reports its foot as minus half its height, purely relative.
+              //   So a ground at 0 looked like it was above the foot of every
+              //   fresh wall, the foot was ruled out, and standing a new wall
+              //   on the floor stopped working. I broke the case that worked.
+              // A free wall has no level to compare, so it simply stands: the
+              //   foot makes the joint, which is what it did before any of
+              //   this. Only a wall that has been pinned can be capped.
+              // GUARD: a rule about levels must not be applied to a surface
+              //   that has no level.
+              const pinned = (datums[me]?.vAnchor ?? "free") !== "free";
               if (a.where === "bottom" || a.where === "top") {
-                const capsTheWall = b.mm > myExt.bottomMm + 1;
-                if (a.where === "bottom" && capsTheWall) continue;
-                if (a.where === "top" && !capsTheWall) continue;
+                if (!pinned) {
+                  if (a.where === "top") continue;         // free walls stand
+                } else {
+                  const capsTheWall = b.mm > myExt.bottomMm + 1;
+                  if (a.where === "bottom" && capsTheWall) continue;
+                  if (a.where === "top" && !capsTheWall) continue;
+                }
               }
               if (d < reach && (!best || ds < best.ds)) {
                 const fix = {
