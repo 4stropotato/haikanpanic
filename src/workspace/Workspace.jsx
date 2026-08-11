@@ -1438,6 +1438,12 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
       let vertical = null;                      // v4.13 level and position settle together
       let best = null;                          // v4.14 so the readout can say what was caught
       if (mine) {
+        // v4.23 The correction below works in PLAN, and the level is set
+        // separately by the blocks after the loop. v4.22 tried to replace both
+        // with a single screen move: it landed the handle exactly on the point
+        // when measured, but it removed the compensation the level bookkeeping
+        // relies on and made real use worse. Reverted. If this is attempted
+        // again, the two must be reworked together, not one and then the other.
         const reach = 18 / zoom;
         (drag.targets0 ?? []).forEach((other, i) => {
           if (!other) return;
