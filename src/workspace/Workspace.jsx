@@ -1467,7 +1467,7 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
             const uPts = (plane.edges ?? []).filter((e) => e.axis === "u").map((e) => e.point);
             if (!isWall) {
               return [...corners, ...vPts, ...uPts, { x: plane.cx, y: plane.cy }]
-                .map((pt) => ({ p: lift(pt, flat), mm: flat, where: "flat" }));
+                .map((pt) => ({ p: lift(pt, flat), raw: pt, mm: flat, where: "flat" }));
             }
             const mid = (ext.bottomMm + ext.topMm) / 2;
             const byY = [...corners].sort((p, q) => p.y - q.y);
@@ -1475,12 +1475,12 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
             const foot = byY.slice(2);
             const vSorted = [...vPts].sort((p, q) => p.y - q.y);
             return [
-              ...foot.map((pt) => ({ p: lift(pt, ext.bottomMm), mm: ext.bottomMm, where: "bottom" })),
-              ...head.map((pt) => ({ p: lift(pt, ext.topMm), mm: ext.topMm, where: "top" })),
-              ...(vSorted[1] ? [{ p: lift(vSorted[1], ext.bottomMm), mm: ext.bottomMm, where: "bottom" }] : []),
-              ...(vSorted[0] ? [{ p: lift(vSorted[0], ext.topMm), mm: ext.topMm, where: "top" }] : []),
-              ...uPts.map((pt) => ({ p: lift(pt, mid), mm: mid, where: "middle" })),
-              { p: lift({ x: plane.cx, y: plane.cy }, mid), mm: mid, where: "middle" },
+              ...foot.map((pt) => ({ p: lift(pt, ext.bottomMm), raw: pt, mm: ext.bottomMm, where: "bottom" })),
+              ...head.map((pt) => ({ p: lift(pt, ext.topMm), raw: pt, mm: ext.topMm, where: "top" })),
+              ...(vSorted[1] ? [{ p: lift(vSorted[1], ext.bottomMm), raw: vSorted[1], mm: ext.bottomMm, where: "bottom" }] : []),
+              ...(vSorted[0] ? [{ p: lift(vSorted[0], ext.topMm), raw: vSorted[0], mm: ext.topMm, where: "top" }] : []),
+              ...uPts.map((pt) => ({ p: lift(pt, mid), raw: pt, mm: mid, where: "middle" })),
+              { p: lift({ x: plane.cx, y: plane.cy }, mid), raw: { x: plane.cx, y: plane.cy }, mm: mid, where: "middle" },
             ];
           };
           const targets = handlesOf(other, datums[i]);
@@ -1490,13 +1490,28 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
             for (const b of targets) {
               const bv = ab(b.p);
               const d = Math.hypot(mv.a - bv.a, mv.b - bv.b);
-              if (d < reach && (!best || d < best.d)) {
+              // FIXED v4.12 — "yung top ng wall to ground hindi nag ssnap"
+              // CAUSE: with the height taken out, the top and the foot of a
+              //   vertical wall land on the SAME plan point. Every candidate
+              //   therefore tied, and the winner was whichever came first in
+              //   the list — the foot, always. The top could never be chosen,
+              //   however carefully it was aimed.
+              // Plan distance says whether a joint is possible; it cannot say
+              //   which one was meant. What was meant is whichever handle the
+              //   finger actually brought near the target ON SCREEN.
+              // GUARD: rank by where the handles are on screen, gate by plan.
+              const ds = Math.hypot(
+                (a.raw.x + centre.x - mine.cx) - b.raw.x,
+                (a.raw.y + centre.y - mine.cy) - b.raw.y,
+              );
+              if (d < reach && (!best || ds < best.ds)) {
                 const fix = {
                   x: (g.u.x * (bv.a - mv.a)) + (g.v.x * (bv.b - mv.b)),
                   y: (g.u.y * (bv.a - mv.a)) + (g.v.y * (bv.b - mv.b)),
                 };
                 best = {
                   d,
+                  ds,
                   dx: fix.x,
                   dy: fix.y,
                   // FIXED v4.10 — "wala din snapint point ang taas ng wall to
