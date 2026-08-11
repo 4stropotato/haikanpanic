@@ -1554,12 +1554,24 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
               //   where the wall already sits.
               // GUARD: before tuning which candidate wins, check the losing one
               //   can be reached at all.
+              // FIXED v4.18 — "ayaw talaga mag snap ng ibabaw na part ng wall
+              //   sa xy plane na ground o floor", asked five times.
+              // What was wanted, once drawn out: the floor is the LID. The wall
+              //   drops until its head meets the underside of the slab, and the
+              //   floor does not move. I had been building "bring the top near
+              //   and let it win", which is unreachable — dragging a plane in
+              //   an isometric moves it along the ground, never up or down, so
+              //   the top can never become the nearer end.
+              // The rule is about which is on top, not which is closer: a slab
+              //   ABOVE the wall's foot caps it, so the head makes the joint.
+              //   At or below the foot, the wall stands on it.
+              // GUARD: when a fix fails five times, the description is the
+              //   thing to check, not the code.
               const myExt = planeVerticalExtent(datums[me] ?? {});
               if (a.where === "bottom" || a.where === "top") {
-                const toTop = Math.abs(myExt.topMm - b.mm);
-                const toFoot = Math.abs(myExt.bottomMm - b.mm);
-                if (a.where === "bottom" && toFoot > toTop) continue;
-                if (a.where === "top" && toTop > toFoot) continue;
+                const capsTheWall = b.mm > myExt.bottomMm + 1;
+                if (a.where === "bottom" && capsTheWall) continue;
+                if (a.where === "top" && !capsTheWall) continue;
               }
               if (d < reach && (!best || ds < best.ds)) {
                 const fix = {
