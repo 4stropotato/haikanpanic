@@ -1062,3 +1062,6 @@ html, body, #root { max-width: 100vw; overflow-x: hidden; }
 
 /* v4.14 what the snap caught, said plainly while dragging */
 .move-snap { opacity: 0.75; }
+
+/* v4.24 the zoom readout sits above the move one so both can show */
+.zoom-readout { top: calc(64px + env(safe-area-inset-top, 0px)); }

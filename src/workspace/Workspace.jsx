@@ -160,6 +160,11 @@ export default function Workspace() {
   const [selection, setSelection] = useState([]);                           // v2.29 selected line indices
   const [marquee, setMarquee] = useState(null);                             // v2.29 rubber band box
   const [moveReadout, setMoveReadout] = useState(null);                     // v2.32 X / Y / EL while dragging
+  // v4.24 Zoom says where it is, the way a move does. Pinching told you
+  // nothing about how far in you were, so getting back to a known scale meant
+  // fitting to the drawing and starting again.
+  const [zoomReadout, setZoomReadout] = useState(null);
+  const zoomFade = useRef(null);
   const marqueeRef = useRef(null);
   const [past, setPast] = useState([]);                                     // v2.17 undo stack
   const [future, setFuture] = useState([]);                                 // v2.17 redo stack
@@ -753,6 +758,12 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
     return true;
   };
 
+  const showZoom = (z) => {
+    setZoomReadout(z);
+    if (zoomFade.current) clearTimeout(zoomFade.current);
+    zoomFade.current = setTimeout(() => setZoomReadout(null), 1100);
+  };
+
   const zoomMove = (clientX, clientY) => {
     const drag = zoomDrag.current;
     if (!drag) return false;
@@ -761,6 +772,7 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
     const cx = viewport.w / 2;
     const cy = viewport.h / 2;
     setZoom(next);
+    showZoom(next);
     setOffset({
       x: ((drag.anchorX - cx) * (1 - applied)) + (drag.offset.x * applied),
       y: ((drag.anchorY - cy) * (1 - applied)) + (drag.offset.y * applied),
@@ -1786,6 +1798,7 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
       };
       viewRef.current = { zoom: newZoom, offset: newOffset };
       setZoom(newZoom);
+      showZoom(newZoom);
       setOffset(newOffset);
     }
   };
@@ -2258,6 +2271,14 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
           <div className="move-readout">
             <strong>∠{moveReadout.turn}°</strong>
             <span> · {moveReadout.cut}mm</span>
+          </div>
+        )}
+        {zoomReadout != null && (
+          <div className="move-readout zoom-readout">
+            <strong>{Math.round(zoomReadout * 100)}%</strong>
+            {/* what a millimetre of the job measures on the glass, which is
+                the number that tells you whether a detail will be readable */}
+            <span> · 1000mm = {Math.round((1000 / mmPerPoint) * pointStep * zoomReadout)}px</span>
           </div>
         )}
         {moveReadout?.plane && (
