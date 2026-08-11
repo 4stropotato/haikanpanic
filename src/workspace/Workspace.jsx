@@ -1403,9 +1403,9 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
       const me = drag.index ?? datumIndex;
       const mine = drag.mine0 ?? planeAt(me);
       let vertical = null;                      // v4.13 level and position settle together
+      let best = null;                          // v4.14 so the readout can say what was caught
       if (mine) {
         const reach = 18 / zoom;
-        let best = null;
         (drag.targets0 ?? []).forEach((other, i) => {
           if (!other) return;
           // v3.65 Snap where the surfaces really meet, not where they look
@@ -1576,6 +1576,10 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
         plane: datums[drag.index ?? datumIndex]?.name ?? "GL",
         cx: Math.round(((centre.x / (2 * isoUx)) - centre.y) * mmScale),
         cy: Math.round(((-centre.x / (2 * isoUx)) - centre.y) * mmScale),
+        snap: best
+          ? `${best.myEnd === "top" ? "top" : best.myEnd === "bottom" ? "foot" : "middle"}`
+            + ` → ${best.targetIsWall ? "wall" : "floor"} (${Math.round(best.d)})`
+          : null,
       });
     }
     return true;
@@ -2133,6 +2137,12 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
               </>
             ) : (
               <span> X {moveReadout.cx} · Y {moveReadout.cy}</span>
+            )}
+            {/* v4.14 What the snap actually caught, while it is being dragged.
+                Which end of a wall took the joint was guessed at three times
+                from the shape of the code; the drag can simply say. */}
+            {moveReadout.snap && (
+              <span className="move-snap"> · {moveReadout.snap}</span>
             )}
           </div>
         )}

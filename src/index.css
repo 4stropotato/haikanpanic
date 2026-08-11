@@ -1059,3 +1059,6 @@ html, body, #root { max-width: 100vw; overflow-x: hidden; }
 .view-btn.on { color: var(--accent); border-color: var(--accent); }
 .view-btn:active { transform: scale(0.94); }
 .view-tag { font-size: 0.64rem; font-weight: 800; letter-spacing: 0.06em; }
+
+/* v4.14 what the snap caught, said plainly while dragging */
+.move-snap { opacity: 0.75; }
