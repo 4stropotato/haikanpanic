@@ -1603,24 +1603,9 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
                 }
               }
               if (d < reach && (!best || ds < best.ds)) {
-                // FIXED v4.22 — "nag aalign na ang floor pero hindi tugma
-                //   talaga sa points", "yung ceiling naman hindi same line
-                //   pero nag ssnap somewhere"
-                // CAUSE: the correction was worked out in PLAN and then a
-                //   second, vertical correction was added for the level. But
-                //   moving a thing up or down the screen changes its ground
-                //   decomposition too, so the second correction quietly undid
-                //   part of the first. Two corrections, each right on its own,
-                //   landing somewhere that was neither.
-                // The two handles are the same point in space, so the move is
-                //   simply the one that puts them on top of each other on
-                //   screen. One correction, exact, no second guess.
-                // GUARD: two corrections along axes that are not independent
-                //   do not add up. Prefer one that lands the thing where it
-                //   goes.
                 const fix = {
-                  x: b.raw.x - (a.raw.x + centre.x - mine.cx),
-                  y: b.raw.y - (a.raw.y + centre.y - mine.cy),
+                  x: (g.u.x * (bv.a - mv.a)) + (g.v.x * (bv.b - mv.b)),
+                  y: (g.u.y * (bv.a - mv.a)) + (g.v.y * (bv.b - mv.b)),
                 };
                 best = {
                   d,
@@ -1678,8 +1663,10 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
           //   level it met, and the level is written to match.
           // GUARD: writing a level is not the same as moving to it. Check that
           //   the end actually lands there, not that the number was set.
-          // v4.22 the move above already put the end on the level; this only
-          // records where it now stands, so a redraw keeps it there
+          const ext = planeVerticalExtent(datums[me] ?? {});
+          const endNowAt = best.myEnd === "top" ? ext.topMm : ext.bottomMm;
+          const upMm = upPerMmOf(view, mine.pxPerMm ?? 0);
+          centre.y -= (best.meetsAt - endNowAt) * upMm;
           vertical = {
             vAnchor: best.myEnd === "top" ? "top" : "bottom",
             vMm: best.meetsAt,
@@ -1698,6 +1685,8 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
         // GUARD: build both directions of a joint, or the one you left out is
         //   the one that gets reported.
         if (best && datums[me]?.kind !== "wall" && best.targetIsWall) {
+          const upMm = upPerMmOf(view, mine.pxPerMm ?? 0);
+          centre.y -= (best.meetsAt - (datums[me]?.offsetMm ?? 0)) * upMm;
           vertical = { offsetMm: Math.round(best.meetsAt), autoLow: false };
         }
       }
