@@ -1672,6 +1672,23 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
             vMm: best.meetsAt,
           };
         }
+        // FIXED v4.21 — "ang point ko sana yung floor o ground din pwede mag
+        //   align sa top ng wall", "hindi talaga exact tugma hindi same line"
+        // CAUSE: only the WALL was ever moved onto a level. Bring a floor or a
+        //   ceiling to a wall's head and it lined up in plan and stopped there,
+        //   still at whatever level it had — near, but never on the line.
+        // A joint is not one-sided. Whichever of the two is being dragged is
+        //   the one that moves, so a slab brought to a wall's end takes that
+        //   end's level.
+        // An explicit alignment also beats "follow the lowest run": having been
+        //   put on a wall by hand, the slab stays there.
+        // GUARD: build both directions of a joint, or the one you left out is
+        //   the one that gets reported.
+        if (best && datums[me]?.kind !== "wall" && best.targetIsWall) {
+          const upMm = upPerMmOf(view, mine.pxPerMm ?? 0);
+          centre.y -= (best.meetsAt - (datums[me]?.offsetMm ?? 0)) * upMm;
+          vertical = { offsetMm: Math.round(best.meetsAt), autoLow: false };
+        }
       }
       // stored along the axes so it turns with the drawing
       const abPlane = planeAt(me);
