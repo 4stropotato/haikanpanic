@@ -568,16 +568,25 @@ const ZOOM_MAX = 6;
   // the three metre reference. Closer than that there is no drawing left to
   // read, only a line, and the limit is set in pipe rather than in an
   // arbitrary factor so it means the same at any scale or bearing.
+  // v4.38 Both ends of the range are said in pipe, not in factors: from 300mm
+  // across the screen to 300 metres. A whole site at one end, a fitting at the
+  // other, and the same numbers whatever the scale or the bearing.
   const ZOOM_FLOOR_PCT = 10;
-  const zoomCeiling = () => {
+  const ZOOM_CEIL_PCT = 10000;
+  const spanPerZoom = () => {
     const ax = planeAxes(view).u;
     const perMmAtOne = (pointStep / mmPerPoint) * Math.hypot(ax.x, ax.y);
-    const minSpanMm = (ZOOM_REFERENCE_MM * ZOOM_FLOOR_PCT) / 100;
-    if (!(perMmAtOne > 0) || !(viewport.w > 0)) return ZOOM_MAX;
-    // the old flat ceiling of 6 stopped a phone at about 11%, so the limit in
-    // pipe never governed; it is kept only as a guard against a silly number
-    return Math.min(40, viewport.w / (minSpanMm * perMmAtOne));
+    return (perMmAtOne > 0 && viewport.w > 0) ? { perMmAtOne, w: viewport.w } : null;
   };
+  const zoomForPct = (pct, fallback) => {
+    const m = spanPerZoom();
+    if (!m) return fallback;
+    return m.w / (((ZOOM_REFERENCE_MM * pct) / 100) * m.perMmAtOne);
+  };
+  // as far in as it goes: 10%, a tenth of the three metre reference
+  const zoomCeiling = () => Math.min(40, zoomForPct(ZOOM_FLOOR_PCT, ZOOM_MAX));
+  // as far out as it goes: 10000%, three hundred metres across
+  const zoomFloor = () => Math.max(0.002, zoomForPct(ZOOM_CEIL_PCT, ZOOM_MIN));
 
 const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
   const viewLines = useMemo(() => lines.map((line) => ({
@@ -798,7 +807,7 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
   const zoomMove = (clientX, clientY) => {
     const drag = zoomDrag.current;
     if (!drag) return false;
-    const next = Math.max(ZOOM_MIN, Math.min(zoomCeiling(), drag.zoom * Math.exp((drag.y - clientY) * 0.006)));
+    const next = Math.max(zoomFloor(), Math.min(zoomCeiling(), drag.zoom * Math.exp((drag.y - clientY) * 0.006)));
     const applied = next / drag.zoom;
     const cx = viewport.w / 2;
     const cy = viewport.h / 2;
@@ -1818,7 +1827,7 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
       const start = lastTouch.current;
       const ratio = start.dist > 0 ? dist / start.dist : 1;
       const scaled = Number.isFinite(ratio) ? start.zoom * ratio : start.zoom;
-      const newZoom = Math.min(zoomCeiling(), Math.max(zoomMin, scaled));
+      const newZoom = Math.min(zoomCeiling(), Math.max(zoomFloor(), scaled));
       const cx = viewport.w / 2;
       const cy = viewport.h / 2;
       const wx = (start.mid.x - cx - start.offset.x) / start.zoom;
