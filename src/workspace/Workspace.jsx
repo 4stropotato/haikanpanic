@@ -573,7 +573,7 @@ const ZOOM_MAX = 6;
   // across the screen to 300 metres. A whole site at one end, a fitting at the
   // other, and the same numbers whatever the scale or the bearing.
   const ZOOM_FLOOR_PCT = 0.1;      // 1mm across the screen
-  const ZOOM_CEIL_PCT = 100000;    // a kilometre across the screen
+  const ZOOM_CEIL_PCT = 1000000;   // ten kilometres across the screen
   const spanPerZoom = () => {
     const ax = planeAxes(view).u;
     const perMmAtOne = (pointStep / mmPerPoint) * Math.hypot(ax.x, ax.y);
@@ -587,10 +587,11 @@ const ZOOM_MAX = 6;
   // as far in as it goes: 0.1%, one millimetre across
   // the guard is only against a nonsense number; the limit in pipe governs
   const zoomCeiling = () => Math.min(5000, zoomForPct(ZOOM_FLOOR_PCT, ZOOM_MAX));
-  // as far out as it goes: 100000%, a kilometre across
-  // the guard has to sit below the real limit or it becomes the limit — at a
-  // kilometre the factor is about 0.002, which the old guard was clamping
-  const zoomFloor = () => Math.max(0.0001, zoomForPct(ZOOM_CEIL_PCT, ZOOM_MIN));
+  // as far out as it goes: 1000000%, ten kilometres across
+  // the guard has to sit below the real limit or it becomes the limit — at ten
+  // kilometres the factor is about 0.0002, and the guard that was there
+  // (0.002) would have stopped it a tenth of the way
+  const zoomFloor = () => Math.max(0.00002, zoomForPct(ZOOM_CEIL_PCT, ZOOM_MIN));
 
 const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
   const viewLines = useMemo(() => lines.map((line) => ({
