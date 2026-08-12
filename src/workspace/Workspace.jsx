@@ -554,6 +554,20 @@ export default function Workspace() {
   const tiltedView = Math.abs(view.pitchDeg - ISO_PITCH) > 0.5;
   const ZOOM_MIN = 0.05;                                                      // v3.28 a whole site
 const ZOOM_MAX = 6;
+  // v4.27 As far in as it goes is 10% — 300mm across the screen, a tenth of
+  // the three metre reference. Closer than that there is no drawing left to
+  // read, only a line, and the limit is set in pipe rather than in an
+  // arbitrary factor so it means the same at any scale or bearing.
+  const ZOOM_FLOOR_PCT = 10;
+  const zoomCeiling = () => {
+    const ax = planeAxes(view).u;
+    const perMmAtOne = (pointStep / mmPerPoint) * Math.hypot(ax.x, ax.y);
+    const minSpanMm = (ZOOM_REFERENCE_MM * ZOOM_FLOOR_PCT) / 100;
+    if (!(perMmAtOne > 0) || !(viewport.w > 0)) return ZOOM_MAX;
+    // the old flat ceiling of 6 stopped a phone at about 11%, so the limit in
+    // pipe never governed; it is kept only as a guard against a silly number
+    return Math.min(40, viewport.w / (minSpanMm * perMmAtOne));
+  };
 
 const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
   const viewLines = useMemo(() => lines.map((line) => ({
@@ -774,7 +788,7 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
   const zoomMove = (clientX, clientY) => {
     const drag = zoomDrag.current;
     if (!drag) return false;
-    const next = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, drag.zoom * Math.exp((drag.y - clientY) * 0.006)));
+    const next = Math.max(ZOOM_MIN, Math.min(zoomCeiling(), drag.zoom * Math.exp((drag.y - clientY) * 0.006)));
     const applied = next / drag.zoom;
     const cx = viewport.w / 2;
     const cy = viewport.h / 2;
@@ -1794,7 +1808,7 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
       const start = lastTouch.current;
       const ratio = start.dist > 0 ? dist / start.dist : 1;
       const scaled = Number.isFinite(ratio) ? start.zoom * ratio : start.zoom;
-      const newZoom = Math.min(zoomMax, Math.max(zoomMin, scaled));
+      const newZoom = Math.min(zoomCeiling(), Math.max(zoomMin, scaled));
       const cx = viewport.w / 2;
       const cy = viewport.h / 2;
       const wx = (start.mid.x - cx - start.offset.x) / start.zoom;
