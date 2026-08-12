@@ -40,3 +40,11 @@ document.addEventListener("contextmenu", (e) => {
   if (e.target.closest?.("input, textarea, [contenteditable='true']")) return;
   e.preventDefault();
 });
+
+// v4.34 iOS raises the loupe from a long press before any menu appears, and it
+// is not stopped by CSS alone on every version. A press that lands outside a
+// field has nothing to select, so the selection is dropped as it starts.
+document.addEventListener("selectstart", (e) => {
+  if (e.target.closest?.("input, textarea, [contenteditable='true']")) return;
+  e.preventDefault();
+});

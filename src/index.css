@@ -1085,6 +1085,23 @@ html, body, #root {
   -webkit-touch-callout: none;
   overscroll-behavior: none;
 }
+/* FIXED v4.34 — "nag oover ride parin yung magnifier ng ios pag nag hohold"
+   CAUSE: setting this on html/body was not enough. WebKit does not reliably
+   inherit -webkit-touch-callout, so the loupe kept coming up over whatever was
+   actually under the finger — the canvas most of all, where a long press is
+   read as "copy image".
+   It is set on everything instead, and the canvases say so themselves.
+   GUARD: on iOS this belongs on the element being touched, not on an ancestor. */
+*, *::before, *::after {
+  -webkit-touch-callout: none;
+}
+canvas {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  touch-action: none;
+}
 input, textarea, [contenteditable="true"] {
   -webkit-user-select: text;
   user-select: text;
