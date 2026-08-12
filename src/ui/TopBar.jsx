@@ -85,6 +85,7 @@ const translations = {
     step: "Setting-out step",
     clear: "Clear all",
     clearConfirm: "Delete all lines?",
+    keepIt: "Keep",
     theme: "Theme"
   },
   jp: {
@@ -145,6 +146,7 @@ const translations = {
     step: "作図ステップ",
     clear: "全消去",
     clearConfirm: "全ての線を削除しますか？",
+    keepIt: "残す",
     theme: "テーマ"
   }
 };
@@ -214,6 +216,8 @@ export default function TopBar() {
     labelFields, setLabelFields, labelAvoid, setLabelAvoid, labelFlat, setLabelFlat,
   } = useContext(WorkspaceContext);
 
+  const clearHold = useRef(null);
+  const [confirmClear, setConfirmClear] = useState(false);
   const [showSheet, setShowSheet] = useState(() => new URLSearchParams(window.location.search).has("more"));
   const [lang, setLang] = useState(detectLanguage);
   // v2.74 A second tap on a tool asks it to do its whole job at once:
@@ -405,9 +409,29 @@ export default function TopBar() {
           <PencilIcon />
           <span>{t.edit}</span>
         </button>
+        {/* v4.30 Hold Erase to clear the sheet. Erasing one run and clearing
+            the lot are the same intent at different sizes, so they share a key
+            — and because the big one has nothing behind it, it asks first. A
+            hold is deliberate in a way a tap is not, which is what matters on
+            a phone in a pocket. */}
         <button
           className={"dock-btn" + (eraseMode ? " danger-glow" : "")}
-          onClick={() => { setEraseMode(!eraseMode); setViewTool(null); setEditMode(false); setMoveMode(false); setSelectMode(false); }}
+          onPointerDown={(e) => {
+            e.currentTarget.setPointerCapture?.(e.pointerId);
+            clearHold.current = setTimeout(() => {
+              clearHold.current = null;
+              if (!lines.length) return;
+              if (navigator.vibrate) navigator.vibrate(20);
+              setConfirmClear(true);
+            }, 650);
+          }}
+          onPointerUp={() => { if (clearHold.current) { clearTimeout(clearHold.current); clearHold.current = null; } }}
+          onPointerLeave={() => { if (clearHold.current) { clearTimeout(clearHold.current); clearHold.current = null; } }}
+          onClick={() => {
+            if (confirmClear) return;                 // the hold already spoke
+            setEraseMode(!eraseMode); setViewTool(null); setEditMode(false);
+            setMoveMode(false); setSelectMode(false);
+          }}
           disabled={!lines.length}
         >
           <EraserIcon />
@@ -470,6 +494,26 @@ export default function TopBar() {
       </div>
 
       {/* v2.00 bottom sheet: everything else lives here, hidden not deleted */}
+      {/* v4.30 Clearing the sheet is the one action with nothing behind it, so
+          it is the one that asks. */}
+      {confirmClear && (
+        <div className="modal on" onClick={(e) => { if (e.target === e.currentTarget) setConfirmClear(false); }}>
+          <div className="sheet">
+            <h2>{t.clear}</h2>
+            <div className="hint">{t.clearConfirm}</div>
+            <div className="btnrow" style={{ marginTop: "14px" }}>
+              <button id="cancelBtn" onClick={() => setConfirmClear(false)}>{t.keepIt}</button>
+              <button
+                id="delBtn"
+                style={{ flex: 1 }}
+                onClick={() => { clearAll(); setConfirmClear(false); }}
+              >
+                {t.clear}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {showSheet && (
         <div className="sheet-backdrop" onClick={() => setShowSheet(false)}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
