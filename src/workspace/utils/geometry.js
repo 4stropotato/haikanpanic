@@ -12,7 +12,10 @@ export function snapToNearestGrid(point, zoom, offset) {
 }
 
 // v2.16 Nearest lattice point to a point already in workspace coordinates.
-export function snapWorkspaceToGrid(point) {
+// v4.29 `step` is a fraction of one lattice unit, so the snap can be as fine as
+// the grid on screen — down to a millimetre — without changing the lattice
+// itself. The isometric stays the isometric; only the spacing gets closer.
+export function snapWorkspaceToGrid(point, step = 1) {
   const px = point.x;
   const py = point.y;
 
@@ -20,12 +23,13 @@ export function snapWorkspaceToGrid(point) {
   // u=i*dx, v=j*dx. Invert, round, and check the 4 surrounding candidates.
   const u = px - (py / tan30);
   const v = px + (py / tan30);
+  const dxs = dx * step;
   let nearest = null;
   let minDist = Infinity;
-  for (const iu of [Math.floor(u / dx), Math.ceil(u / dx)]) {
-    for (const jv of [Math.floor(v / dx), Math.ceil(v / dx)]) {
-      const x = ((iu * dx) + (jv * dx)) / 2;
-      const y = (tan30 * ((jv * dx) - (iu * dx))) / 2;
+  for (const iu of [Math.floor(u / dxs), Math.ceil(u / dxs)]) {
+    for (const jv of [Math.floor(v / dxs), Math.ceil(v / dxs)]) {
+      const x = ((iu * dxs) + (jv * dxs)) / 2;
+      const y = (tan30 * ((jv * dxs) - (iu * dxs))) / 2;
       const dist = ((px - x) ** 2) + ((py - y) ** 2);
       if (dist < minDist) {
         minDist = dist;

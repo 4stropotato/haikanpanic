@@ -165,6 +165,15 @@ export default function Workspace() {
   // fitting to the drawing and starting again.
   // one straight 3 metre run across the screen is 100%
   const ZOOM_REFERENCE_MM = 3000;
+  // v4.29 How fine a point can be placed, in millimetres. Zoom alone could not
+  // get there — even at the closest the view goes, one lattice unit is still
+  // 50mm — and making the lattice itself finer would have changed the drawing
+  // surface. This is the setting-out step, separate from the grid you see, so
+  // 1mm is reachable without touching the isometric.
+  const [stepMm, setStepMm] = useState(() => {
+    const v = stored("haikan-step-mm", null);
+    return (typeof v === "number" && Number.isFinite(v) && v > 0) ? v : 100;
+  });
   const [zoomReadout, setZoomReadout] = useState(null);
   const zoomFade = useRef(null);
   const marqueeRef = useRef(null);
@@ -374,6 +383,7 @@ export default function Workspace() {
   useEffect(() => { localStorage.setItem("haikan-zoom", JSON.stringify(zoom)); }, [zoom]);
   useEffect(() => { localStorage.setItem("haikan-offset", JSON.stringify(offset)); }, [offset]);
   useEffect(() => { localStorage.setItem("haikan-view", JSON.stringify(view)); }, [view]);
+  useEffect(() => { localStorage.setItem("haikan-step-mm", JSON.stringify(stepMm)); }, [stepMm]);
 
   // v3.92 A datum set to follow the work sits on the lowest thing drawn. Draw
   // a run downward and the ground was left floating above it, which is not
@@ -733,7 +743,7 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
       const shift = { x: -(x1 + x2) / 2, y: -(y1 + y2) / 2 };
       const first = lines[selection[0]];
       const ref = { x: first.start.x + shift.x, y: first.start.y + shift.y };
-      const snapped = snapWorkspaceToGrid(ref);
+      const snapped = snapWorkspaceToGrid(ref, stepMm / mmPerPoint);
       shift.x += snapped.x - ref.x;
       shift.y += snapped.y - ref.y;
       commitLines(lines.map((line, i) => (selection.includes(i) ? {
@@ -1262,7 +1272,7 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
     const world = view3d.screenToWorld(dxScreen, dyScreen);
     const shift = horizontalTo2D(world.x, world.z, mmPerPoint / pointStep);
     const wanted = { x: anchorBase.x + shift.x, y: anchorBase.y + shift.y };
-    let snapped = snapWorkspaceToGrid(wanted);                              // stay on the lattice
+    let snapped = snapWorkspaceToGrid(wanted, stepMm / mmPerPoint);         // stay on the lattice
 
     // v2.95 Snap to what it lines up with. Two runs can share a plan
     // position and differ only in height — the case you cannot judge by eye
@@ -2051,6 +2061,8 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
     setLines,                                                              // [v1.17] clear/undo from TopBar
     mmPerPoint,                                                            // [v1.17] scale setting
     setMmPerPoint,
+    stepMm,
+    setStepMm,
     editMode,                                                              // v1.19+ edit-length mode
     setEditMode,
     eraseMode,                                                             // v2.08 erase mode

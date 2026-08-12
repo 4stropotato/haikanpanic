@@ -82,6 +82,7 @@ const translations = {
     labelLevel: "Horizontal",
     labelStyleNote: "Horizontal is the traditional reading; along the line keeps a busy sketch clear.",
     scale: "Scale: 1 pt =",
+    step: "Setting-out step",
     clear: "Clear all",
     clearConfirm: "Delete all lines?",
     theme: "Theme"
@@ -141,6 +142,7 @@ const translations = {
     labelLevel: "水平",
     labelStyleNote: "水平が従来の読み方。線に沿わせると図面が混みません。",
     scale: "縮尺: 1 pt =",
+    step: "作図ステップ",
     clear: "全消去",
     clearConfirm: "全ての線を削除しますか？",
     theme: "テーマ"
@@ -169,6 +171,8 @@ export default function TopBar() {
     lines,
     setLines,
     mmPerPoint,
+    stepMm,
+    setStepMm,
     setMmPerPoint,
     editMode,
     setEditMode,
@@ -481,6 +485,22 @@ export default function TopBar() {
                 onChange={(e) => {
                   const value = Number(e.target.value);
                   if (Number.isFinite(value) && value > 0) setMmPerPoint(value);
+                }}
+              />
+              <span>mm</span>
+            </div>
+            {/* v4.29 How fine a point can be set out, apart from the grid that
+                is drawn. The lattice stays the lattice; this is the step. */}
+            <div className="sheet-row">
+              <span>{t.step}</span>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={stepMm}
+                onChange={(e) => {
+                  const value = Number(e.target.value);
+                  if (Number.isFinite(value) && value > 0) setStepMm(value);
                 }}
               />
               <span>mm</span>

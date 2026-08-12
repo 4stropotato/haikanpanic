@@ -114,11 +114,24 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
       // Eight screen pixels is about where a grid stops reading as a grid.
       let stride = 1;
       while (Math.abs(spacing) * stride * zoom < 8 && stride < 4096) stride *= 2;
+      // FIXED v4.28 — "kulang ng grid lines pag 10% yung maliliit wala"
+      // CAUSE: the stride only ever DOUBLED, to thin the lattice out when the
+      //   lines crowded together. Nothing halved it. Zoomed right in, one grid
+      //   unit is most of the screen, so a few huge cells were all that was
+      //   left and there was nothing fine to set out against.
+      // It divides as well as it multiplies now, down to an eighth of a unit —
+      //   10mm at the default scale, finer than anything set out on site.
+      // GUARD: a rule that adapts in one direction usually needs the other.
+      while (Math.abs(spacing) * stride * zoom > 110 && stride > 0.125) stride /= 2;
+      const near = (v) => Math.abs(v - Math.round(v)) < 1e-6;
       for (let k = Math.ceil(lo / stride) * stride; k <= hi; k += stride) {
         const px = along.x * k;
         const py = along.y * k;
+        // a line between the whole units is a subdivision, and reads as one
+        const minor = !near(k);
         drawLine(px - (dir.x * reach), py - (dir.y * reach),
-          px + (dir.x * reach), py + (dir.y * reach), k % boldEvery === 0, dim);
+          px + (dir.x * reach), py + (dir.y * reach),
+          near(k / boldEvery), dim * (minor ? 0.45 : 1));
       }
     };
 
