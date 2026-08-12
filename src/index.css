@@ -1107,3 +1107,7 @@ input, textarea, [contenteditable="true"] {
   user-select: text;
   -webkit-touch-callout: default;
 }
+
+/* v4.35 the dock refuses the browser's own gestures, so a press held on a tool
+   is never taken away as a scroll — which is what killed the hold on Erase */
+.dock-btn { touch-action: none; }

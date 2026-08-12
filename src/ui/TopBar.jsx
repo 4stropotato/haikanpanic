@@ -217,6 +217,7 @@ export default function TopBar() {
   } = useContext(WorkspaceContext);
 
   const clearHold = useRef(null);
+  const holdFrom = useRef(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const [showSheet, setShowSheet] = useState(() => new URLSearchParams(window.location.search).has("more"));
   const [lang, setLang] = useState(detectLanguage);
@@ -422,7 +423,19 @@ export default function TopBar() {
           //   and the button went dead. The capture bought nothing: a timer
           //   started on press and cleared on release is the whole gesture.
           // GUARD: do not capture a pointer you are not going to track.
-          onPointerDown={() => {
+          // FIXED v4.35 — "hindi gumagana yung hold ng erase"
+          // CAUSE: the hold was cancelled before it could finish. A finger
+          //   never rests still, so pointerleave fired on the smallest wobble,
+          //   and iOS raises pointercancel the moment it decides the press
+          //   might be a scroll. Between them the timer almost never survived
+          //   650ms.
+          // A hold tolerates a wobble — it is cancelled by real movement, and
+          //   the button refuses the browser's gestures so there is nothing for
+          //   it to take the press away for.
+          // GUARD: on a touchscreen, treat leaving and cancelling as noise;
+          //   measure the finger instead.
+          onPointerDown={(e) => {
+            holdFrom.current = { x: e.clientX, y: e.clientY };
             clearHold.current = setTimeout(() => {
               clearHold.current = null;
               if (!lines.length) return;
@@ -430,9 +443,14 @@ export default function TopBar() {
               setConfirmClear(true);
             }, 650);
           }}
+          onPointerMove={(e) => {
+            const from = holdFrom.current;
+            if (!clearHold.current || !from) return;
+            if (Math.hypot(e.clientX - from.x, e.clientY - from.y) > 16) {
+              clearTimeout(clearHold.current); clearHold.current = null;
+            }
+          }}
           onPointerUp={() => { if (clearHold.current) { clearTimeout(clearHold.current); clearHold.current = null; } }}
-          onPointerCancel={() => { if (clearHold.current) { clearTimeout(clearHold.current); clearHold.current = null; } }}
-          onPointerLeave={() => { if (clearHold.current) { clearTimeout(clearHold.current); clearHold.current = null; } }}
           onClick={() => {
             if (confirmClear) return;                 // the hold already spoke
             setEraseMode(!eraseMode); setViewTool(null); setEditMode(false);
