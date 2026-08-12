@@ -3,9 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/haikanpanic/vite.svg" />
+    <!-- v4.33 Added to the home screen this runs without the browser's own
+         furniture: no address bar, no toolbar. Android honours "fullscreen" and
+         drops the status bar as well; iOS keeps the clock and battery whatever
+         a web page asks, so the page is told to draw behind them instead, which
+         removes the bar as a separate band even though the icons stay. -->
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="ハイカン" />
+    <link rel="apple-touch-icon" href="./icon-512.png" />
+    <meta name="theme-color" content="#0d0d0f" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <title>Vite + React</title>
-    <script type="module" crossorigin src="/haikanpanic/assets/index-TjWUoeEZ.js"></script>
+    <script type="module" crossorigin src="/haikanpanic/assets/index-Cx380t4S.js"></script>
     <link rel="stylesheet" crossorigin href="/haikanpanic/assets/index-fNdUgE5m.css">
   </head>
   <body>
