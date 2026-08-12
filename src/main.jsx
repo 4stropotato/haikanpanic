@@ -32,3 +32,11 @@ window.addEventListener("error", (event) => showError(event.message + "\n" + (ev
 window.addEventListener("unhandledrejection", (event) => showError(`promise: ${event.reason}`));
 
 watchForNewBuild();
+
+// v4.32 The long-press menu. CSS stops the selection, but the menu is a
+// separate event and still fires — on iOS as the callout, on Android as the
+// context menu. A press on a field is left alone so pasting still works.
+document.addEventListener("contextmenu", (e) => {
+  if (e.target.closest?.("input, textarea, [contenteditable='true']")) return;
+  e.preventDefault();
+});

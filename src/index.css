@@ -1073,3 +1073,20 @@ html, body, #root { max-width: 100vw; overflow-x: hidden; }
 /* v4.26 no separator between the two figures — a dot and a slash in a readout
    this small read as clutter, and the space says the same thing */
 .zoom-readout span { margin-left: 0.7em; }
+
+/* v4.32 A long press is a drawing gesture here, never a text gesture. On iOS a
+   hold was selecting labels and raising the loupe over the workspace; on
+   Android it raises the selection handles and the context menu. Both come from
+   the page being treated as a document, so the whole app opts out — and the
+   fields you actually type into opt back in. */
+html, body, #root {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  overscroll-behavior: none;
+}
+input, textarea, [contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
