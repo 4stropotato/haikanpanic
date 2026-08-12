@@ -416,8 +416,13 @@ export default function TopBar() {
             a phone in a pocket. */}
         <button
           className={"dock-btn" + (eraseMode ? " danger-glow" : "")}
-          onPointerDown={(e) => {
-            e.currentTarget.setPointerCapture?.(e.pointerId);
+          // FIXED v4.31 — "hindi gumagana yung erase button di napipindot"
+          // CAUSE: the hold grabbed the pointer with setPointerCapture and
+          //   never gave it back, so the tap that follows was never delivered
+          //   and the button went dead. The capture bought nothing: a timer
+          //   started on press and cleared on release is the whole gesture.
+          // GUARD: do not capture a pointer you are not going to track.
+          onPointerDown={() => {
             clearHold.current = setTimeout(() => {
               clearHold.current = null;
               if (!lines.length) return;
@@ -426,6 +431,7 @@ export default function TopBar() {
             }, 650);
           }}
           onPointerUp={() => { if (clearHold.current) { clearTimeout(clearHold.current); clearHold.current = null; } }}
+          onPointerCancel={() => { if (clearHold.current) { clearTimeout(clearHold.current); clearHold.current = null; } }}
           onPointerLeave={() => { if (clearHold.current) { clearTimeout(clearHold.current); clearHold.current = null; } }}
           onClick={() => {
             if (confirmClear) return;                 // the hold already spoke
