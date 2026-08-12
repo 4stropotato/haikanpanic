@@ -1094,6 +1094,18 @@ html, body, #root {
    GUARD: on iOS this belongs on the element being touched, not on an ancestor. */
 *, *::before, *::after {
   -webkit-touch-callout: none;
+  /* FIXED v4.37 — "instead lumalabas ang magnifier ng ios nag oover ride parin"
+     CAUSE: the universal rule refused the callout but not the SELECTION, and
+     the loupe comes from the selection. Setting it on html/body was not enough
+     because WebKit does not carry it down reliably, so a long press on a
+     button's own label still started selecting text — and once iOS owns the
+     gesture it cancels the app's, which is why the hold died with it.
+     Both refusals now go on every element, and the fields you type into take
+     theirs back below.
+     GUARD: on iOS the loupe is the selection, not the menu. Refuse both, on
+     the element itself. */
+  -webkit-user-select: none;
+  user-select: none;
 }
 canvas {
   -webkit-touch-callout: none;
@@ -1102,12 +1114,15 @@ canvas {
   -webkit-user-drag: none;
   touch-action: none;
 }
+
+
+/* v4.35 the dock refuses the browser's own gestures, so a press held on a tool
+   is never taken away as a scroll — which is what killed the hold on Erase */
+.dock-btn { touch-action: none; }
+
+/* the only things that are text: what you type into */
 input, textarea, [contenteditable="true"] {
   -webkit-user-select: text;
   user-select: text;
   -webkit-touch-callout: default;
 }
-
-/* v4.35 the dock refuses the browser's own gestures, so a press held on a tool
-   is never taken away as a scroll — which is what killed the hold on Erase */
-.dock-btn { touch-action: none; }
