@@ -218,6 +218,8 @@ export default function TopBar() {
 
   const clearHold = useRef(null);
   const holdFrom = useRef(null);
+  const lastTap = useRef(0);
+  const heldToClear = useRef(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [showSheet, setShowSheet] = useState(() => new URLSearchParams(window.location.search).has("more"));
   const [lang, setLang] = useState(detectLanguage);
@@ -410,11 +412,10 @@ export default function TopBar() {
           <PencilIcon />
           <span>{t.edit}</span>
         </button>
-        {/* v4.30 Hold Erase to clear the sheet. Erasing one run and clearing
-            the lot are the same intent at different sizes, so they share a key
-            — and because the big one has nothing behind it, it asks first. A
-            hold is deliberate in a way a tap is not, which is what matters on
-            a phone in a pocket. */}
+        {/* v4.36 Tap for Erase. Tap, then press and hold, for Clear all —
+            erasing one run and clearing the lot are the same intent at
+            different sizes, so they share a key, but the big one takes two
+            deliberate acts and still asks before it does anything. */}
         <button
           className={"dock-btn" + (eraseMode ? " danger-glow" : "")}
           // FIXED v4.31 — "hindi gumagana yung erase button di napipindot"
@@ -423,25 +424,26 @@ export default function TopBar() {
           //   and the button went dead. The capture bought nothing: a timer
           //   started on press and cleared on release is the whole gesture.
           // GUARD: do not capture a pointer you are not going to track.
-          // FIXED v4.35 — "hindi gumagana yung hold ng erase"
-          // CAUSE: the hold was cancelled before it could finish. A finger
-          //   never rests still, so pointerleave fired on the smallest wobble,
-          //   and iOS raises pointercancel the moment it decides the press
-          //   might be a scroll. Between them the timer almost never survived
-          //   650ms.
-          // A hold tolerates a wobble — it is cancelled by real movement, and
-          //   the button refuses the browser's gestures so there is nothing for
-          //   it to take the press away for.
-          // GUARD: on a touchscreen, treat leaving and cancelling as noise;
-          //   measure the finger instead.
+          // FIXED v4.36 — "napipindot sya pero pag nag hold hindi na sya
+          //   napipindot", "ibalik natin sa original yung erase button tapos
+          //   double tap ang erase tapos yung pangalawa sa double tap is hold"
+          // CAUSE: a plain hold sat on top of the plain tap, so pressing the
+          //   button and pausing for a moment did nothing at all. The tool a
+          //   fitter reaches for most had become the one that hesitates.
+          // Erase is a tap again, exactly as it was. Clear all is a tap and
+          //   then a press held — two deliberate acts, neither of which can
+          //   happen while reaching for the tool.
+          // GUARD: never put a wait in front of the ordinary use of a control.
           onPointerDown={(e) => {
             holdFrom.current = { x: e.clientX, y: e.clientY };
+            const soonAfterTap = Date.now() - lastTap.current < 450;
+            if (!soonAfterTap || !lines.length) return;
             clearHold.current = setTimeout(() => {
               clearHold.current = null;
-              if (!lines.length) return;
+              heldToClear.current = true;
               if (navigator.vibrate) navigator.vibrate(20);
               setConfirmClear(true);
-            }, 650);
+            }, 480);
           }}
           onPointerMove={(e) => {
             const from = holdFrom.current;
@@ -450,9 +452,12 @@ export default function TopBar() {
               clearTimeout(clearHold.current); clearHold.current = null;
             }
           }}
-          onPointerUp={() => { if (clearHold.current) { clearTimeout(clearHold.current); clearHold.current = null; } }}
+          onPointerUp={() => {
+            if (clearHold.current) { clearTimeout(clearHold.current); clearHold.current = null; }
+            lastTap.current = Date.now();
+          }}
           onClick={() => {
-            if (confirmClear) return;                 // the hold already spoke
+            if (heldToClear.current) { heldToClear.current = false; return; }
             setEraseMode(!eraseMode); setViewTool(null); setEditMode(false);
             setMoveMode(false); setSelectMode(false);
           }}
