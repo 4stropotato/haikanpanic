@@ -163,9 +163,8 @@ export default function Workspace() {
   // v4.24 Zoom says where it is, the way a move does. Pinching told you
   // nothing about how far in you were, so getting back to a known scale meant
   // fitting to the drawing and starting again.
-  // v4.39 One metre across the screen is 100%. A metre is the length a fitter
-  // carries in his head, so the figure reads as a scale rather than a setting.
-  const ZOOM_REFERENCE_MM = 1000;
+  // one straight 3 metre run across the screen is 100%
+  const ZOOM_REFERENCE_MM = 3000;
   // v4.29 How fine a point can be placed, in millimetres. Zoom alone could not
   // get there — even at the closest the view goes, one lattice unit is still
   // 50mm — and making the lattice itself finer would have changed the drawing
@@ -572,8 +571,8 @@ const ZOOM_MAX = 6;
   // v4.38 Both ends of the range are said in pipe, not in factors: from 300mm
   // across the screen to 300 metres. A whole site at one end, a fitting at the
   // other, and the same numbers whatever the scale or the bearing.
-  const ZOOM_FLOOR_PCT = 0.1;      // 1mm across the screen
-  const ZOOM_CEIL_PCT = 1000000;   // ten kilometres across the screen
+  const ZOOM_FLOOR_PCT = 10;
+  const ZOOM_CEIL_PCT = 10000;
   const spanPerZoom = () => {
     const ax = planeAxes(view).u;
     const perMmAtOne = (pointStep / mmPerPoint) * Math.hypot(ax.x, ax.y);
@@ -584,14 +583,10 @@ const ZOOM_MAX = 6;
     if (!m) return fallback;
     return m.w / (((ZOOM_REFERENCE_MM * pct) / 100) * m.perMmAtOne);
   };
-  // as far in as it goes: 0.1%, one millimetre across
-  // the guard is only against a nonsense number; the limit in pipe governs
-  const zoomCeiling = () => Math.min(5000, zoomForPct(ZOOM_FLOOR_PCT, ZOOM_MAX));
-  // as far out as it goes: 1000000%, ten kilometres across
-  // the guard has to sit below the real limit or it becomes the limit — at ten
-  // kilometres the factor is about 0.0002, and the guard that was there
-  // (0.002) would have stopped it a tenth of the way
-  const zoomFloor = () => Math.max(0.00002, zoomForPct(ZOOM_CEIL_PCT, ZOOM_MIN));
+  // as far in as it goes: 10%, a tenth of the three metre reference
+  const zoomCeiling = () => Math.min(40, zoomForPct(ZOOM_FLOOR_PCT, ZOOM_MAX));
+  // as far out as it goes: 10000%, three hundred metres across
+  const zoomFloor = () => Math.max(0.002, zoomForPct(ZOOM_CEIL_PCT, ZOOM_MIN));
 
 const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
   const viewLines = useMemo(() => lines.map((line) => ({
@@ -2331,10 +2326,7 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
               const ax = planeAxes(view).u;
               const perMm = (pointStep / mmPerPoint) * Math.hypot(ax.x, ax.y) * zoomReadout.zoom;
               const mm = perMm > 0 ? viewport.w / perMm : 0;
-              // v4.39 below 10% a whole number is all zeroes, and 0% is not
-              // a scale — it keeps a decimal where it needs one
-              const raw = (mm / ZOOM_REFERENCE_MM) * 100;
-              const pct = raw < 10 ? raw.toFixed(1) : Math.round(raw);
+              const pct = Math.round((mm / ZOOM_REFERENCE_MM) * 100);
               const span = mm >= 1000 ? `${(mm / 1000).toFixed(1)} m` : `${Math.round(mm)} mm`;
               return (<><strong>{pct}%</strong><span>{span}</span></>);
             })()}
