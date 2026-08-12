@@ -122,16 +122,27 @@ const IsoGrid = ({ show, zoom = 1, offset = { x: 0, y: 0 }, view = null, bounds 
       // It divides as well as it multiplies now, down to an eighth of a unit —
       //   10mm at the default scale, finer than anything set out on site.
       // GUARD: a rule that adapts in one direction usually needs the other.
-      while (Math.abs(spacing) * stride * zoom > 110 && stride > 0.125) stride /= 2;
+      // FIXED v4.41 — "pag dating sa 45% pag bumaba pa nasisira na yung grid
+      //   nawawala na yung lines dapat solid parin ang style natin at
+      //   consistent hanggang mag 0.1"
+      // Two faults, and the first was mine. v4.28 drew a subdivided line at
+      //   45% strength, meaning to keep the whole units legible — but past
+      //   about 35% nearly every line IS a subdivision, so the grid faded out
+      //   just as it got useful. A grid is one thing drawn at one weight; the
+      //   bold every tenth line is what gives it structure, not dimming.
+      // Second, the halving stopped at an eighth of a unit, so zoomed in
+      //   further the cell grew past the screen and only a line or two was
+      //   left. It divides as far as it needs to now.
+      // GUARD: the grid looks the same at every scale. If a rule makes it
+      //   fade, thin out or change weight, the rule is wrong.
+      while (Math.abs(spacing) * stride * zoom > 110 && stride > 1 / 4096) stride /= 2;
       const near = (v) => Math.abs(v - Math.round(v)) < 1e-6;
       for (let k = Math.ceil(lo / stride) * stride; k <= hi; k += stride) {
         const px = along.x * k;
         const py = along.y * k;
-        // a line between the whole units is a subdivision, and reads as one
-        const minor = !near(k);
         drawLine(px - (dir.x * reach), py - (dir.y * reach),
           px + (dir.x * reach), py + (dir.y * reach),
-          near(k / boldEvery), dim * (minor ? 0.45 : 1));
+          near(k / boldEvery), dim);
       }
     };
 
