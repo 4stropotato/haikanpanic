@@ -17,7 +17,8 @@ import SnapOverlay from "./snap/SnapOverlay";                               // [
 import Magnify from "./magnify/Magnify";                                    // [v1.07] real-time magnifier lens
 import TopBar from "../ui/TopBar";                                          // [v1.10] top control bar
 import EditSheet from "../ui/EditSheet";                                    // v2.02 spec editor sheet
-import CutList from "../ui/CutList";                                        // v2.07 材料表
+import CutList from "../ui/CutList";
+import WrapSheet from "../ui/WrapSheet";                                    // v4.43 展開                                        // v2.07 材料表
 import Workshop from "./workshop/Workshop";                                 // v2.02 3D pipes view
 import { WorkspaceContext } from "./WorkspaceContext";                      // [v1.10] shared state context
 import {
@@ -212,6 +213,7 @@ export default function Workspace() {
       legs: [{ index: 0, which: 2 }, { index: 1, which: 1 }],
     };
   });
+  const [showWrap, setShowWrap] = useState(() => new URLSearchParams(window.location.search).has("wrap")); // v4.43 展開
   const [showCutList, setShowCutList] = useState(() => new URLSearchParams(window.location.search).has("cutlist")); // v2.07 材料表 sheet
   const [showGL, setShowGL] = useState(                                     // v2.07 GL/EL in 2D
     () => localStorage.getItem("haikan-show-gl") === "1",                   // v3.03 off until asked for
@@ -2147,7 +2149,8 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
     setShowDrop,
     showDims,                                                              // v2.64 3D dimension labels
     setShowDims,
-    setShowCutList,                                                        // v2.07 材料表
+    setShowCutList,
+    setShowWrap,                                                        // v2.07 材料表
     showGL,
     setShowGL,
     view,                                                                  // v2.46 viewpoint
@@ -2552,6 +2555,13 @@ const nodeKey = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
               setCurrentSpec({ a, conn, flange, material, schedule, gap });
               setShowSpecSheet(false);
             }}
+          />
+        )}
+        {showWrap && (
+          <WrapSheet
+            onClose={() => setShowWrap(false)}
+            lang={localStorage.getItem("haikan-lang") === "jp" ? "jp" : "en"}
+            spec={currentSpec}
           />
         )}
         {showCutList && (

@@ -84,6 +84,7 @@ const translations = {
     scale: "Scale: 1 pt =",
     step: "Setting-out step",
     clear: "Clear all",
+    wrap: "Wrap — angled cut, 1:1",
     clearConfirm: "Delete all lines?",
     keepIt: "Keep",
     theme: "Theme"
@@ -145,6 +146,7 @@ const translations = {
     scale: "縮尺: 1 pt =",
     step: "作図ステップ",
     clear: "全消去",
+    wrap: "展開 — 斜め切り、原寸",
     clearConfirm: "全ての線を削除しますか？",
     keepIt: "残す",
     theme: "テーマ"
@@ -195,6 +197,7 @@ export default function TopBar() {
     showDims, setShowDims, showDrop, setShowDrop,
     immersive, setImmersive,
     setShowCutList,
+    setShowWrap,
     showGL,
     setShowGL,
     showJointMarks,
@@ -682,6 +685,11 @@ export default function TopBar() {
               onClick={() => { setShowSheet(false); setShowGlSheet(true); }}
             >
               <PencilIcon /> <span>{t.glEdit}</span>
+            </button>
+            {/* v4.43 The wrap belongs beside the cut list: both are sheets you
+                carry away from the sketch and into the shop. */}
+            <button className="sheet-btn" onClick={() => { setShowSheet(false); setShowWrap(true); }}>
+              <GridIcon /> <span>{t.wrap}</span>
             </button>
             <div className="sheet-group">{t.gApp}</div>
             <button className="sheet-btn" onClick={sendToStudio}>

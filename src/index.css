@@ -1126,3 +1126,27 @@ input, textarea, [contenteditable="true"] {
   user-select: text;
   -webkit-touch-callout: default;
 }
+
+/* v4.43 展開 — the printed template.
+   Nothing exists until Print is pressed: the sheets are built into the page,
+   printed, and removed again, so a five-sheet A3 template costs nothing while
+   somebody is still deciding on an angle. */
+.wrap-paper { display: none; }
+.wrap-table { width: 100%; border-collapse: collapse; font-size: .82rem;
+  font-variant-numeric: tabular-nums; margin: 6px 0 4px; }
+.wrap-table th { text-align: left; color: var(--muted); font-weight: 500;
+  font-size: .72rem; padding: 4px 0; }
+.wrap-table td { padding: 3px 0; border-top: 1px solid #22222a; }
+.wrap-table td:last-child { text-align: right; font-weight: 600; }
+.sheet-row .unit { width: 26px; color: var(--muted); font-size: .8rem; text-align: left; }
+
+@media print {
+  body.printing-wrap > *:not(.wrap-paper) { display: none !important; }
+  body.printing-wrap { background: #fff; }
+  body.printing-wrap .wrap-paper { display: block; }
+  @page { size: A3 landscape; margin: 0; }
+}
+.wrap-sheet { position: relative; width: 420mm; height: 297mm; background: #fff;
+  color: #000; page-break-after: always; break-after: page; overflow: hidden; }
+.wrap-sheet:last-child { page-break-after: auto; break-after: auto; }
+.wrap-sheet svg { position: absolute; inset: 0; }
